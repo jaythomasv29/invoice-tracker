@@ -1,25 +1,63 @@
 {
   "expo": {
-    "name": "InvoiceIntelligenceApp",
-    "slug": "InvoiceIntelligenceApp",
+    "name": "Invoice Intelligence",
+    "slug": "invoice-intelligence",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "scheme": "invoiceintelligence",
     "ios": {
-      "supportsTablet": true
-    },
-    "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.invoiceintelligence.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-status-bar",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Invoice Intelligence needs camera access to scan your invoices.",
+          "microphonePermission": "Invoice Intelligence's camera is used only to photograph invoices — audio is never recorded or accessed."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Invoice Intelligence needs photo library access to import invoices."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#5DB075"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#F4F4F8"
+        }
+      ],
+      "expo-secure-store",
+      "expo-web-browser",
+      "@sentry/react-native",
+      "expo-sharing"
+    ],
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }
