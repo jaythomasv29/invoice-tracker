@@ -10,7 +10,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { Colors } from '../../constants/Colors';
-import { ScanPreview, PriceAlertPreview, VerifyPreview, BriefingPreview } from '../../components/onboarding/PreviewCards';
+import { ScanPreview, PriceAlertPreview, VerifyPreview } from '../../components/onboarding/PreviewCards';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -41,15 +41,6 @@ const SLIDES = [
     accent: Colors.vendorGolden,
     accentTint: '#EEF2FF',
     Preview: VerifyPreview,
-  },
-  {
-    id: 'briefing',
-    eyebrow: 'WEEKLY BRIEFING',
-    title: 'Your week, summarized\nin plain English',
-    subtitle: 'A short AI briefing every Monday — what changed, what to watch, what’s worth disputing.',
-    accent: Colors.primary,
-    accentTint: Colors.primaryLight,
-    Preview: BriefingPreview,
   },
 ] as const;
 

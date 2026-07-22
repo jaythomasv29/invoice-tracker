@@ -58,8 +58,6 @@ export default function RootLayout() {
                 <Stack.Screen name="onboarding/organization" />
                 <Stack.Screen name="scan/index" options={{ presentation: 'fullScreenModal' }} />
                 <Stack.Screen name="scan/review" />
-                <Stack.Screen name="briefing" options={{ animation: 'slide_from_bottom' }} />
-                <Stack.Screen name="disputes" options={{ animation: 'slide_from_bottom' }} />
                 <Stack.Screen name="vendor/[id]" options={{ animation: 'fade_from_bottom' }} />
                 <Stack.Screen name="invoice/[id]" options={{ animation: 'fade_from_bottom' }} />
               </Stack>

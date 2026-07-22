@@ -51,8 +51,6 @@ export default function MoreScreen() {
       setExporting(false);
     }
   };
-  const handleBriefing = () => router.push('/briefing');
-
   const handleDeleteAccount = () => {
     if (deleting) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -84,7 +82,6 @@ export default function MoreScreen() {
     {
       header: 'Intelligence',
       rows: [
-        { label: "This week's briefing", detail: 'Ready', onPress: handleBriefing, accent: true },
         { label: 'Export to CSV', detail: exporting ? 'Exporting…' : undefined, onPress: handleExport },
       ],
     },
@@ -179,7 +176,7 @@ const styles = StyleSheet.create({
   avatarText: { fontSize: 16, fontFamily: 'Manrope_800ExtraBold', color: '#fff', letterSpacing: 0.5 },
   restaurantName: { fontSize: 18, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, letterSpacing: -0.3 },
   email: { fontSize: 13, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary, marginTop: 1 },
-  scroll: { padding: 16, gap: 6, paddingBottom: 48 },
+  scroll: { padding: 16, gap: 6, paddingBottom: 120 },
   section: { gap: 6 },
   sectionHeader: {
     fontSize: 11, fontFamily: 'Manrope_700Bold', letterSpacing: 0.5,

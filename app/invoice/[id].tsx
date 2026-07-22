@@ -1,14 +1,19 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useOrganization } from '@clerk/clerk-expo';
 import { Colors } from '../../constants/Colors';
 import { Invoice, LineItem } from '../../store/useStore';
 import { useSupabase } from '../../lib/supabase';
-import { fetchInvoiceById, fetchInvoiceImageUrls } from '../../lib/invoicePipeline';
+import { fetchInvoiceById, fetchInvoiceImageUrls, updateLineItem, setLineItemVoided, deleteInvoice } from '../../lib/invoicePipeline';
 import Spinner from '../../components/ui/Spinner';
 import ImageViewerModal from '../../components/ui/ImageViewerModal';
+import BackButton from '../../components/ui/BackButton';
+import LineItemDisplay from '../../components/ui/LineItemDisplay';
+import EditLineItemModal from '../../components/ui/EditLineItemModal';
+import Toast from '../../components/ui/Toast';
+import { useStore } from '../../store/useStore';
 
 export default function InvoiceDetailScreen() {
   const router = useRouter();
@@ -23,6 +28,12 @@ export default function InvoiceDetailScreen() {
   const [imageUris, setImageUris] = useState<string[]>([]);
   const [imagesLoading, setImagesLoading] = useState(false);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
+
+  const [editingItem, setEditingItem] = useState<LineItem | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [voidingItemId, setVoidingItemId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const showToast = useStore((s) => s.showToast);
 
   useEffect(() => {
     if (!organization?.id || !id) return;
@@ -50,13 +61,94 @@ export default function InvoiceDetailScreen() {
     }
   };
 
+  const handleSaveEdit = async (updates: { desc: string; qty: number; unitPrice: number }) => {
+    if (!invoice || !editingItem) return;
+    setIsSavingEdit(true);
+    try {
+      const otherLineItemsTotal = invoice.lineItems
+        .filter((it) => it.id !== editingItem.id)
+        .reduce((sum, it) => sum + it.ext, 0);
+
+      const { subtotal, total, extendedPrice } = await updateLineItem(
+        supabase, invoice.id, editingItem.id, updates, otherLineItemsTotal, invoice.tax
+      );
+
+      setInvoice({
+        ...invoice,
+        subtotal,
+        total,
+        lineItems: invoice.lineItems.map((it) =>
+          it.id === editingItem.id
+            ? { ...it, desc: updates.desc, qty: updates.qty, unitPrice: updates.unitPrice, ext: extendedPrice }
+            : it
+        ),
+      });
+      setEditingItem(null);
+      showToast('Item updated');
+    } catch (err: any) {
+      showToast(err?.message ?? 'Could not update item');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleToggleItemVoid = async (item: LineItem) => {
+    if (!invoice) return;
+    const voided = !item.voided;
+    setVoidingItemId(item.id);
+    try {
+      const activeLineItemsTotal = invoice.lineItems
+        .filter((it) => (it.id === item.id ? !voided : !it.voided))
+        .reduce((sum, it) => sum + it.ext, 0);
+
+      const { subtotal, total } = await setLineItemVoided(
+        supabase, invoice.id, item.id, voided, activeLineItemsTotal, invoice.tax
+      );
+
+      setInvoice({
+        ...invoice,
+        subtotal,
+        total,
+        lineItems: invoice.lineItems.map((it) => (it.id === item.id ? { ...it, voided } : it)),
+      });
+      showToast(voided ? 'Item removed' : 'Item restored');
+    } catch (err: any) {
+      showToast(err?.message ?? 'Could not update item');
+    } finally {
+      setVoidingItemId(null);
+    }
+  };
+
+  const handleDeleteInvoice = () => {
+    if (!invoice) return;
+    Alert.alert(
+      'Delete this invoice?',
+      "This can't be undone — the invoice and its line items will be permanently removed.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              await deleteInvoice(supabase, invoice.id);
+              router.back();
+            } catch (err: any) {
+              showToast(err?.message ?? 'Could not delete invoice');
+              setIsDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (loading || !invoice) {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
-            <View style={styles.backChevron} />
-          </TouchableOpacity>
+          <BackButton onPress={() => router.back()} />
           <Text style={styles.headerTitle}>
             {loading ? 'Loading…' : loadError ? 'Could not load invoice' : 'Invoice not found'}
           </Text>
@@ -73,9 +165,7 @@ export default function InvoiceDetailScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
-          <View style={styles.backChevron} />
-        </TouchableOpacity>
+        <BackButton onPress={() => router.back()} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.headerTitle} numberOfLines={1}>{vendorName}</Text>
           <Text style={styles.headerSub}>Invoice #{invoiceNumber} · {date}</Text>
@@ -92,8 +182,26 @@ export default function InvoiceDetailScreen() {
         </TouchableOpacity>
 
         {lineItems.map((item) => (
-          <ItemCard key={item.id} item={item} />
+          <LineItemDisplay
+            key={item.id}
+            item={item}
+            onEdit={() => setEditingItem(item)}
+            onToggleVoid={voidingItemId === item.id ? undefined : () => handleToggleItemVoid(item)}
+          />
         ))}
+
+        <TouchableOpacity
+          style={styles.removeInvoiceBtn}
+          onPress={handleDeleteInvoice}
+          disabled={isDeleting}
+          activeOpacity={0.7}
+        >
+          {isDeleting ? (
+            <Spinner size={14} color={Colors.danger} />
+          ) : (
+            <Text style={styles.removeInvoiceBtnText}>Delete this invoice</Text>
+          )}
+        </TouchableOpacity>
       </ScrollView>
 
       <ImageViewerModal
@@ -101,6 +209,15 @@ export default function InvoiceDetailScreen() {
         uris={imageUris}
         onClose={() => setImageViewerOpen(false)}
       />
+
+      <EditLineItemModal
+        item={editingItem}
+        isSaving={isSavingEdit}
+        onCancel={() => setEditingItem(null)}
+        onSave={handleSaveEdit}
+      />
+
+      <Toast />
 
       <View style={styles.footer}>
         <View style={styles.totalRow}>
@@ -120,41 +237,12 @@ export default function InvoiceDetailScreen() {
   );
 }
 
-function ItemCard({ item }: { item: LineItem }) {
-  return (
-    <View style={styles.itemCard}>
-      <View style={styles.itemTop}>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <View style={[styles.catBadge, { backgroundColor: item.catColor + '20' }]}>
-            <Text style={[styles.catBadgeText, { color: item.catColor }]}>{item.category}</Text>
-          </View>
-          <Text style={styles.itemDesc}>{item.desc}</Text>
-          {item.rawDesc && (
-            <Text style={styles.itemRawDesc} numberOfLines={1}>Printed as: {item.rawDesc}</Text>
-          )}
-          <Text style={styles.itemMeta}>{item.qty} {item.unit} @ ${item.unitPrice.toFixed(2)}</Text>
-        </View>
-        <Text style={styles.itemExt}>${item.ext.toFixed(2)}</Text>
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 18, paddingTop: 12, paddingBottom: 14,
     backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.border,
-  },
-  backBtn: {
-    width: 40, height: 40, borderRadius: 12,
-    backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border,
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
-  backChevron: {
-    width: 9, height: 9, borderTopWidth: 2, borderLeftWidth: 2,
-    borderColor: Colors.textPrimary, transform: [{ rotate: '-45deg' }], marginLeft: 3,
   },
   headerTitle: { fontSize: 16, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
   headerSub: { fontSize: 12, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary, marginTop: 1 },
@@ -167,18 +255,8 @@ const styles = StyleSheet.create({
   },
   imageLink: { fontSize: 13, fontFamily: 'Manrope_600SemiBold', color: Colors.primary },
 
-  itemCard: {
-    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
-    borderRadius: 16, padding: 15,
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 8,
-  },
-  itemTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  catBadge: { alignSelf: 'flex-start', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginBottom: 6 },
-  catBadgeText: { fontSize: 10, fontFamily: 'Manrope_700Bold', letterSpacing: 0.5, textTransform: 'uppercase' },
-  itemDesc: { fontSize: 14.5, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
-  itemRawDesc: { fontSize: 11, fontFamily: 'Manrope_500Medium', color: Colors.textTertiary, marginTop: 2 },
-  itemMeta: { fontSize: 12, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary, marginTop: 3 },
-  itemExt: { fontSize: 15, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary },
+  removeInvoiceBtn: { alignSelf: 'center', paddingVertical: 14, paddingHorizontal: 12 },
+  removeInvoiceBtnText: { fontSize: 12.5, fontFamily: 'Manrope_700Bold', color: Colors.danger },
 
   footer: {
     backgroundColor: Colors.surface, borderTopWidth: 1, borderTopColor: Colors.border,

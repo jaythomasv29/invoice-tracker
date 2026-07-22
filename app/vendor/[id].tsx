@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useOrganization } from '@clerk/clerk-expo';
 import { Colors } from '../../constants/Colors';
@@ -9,6 +9,8 @@ import { useStore, Invoice } from '../../store/useStore';
 import { useSupabase } from '../../lib/supabase';
 import { fetchVendorInvoices } from '../../lib/invoicePipeline';
 import Spinner from '../../components/ui/Spinner';
+import BackButton from '../../components/ui/BackButton';
+import InvoiceRow from '../../components/ui/InvoiceRow';
 
 export default function VendorDetailScreen() {
   const router = useRouter();
@@ -21,22 +23,25 @@ export default function VendorDetailScreen() {
   const [vendorInvoices, setVendorInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!organization?.id || !id) return;
-    setLoading(true);
-    fetchVendorInvoices(supabase, organization.id, id)
-      .then(setVendorInvoices)
-      .catch(() => setVendorInvoices([]))
-      .finally(() => setLoading(false));
-  }, [organization?.id, id, supabase]);
+  // Focus (not mount) effect — so returning here after deleting an invoice
+  // from the detail screen drops the now-gone row instead of leaving a
+  // stale one behind until the app is fully reloaded.
+  useFocusEffect(
+    useCallback(() => {
+      if (!organization?.id || !id) return;
+      setLoading(true);
+      fetchVendorInvoices(supabase, organization.id, id)
+        .then(setVendorInvoices)
+        .catch(() => setVendorInvoices([]))
+        .finally(() => setLoading(false));
+    }, [organization?.id, id, supabase])
+  );
 
   if (!vendor) {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
-            <View style={styles.backChevron} />
-          </TouchableOpacity>
+          <BackButton onPress={() => router.back()} />
           <Text style={styles.headerTitle}>Vendor not found</Text>
         </View>
       </SafeAreaView>
@@ -46,9 +51,7 @@ export default function VendorDetailScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
-          <View style={styles.backChevron} />
-        </TouchableOpacity>
+        <BackButton onPress={() => router.back()} />
         <View style={[styles.vendorAvatar, { backgroundColor: vendor.color + '20' }]}>
           <Text style={[styles.vendorAvatarText, { color: vendor.color }]}>
             {vendor.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}
@@ -101,34 +104,12 @@ export default function VendorDetailScreen() {
   );
 }
 
-function InvoiceRow({ invoice: inv, onPress }: { invoice: Invoice; onPress: () => void }) {
-  return (
-    <TouchableOpacity style={styles.invoiceRow} onPress={onPress} activeOpacity={0.85}>
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={styles.invoiceNumber}>Invoice #{inv.invoiceNumber}</Text>
-        <Text style={styles.invoiceMeta}>{inv.date} · {inv.lineItems.length} items</Text>
-      </View>
-      <Text style={styles.invoiceTotal}>${inv.total.toFixed(2)}</Text>
-      <Text style={styles.chevron}>›</Text>
-    </TouchableOpacity>
-  );
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 18, paddingTop: 12, paddingBottom: 14,
     backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.border,
-  },
-  backBtn: {
-    width: 40, height: 40, borderRadius: 12,
-    backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border,
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
-  backChevron: {
-    width: 9, height: 9, borderTopWidth: 2, borderLeftWidth: 2,
-    borderColor: Colors.textPrimary, transform: [{ rotate: '-45deg' }], marginLeft: 3,
   },
   vendorAvatar: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   vendorAvatarText: { fontSize: 13, fontFamily: 'Manrope_800ExtraBold' },
@@ -149,17 +130,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase', color: Colors.textTertiary,
     marginTop: 6, marginBottom: 2,
   },
-
-  invoiceRow: {
-    backgroundColor: Colors.surface, borderRadius: 16,
-    borderWidth: 1, borderColor: Colors.border,
-    padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10,
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 8,
-  },
-  invoiceNumber: { fontSize: 14, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
-  invoiceMeta: { fontSize: 12, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary, marginTop: 1 },
-  invoiceTotal: { fontSize: 15, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary },
-  chevron: { fontSize: 18, fontFamily: 'Manrope_700Bold', color: Colors.textTertiary },
 
   empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
   emptyTitle: { fontSize: 16, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },

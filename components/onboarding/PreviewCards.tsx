@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 import Animated, {
-  FadeInUp, FadeIn, ZoomIn,
+  ZoomIn,
   useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing,
 } from 'react-native-reanimated';
 import { Colors } from '../../constants/Colors';
@@ -146,42 +145,6 @@ export function VerifyPreview({ active }: PreviewProps) {
   );
 }
 
-export function BriefingPreview({ active }: PreviewProps) {
-  return (
-    <Frame dark>
-      <View style={styles.briefingBadgeRow}>
-        <View style={styles.briefingIcon}>
-          <View style={styles.briefingDiamond} />
-        </View>
-        <Text style={styles.briefingBadge}>AI SUMMARY</Text>
-      </View>
-      <Animated.Text
-        key={active ? 'quote-in' : 'quote-out'}
-        entering={FadeInUp.duration(500).delay(80)}
-        style={styles.briefingQuote}
-      >
-        “Chicken breast from Cascade is up 11% — your second increase this month.”
-      </Animated.Text>
-      <Animated.View
-        key={active ? 'cta-in' : 'cta-out'}
-        entering={FadeIn.duration(400).delay(300)}
-        style={styles.briefingCtaRow}
-      >
-        <Text style={styles.briefingCta}>Read full briefing</Text>
-        <ChevronIcon />
-      </Animated.View>
-    </Frame>
-  );
-}
-
-function ChevronIcon() {
-  return (
-    <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 6l6 6-6 6" stroke={Colors.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
 const styles = StyleSheet.create({
   frame: {
     width: '100%', borderRadius: 22, padding: 18,
@@ -235,16 +198,4 @@ const styles = StyleSheet.create({
   verifyLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   verifyLegendDot: { width: 8, height: 8, borderRadius: 4 },
   verifyLegendText: { fontSize: 12.5, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary },
-
-  // Briefing preview
-  briefingBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  briefingIcon: {
-    width: 22, height: 22, borderRadius: 7, backgroundColor: 'rgba(93,176,117,0.2)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  briefingDiamond: { width: 8, height: 8, backgroundColor: Colors.primary, transform: [{ rotate: '45deg' }], borderRadius: 2 },
-  briefingBadge: { fontSize: 11, fontFamily: 'Manrope_700Bold', letterSpacing: 0.8, color: Colors.primary },
-  briefingQuote: { fontSize: 15.5, fontFamily: 'Manrope_600SemiBold', color: '#fff', lineHeight: 23 },
-  briefingCtaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 16 },
-  briefingCta: { fontSize: 12.5, fontFamily: 'Manrope_700Bold', color: Colors.primary },
 });

@@ -59,6 +59,8 @@ interface DbLineItem {
   confirmed: boolean | null;
   reconciliation_status: string | null;
   line_item_type: string | null;
+  note: string | null;
+  voided_at: string | null;
 }
 
 interface DbInvoice {
@@ -104,12 +106,17 @@ function mapLineItem(row: DbLineItem): LineItem {
     // app does.
     verification: ((row.reconciliation_status === 'short' ? 'missing' : row.reconciliation_status) ??
       'pending') as VerificationStatus,
-    disputeVal: row.extended_price ?? 0,
+    note: row.note?.trim() || undefined,
     type: (row.line_item_type ?? 'charge') as LineItemType,
+    voided: !!row.voided_at,
   };
 }
 
 export function mapInvoice(dbInvoice: DbInvoice, dbLineItems: DbLineItem[]): Invoice {
+  const lineItems = dbLineItems.map(mapLineItem);
+  // Pills/flags reflect only what's still actually on the invoice — a
+  // voided item that was missing or noted shouldn't keep flagging the row.
+  const activeItems = lineItems.filter((it) => !it.voided);
   return {
     id: dbInvoice.id,
     vendorId: dbInvoice.vendor_id ?? '',
@@ -117,12 +124,14 @@ export function mapInvoice(dbInvoice: DbInvoice, dbLineItems: DbLineItem[]): Inv
     invoiceNumber: dbInvoice.invoice_number ?? '',
     date: formatDate(dbInvoice.invoice_date),
     dateIso: dbInvoice.invoice_date,
-    lineItems: dbLineItems.map(mapLineItem),
+    lineItems,
     subtotal: dbInvoice.subtotal ?? 0,
     tax: dbInvoice.tax ?? 0,
     total: dbInvoice.total ?? 0,
     status: dbInvoice.status,
     pages: dbInvoice.image_urls?.length ?? 1,
+    hasMissingItems: activeItems.some((it) => it.verification === 'missing'),
+    hasNote: activeItems.some((it) => !!it.note),
   };
 }
 
@@ -183,6 +192,82 @@ export async function extractInvoice(supabase: SupabaseClient, invoiceId: string
   }
   if (data?.error) throw new Error(data.error);
   return mapInvoice(data.invoice, data.lineItems);
+}
+
+// Edits a saved line item's description/quantity/unit price, then rolls the
+// resulting extended price into the invoice's subtotal/total. Tax is left
+// as-is (extracted flat, not a computed percentage) — only the charge side
+// of the invoice changes when you correct a line item.
+export async function updateLineItem(
+  supabase: SupabaseClient,
+  invoiceId: string,
+  lineItemId: string,
+  updates: { desc: string; qty: number; unitPrice: number },
+  otherLineItemsTotal: number,
+  tax: number
+): Promise<{ subtotal: number; total: number; extendedPrice: number }> {
+  const extendedPrice = Math.round(updates.qty * updates.unitPrice * 100) / 100;
+
+  const { error: lineItemErr } = await supabase
+    .from('invoice_line_items')
+    .update({
+      clean_name: updates.desc,
+      qty: updates.qty,
+      unit_price: updates.unitPrice,
+      extended_price: extendedPrice,
+    })
+    .eq('id', lineItemId);
+  if (lineItemErr) throw new Error(`Could not update line item: ${lineItemErr.message}`);
+
+  const subtotal = Math.round((otherLineItemsTotal + extendedPrice) * 100) / 100;
+  const total = Math.round((subtotal + tax) * 100) / 100;
+
+  const { error: invoiceErr } = await supabase
+    .from('invoices')
+    .update({ subtotal, total })
+    .eq('id', invoiceId);
+  if (invoiceErr) throw new Error(`Could not update invoice totals: ${invoiceErr.message}`);
+
+  return { subtotal, total, extendedPrice };
+}
+
+// Reversible delete for a line item: stamps/clears voided_at rather than
+// removing the row, and rolls the invoice's subtotal/total to match —
+// `activeLineItemsTotal` is the sum of ext for every item that will be
+// active *after* this change (i.e. this item's own ext included when
+// restoring, excluded when voiding).
+export async function setLineItemVoided(
+  supabase: SupabaseClient,
+  invoiceId: string,
+  lineItemId: string,
+  voided: boolean,
+  activeLineItemsTotal: number,
+  tax: number
+): Promise<{ subtotal: number; total: number }> {
+  const { error: lineItemErr } = await supabase
+    .from('invoice_line_items')
+    .update({ voided_at: voided ? new Date().toISOString() : null })
+    .eq('id', lineItemId);
+  if (lineItemErr) throw new Error(`Could not ${voided ? 'void' : 'restore'} item: ${lineItemErr.message}`);
+
+  const subtotal = Math.round(activeLineItemsTotal * 100) / 100;
+  const total = Math.round((subtotal + tax) * 100) / 100;
+
+  const { error: invoiceErr } = await supabase
+    .from('invoices')
+    .update({ subtotal, total })
+    .eq('id', invoiceId);
+  if (invoiceErr) throw new Error(`Could not update invoice totals: ${invoiceErr.message}`);
+
+  return { subtotal, total };
+}
+
+// Permanent delete for a whole invoice — unlike line items, this isn't
+// reversible. Cascades to invoice_line_items and delivery_disputes via
+// their FKs, so there's nothing else to clean up here.
+export async function deleteInvoice(supabase: SupabaseClient, invoiceId: string): Promise<void> {
+  const { error } = await supabase.from('invoices').delete().eq('id', invoiceId);
+  if (error) throw new Error(`Could not delete invoice: ${error.message}`);
 }
 
 export async function fetchInvoiceById(

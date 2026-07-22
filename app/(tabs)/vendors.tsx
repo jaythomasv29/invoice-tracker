@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useOrganization } from '@clerk/clerk-expo';
 import { Colors } from '../../constants/Colors';
-import { useStore, Vendor, Invoice } from '../../store/useStore';
+import { useStore, Vendor, Invoice, vendorAmountFromBars } from '../../store/useStore';
+import { useSpendPeriod, spendPeriodShortLabel } from '../../hooks/useSpendPeriod';
 import { useSupabase } from '../../lib/supabase';
 import { fetchAllInvoices } from '../../lib/invoicePipeline';
 import Toast from '../../components/ui/Toast';
 import Spinner from '../../components/ui/Spinner';
+import InvoiceRow from '../../components/ui/InvoiceRow';
+import SpendCard from '../../components/dashboard/SpendCard';
 
 type Tab = 'vendors' | 'invoices';
 
@@ -17,30 +20,53 @@ export default function VendorsScreen() {
   const router = useRouter();
   const supabase = useSupabase();
   const { organization } = useOrganization();
-  const { vendors, weekTotal, fetchDashboardSummary } = useStore();
+  const { vendors, selectedDay, selectDay, fetchDashboardSummary } = useStore();
+  const {
+    spendView, setSpendView, yearsBack, setYearsBack, maxYears,
+    periodTotal, periodPctChange, periodBarData,
+  } = useSpendPeriod();
 
   const [tab, setTab] = useState<Tab>('vendors');
   const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
-      if (organization?.id) fetchDashboardSummary(supabase, organization.id);
+      if (!organization?.id) return;
+      setIsLoadingSummary(true);
+      fetchDashboardSummary(supabase, organization.id).finally(() => setIsLoadingSummary(false));
     }, [organization?.id, supabase, fetchDashboardSummary])
   );
 
-  useEffect(() => {
-    if (tab !== 'invoices' || !organization?.id) return;
-    setInvoicesLoading(true);
-    fetchAllInvoices(supabase, organization.id)
-      .then(setAllInvoices)
-      .catch(() => setAllInvoices([]))
-      .finally(() => setInvoicesLoading(false));
-  }, [tab, organization?.id, supabase]);
+  // Focus (not mount) effect — so coming back to this tab after deleting an
+  // invoice from its detail screen drops the now-gone row.
+  useFocusEffect(
+    useCallback(() => {
+      if (tab !== 'invoices' || !organization?.id) return;
+      setInvoicesLoading(true);
+      fetchAllInvoices(supabase, organization.id)
+        .then(setAllInvoices)
+        .catch(() => setAllInvoices([]))
+        .finally(() => setInvoicesLoading(false));
+    }, [tab, organization?.id, supabase])
+  );
 
-  const sorted = [...vendors].sort((a, b) => b.weekSpend - a.weekSpend);
-  const hasWeekSpend = weekTotal > 0;
+  const shortLabel = spendPeriodShortLabel(spendView, yearsBack);
+  const withPeriodAmount = useMemo(() => (
+    vendors.map((v) => ({ vendor: v, periodAmount: vendorAmountFromBars(periodBarData, v.id) }))
+  ), [vendors, periodBarData]);
+  const sorted = useMemo(
+    () => [...withPeriodAmount].sort((a, b) => b.periodAmount - a.periodAmount),
+    [withPeriodAmount]
+  );
+  const activeCount = sorted.filter((v) => v.periodAmount > 0).length;
+
+  const handleBarPress = useCallback((i: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    selectDay(i);
+  }, [selectDay]);
 
   const query = search.trim().toLowerCase();
   const filteredInvoices = query
@@ -55,7 +81,7 @@ export default function VendorsScreen() {
         <Text style={styles.title}>{tab === 'vendors' ? 'Vendors' : 'All Invoices'}</Text>
         <Text style={styles.subtitle}>
           {tab === 'vendors'
-            ? `${sorted.filter((v) => v.invoiceCount > 0).length} active this week`
+            ? `${activeCount} active ${shortLabel}`
             : `${allInvoices.length} invoice${allInvoices.length === 1 ? '' : 's'} captured`}
         </Text>
       </View>
@@ -79,32 +105,21 @@ export default function VendorsScreen() {
 
       {tab === 'vendors' ? (
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* Spend concentration */}
-          {hasWeekSpend && (
-            <View style={styles.card}>
-              <Text style={styles.cardLabel}>Spend concentration</Text>
-              <View style={styles.concentrationBar}>
-                {sorted.filter((v) => v.weekSpend > 0).map((v) => (
-                  <View
-                    key={v.id}
-                    style={[styles.concentrationSegment, {
-                      flex: v.weekSpend / weekTotal,
-                      backgroundColor: v.color,
-                    }]}
-                  />
-                ))}
-              </View>
-              <View style={styles.concentrationLegend}>
-                {sorted.filter((v) => v.weekSpend > 0).map((v) => (
-                  <View key={v.id} style={styles.concentrationLegendItem}>
-                    <View style={[styles.concentrationDot, { backgroundColor: v.color }]} />
-                    <Text style={styles.concentrationName}>{v.name.split(' ')[0]}</Text>
-                    <Text style={styles.concentrationPct}>{Math.round((v.weekSpend / weekTotal) * 100)}%</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
+          {/* Mix of all vendors — moved here from the home screen so the
+              timeline lives alongside the vendors it's breaking down. */}
+          <SpendCard
+            period={spendView}
+            onChangePeriod={setSpendView}
+            yearsBack={yearsBack}
+            onChangeYears={setYearsBack}
+            maxYears={maxYears}
+            periodTotal={periodTotal}
+            periodPctChange={periodPctChange}
+            barData={periodBarData}
+            selectedBar={selectedDay}
+            onSelectBar={handleBarPress}
+            isLoading={isLoadingSummary}
+          />
 
           {sorted.length === 0 && (
             <View style={styles.empty}>
@@ -113,8 +128,8 @@ export default function VendorsScreen() {
             </View>
           )}
 
-          {sorted.map((v) => (
-            <VendorCard key={v.id} vendor={v} />
+          {sorted.map(({ vendor: v, periodAmount }) => (
+            <VendorCard key={v.id} vendor={v} periodAmount={periodAmount} periodLabel={shortLabel} />
           ))}
         </ScrollView>
       ) : (
@@ -137,7 +152,7 @@ export default function VendorsScreen() {
             ) : (
               <>
                 {filteredInvoices.map((inv) => (
-                  <InvoiceListRow key={inv.id} invoice={inv} onPress={() => {
+                  <InvoiceRow key={inv.id} invoice={inv} showVendorName onPress={() => {
                     Haptics.selectionAsync();
                     router.push(`/invoice/${inv.id}`);
                   }} />
@@ -161,22 +176,7 @@ export default function VendorsScreen() {
   );
 }
 
-function InvoiceListRow({ invoice: inv, onPress }: { invoice: Invoice; onPress: () => void }) {
-  return (
-    <TouchableOpacity style={styles.invoiceRow} onPress={onPress} activeOpacity={0.85}>
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={styles.invoiceVendor} numberOfLines={1}>{inv.vendorName}</Text>
-        <Text style={styles.invoiceMeta} numberOfLines={1}>
-          Invoice #{inv.invoiceNumber || '—'} · {inv.date} · {inv.lineItems.length} items
-        </Text>
-      </View>
-      <Text style={styles.invoiceTotal}>${inv.total.toFixed(2)}</Text>
-      <Text style={styles.chevron}>›</Text>
-    </TouchableOpacity>
-  );
-}
-
-function VendorCard({ vendor: v }: { vendor: Vendor }) {
+function VendorCard({ vendor: v, periodAmount, periodLabel }: { vendor: Vendor; periodAmount: number; periodLabel: string }) {
   const router = useRouter();
   return (
     <TouchableOpacity
@@ -192,19 +192,16 @@ function VendorCard({ vendor: v }: { vendor: Vendor }) {
           <Text style={[styles.vendorAvatarText, { color: v.color }]}>
             {v.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}
           </Text>
-          <View style={styles.vendorFreqRow}>
-            {Array.from({ length: v.invoiceCount }).map((_, i) => (
-              <View key={i} style={[styles.vendorFreqDot, { backgroundColor: v.color }]} />
-            ))}
-          </View>
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.vendorName}>{v.name}</Text>
-          <Text style={styles.vendorMeta}>{v.invoiceCount} invoices · last order {v.lastOrder}</Text>
+          <Text style={styles.vendorMeta}>
+            {v.invoiceCount} invoice{v.invoiceCount === 1 ? '' : 's'} total · last order {v.lastOrder}
+          </Text>
         </View>
-        <View style={styles.vendorSpend}>
-          <Text style={styles.vendorSpendAmt}>${v.weekSpend.toLocaleString()}</Text>
-          <Text style={styles.vendorSpendLabel}>this week</Text>
+        <View style={styles.vendorSpendPill}>
+          <Text style={styles.vendorSpendAmt}>${periodAmount.toLocaleString()}</Text>
+          <Text style={styles.vendorSpendLabel}>{periodLabel}</Text>
         </View>
       </View>
 
@@ -249,31 +246,7 @@ const styles = StyleSheet.create({
     fontSize: 14, fontFamily: 'Manrope_600SemiBold', color: Colors.textPrimary,
   },
 
-  invoiceRow: {
-    backgroundColor: Colors.surface, borderRadius: 16,
-    borderWidth: 1, borderColor: Colors.border,
-    padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10,
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 8,
-  },
-  invoiceVendor: { fontSize: 14, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
-  invoiceMeta: { fontSize: 12, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary, marginTop: 1 },
-  invoiceTotal: { fontSize: 15, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary },
-  chevron: { fontSize: 18, fontFamily: 'Manrope_700Bold', color: Colors.textTertiary },
-
-  scroll: { padding: 16, gap: 11, paddingBottom: 40 },
-  card: {
-    backgroundColor: Colors.surface, borderRadius: 18,
-    borderWidth: 1, borderColor: Colors.border, padding: 16,
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 1, shadowRadius: 12,
-  },
-  cardLabel: { fontSize: 12, fontFamily: 'Manrope_700Bold', color: Colors.textSecondary, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
-  concentrationBar: { flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden', gap: 1 },
-  concentrationSegment: { borderRadius: 5 },
-  concentrationLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
-  concentrationLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  concentrationDot: { width: 8, height: 8, borderRadius: 4 },
-  concentrationName: { fontSize: 11, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary },
-  concentrationPct: { fontSize: 11, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
+  scroll: { padding: 16, gap: 11, paddingBottom: 120 },
 
   vendorCard: {
     backgroundColor: Colors.surface, borderRadius: 18,
@@ -281,15 +254,16 @@ const styles = StyleSheet.create({
     shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 1, shadowRadius: 12,
   },
   vendorTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  vendorAvatar: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center', gap: 4 },
+  vendorAvatar: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   vendorAvatarText: { fontSize: 14, fontFamily: 'Manrope_800ExtraBold' },
-  vendorFreqRow: { flexDirection: 'row', gap: 2 },
-  vendorFreqDot: { width: 4, height: 4, borderRadius: 2 },
   vendorName: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
   vendorMeta: { fontSize: 12, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary, marginTop: 1 },
-  vendorSpend: { alignItems: 'flex-end' },
-  vendorSpendAmt: { fontSize: 17, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, letterSpacing: -0.3 },
-  vendorSpendLabel: { fontSize: 10, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary },
+  vendorSpendPill: {
+    alignItems: 'flex-end', backgroundColor: Colors.background,
+    borderRadius: 12, paddingHorizontal: 11, paddingVertical: 7,
+  },
+  vendorSpendAmt: { fontSize: 15, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, letterSpacing: -0.3 },
+  vendorSpendLabel: { fontSize: 9.5, fontFamily: 'Manrope_600SemiBold', color: Colors.textTertiary, marginTop: 1 },
 
   vendorContact: {
     backgroundColor: Colors.background, borderRadius: 10, padding: 12, gap: 4,

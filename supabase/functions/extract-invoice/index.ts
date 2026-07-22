@@ -58,8 +58,6 @@ const EXTRACTION_TOOL = {
       subtotal: { type: 'number' },
       tax: { type: 'number' },
       total: { type: 'number' },
-      header_confidence: { type: 'number', description: '0-1 confidence for vendor/date/invoice_number/totals as a whole' },
-      header_low_confidence_fields: { type: 'array', items: { type: 'string' } },
       line_items: {
         type: 'array',
         items: {
@@ -83,7 +81,7 @@ const EXTRACTION_TOOL = {
         },
       },
     },
-    required: ['vendor', 'line_items', 'header_confidence'],
+    required: ['vendor', 'line_items'],
   },
 };
 
@@ -116,8 +114,6 @@ interface ExtractionResult {
   subtotal?: number;
   tax?: number;
   total?: number;
-  header_confidence: number;
-  header_low_confidence_fields?: string[];
   line_items: Array<{
     description: string;
     clean_name: string;
@@ -224,6 +220,7 @@ async function detectPriceCreep(
         .eq('invoices.vendor_id', vendorId)
         .ilike('clean_name', li.clean_name)
         .ilike('unit_of_measure', li.unit_of_measure)
+        .is('voided_at', null)
         .neq('invoice_id', invoiceId);
 
       if (!priorRows?.length) return;
@@ -315,26 +312,21 @@ Deno.serve(async (req) => {
     if (!vendorId) {
       // Assigned once at creation so it's stable in the DB — the client
       // only needs its own fallback for vendor rows that predate this.
-      const { count: existingVendorCount } = await supabase
-        .from('vendors')
-        .select('id', { count: 'exact', head: true })
-        .eq('organization_id', invoice.organization_id);
-      const color = VENDOR_COLOR_PALETTE[(existingVendorCount ?? 0) % VENDOR_COLOR_PALETTE.length];
-
+      // Count-then-insert runs inside one advisory-locked DB function so
+      // concurrent scans for two different new vendors can't both read the
+      // same count and collide on the same color.
       const { data: newVendor, error: vendorErr } = await supabase
-        .from('vendors')
-        .insert({
-          organization_id: invoice.organization_id,
-          name: result.vendor.name,
-          color,
-          contact_name: result.vendor.contact_name,
-          contact_phone: result.vendor.contact_phone,
-          account_number: result.vendor.account_number,
+        .rpc('create_vendor_with_palette_color', {
+          p_organization_id: invoice.organization_id,
+          p_name: result.vendor.name,
+          p_contact_name: result.vendor.contact_name,
+          p_contact_phone: result.vendor.contact_phone,
+          p_account_number: result.vendor.account_number,
+          p_palette: VENDOR_COLOR_PALETTE,
         })
-        .select('id')
         .single();
       if (vendorErr) throw new Error(`Could not create vendor: ${vendorErr.message}`);
-      vendorId = newVendor.id;
+      vendorId = (newVendor as any).id;
     }
 
     const { data: updatedInvoice, error: updateErr } = await supabase

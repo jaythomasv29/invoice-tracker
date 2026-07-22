@@ -15,7 +15,7 @@ export default function Index() {
     // nor absent — isSignedIn is false for it, but Clerk still considers it
     // an existing session, so routing it to /(auth) would just dead-end.
     if (session?.currentTask) {
-      router.replace('/onboarding/audience');
+      router.replace('/onboarding/organization');
       return;
     }
     if (!isSignedIn) {
@@ -23,7 +23,7 @@ export default function Index() {
       return;
     }
     if (!orgLoaded) return;
-    router.replace(organization ? '/(tabs)' : '/onboarding/audience');
+    router.replace(organization ? '/(tabs)' : '/onboarding/organization');
   }, [isLoaded, sessionLoaded, session, isSignedIn, orgLoaded, organization]);
 
   return null;

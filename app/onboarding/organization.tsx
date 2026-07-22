@@ -4,13 +4,11 @@ import {
   KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useOrganizationList } from '@clerk/clerk-expo';
 import { Colors } from '../../constants/Colors';
 import Spinner from '../../components/ui/Spinner';
-
-type Audience = 'business' | 'home';
 
 // Functional placeholder for the Owner path of PRD section 6.1 ("Create or
 // join an organization"). The polished, animated onboarding experience is a
@@ -18,35 +16,16 @@ type Audience = 'business' | 'home';
 // somewhere to create their org before RLS-scoped data can load. Staff
 // joining via invitation is a different flow (Clerk org invitations), not
 // this screen.
-//
-// `audience` comes from the prior /onboarding/audience step and only swaps
-// copy (restaurant/vendors vs. household/stores framing) — every audience
-// creates the same kind of Clerk Organization underneath, so there's no
-// functional or data-model fork here, only marketing/messaging.
-const COPY: Record<Audience, {
-  title: string; subtitle: string; label: string; placeholder: string; errorLabel: string;
-}> = {
-  business: {
-    title: 'Set up your restaurant',
-    subtitle: "This becomes your workspace — you'll invite your team to it next.",
-    label: 'Restaurant name',
-    placeholder: "Rosa's Kitchen",
-    errorLabel: 'Enter your restaurant name.',
-  },
-  home: {
-    title: 'Set up your household',
-    subtitle: "This becomes your workspace — you can invite family members to it next.",
-    label: 'Household name',
-    placeholder: 'The Martinez Family',
-    errorLabel: 'Enter a name for your household.',
-  },
+const copy = {
+  title: 'Set up your restaurant',
+  subtitle: "This becomes your workspace — you'll invite your team to it next.",
+  label: 'Restaurant name',
+  placeholder: "Rosa's Kitchen",
+  errorLabel: 'Enter your restaurant name.',
 };
 
 export default function CreateOrganizationScreen() {
   const router = useRouter();
-  const { audience: audienceParam } = useLocalSearchParams<{ audience?: string }>();
-  const audience: Audience = audienceParam === 'home' ? 'home' : 'business';
-  const copy = COPY[audience];
   const { createOrganization, setActive, isLoaded } = useOrganizationList();
   const [name, setName] = useState('');
   const [error, setError] = useState('');

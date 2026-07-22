@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, letterSpacing: -0.5, flex: 1 },
   countBadge: { backgroundColor: Colors.danger, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
   countText: { fontSize: 12, fontFamily: 'Manrope_700Bold', color: '#fff' },
-  scroll: { padding: 16, gap: 8, paddingBottom: 40 },
+  scroll: { padding: 16, gap: 8, paddingBottom: 120 },
   sectionLabel: {
     fontSize: 11, fontFamily: 'Manrope_700Bold', letterSpacing: 0.5,
     textTransform: 'uppercase', color: Colors.textTertiary,

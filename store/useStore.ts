@@ -23,8 +23,13 @@ export interface LineItem {
   confirmed: boolean;
   expanded: boolean;
   verification: VerificationStatus;
-  disputeVal: number;
+  // Free-text comment entered on the confirm/save screen — the only
+  // reconciliation trail now that the dispute tracker is gone.
+  note?: string;
   type: LineItemType;
+  // Reversible delete — voided items stay visible (greyed out, restorable)
+  // but drop out of the invoice's subtotal/total and category spend.
+  voided: boolean;
 }
 
 export interface Invoice {
@@ -43,6 +48,10 @@ export interface Invoice {
   status: 'pending' | 'scanned' | 'saved';
   pages: number;
   imageUris?: string[];
+  // Derived from lineItems — powers the "missing item(s)" / "note" pills on
+  // invoice list rows without every list needing its own line-item scan.
+  hasMissingItems: boolean;
+  hasNote: boolean;
 }
 
 export interface PriceAlert {
@@ -62,7 +71,8 @@ export interface Vendor {
   id: string;
   name: string;
   color: string;
-  weekSpend: number;
+  // All-time count of saved invoices from this vendor — period-scoped
+  // spend is derived on demand via vendorAmountFromBars instead.
   invoiceCount: number;
   lastOrder: string;
   contactPhone?: string;
@@ -73,7 +83,7 @@ export interface Vendor {
 export interface DayData {
   label: string;
   total: number;
-  breakdown: { name: string; amount: number; color: string }[];
+  breakdown: { vendorId: string | null; name: string; amount: number; color: string }[];
 }
 
 export interface CategorySpend {
@@ -82,40 +92,44 @@ export interface CategorySpend {
   color: string;
 }
 
-export interface VerificationBreakdown {
-  received: number;
-  missing: number;
-  pending: number;
-}
+export type SpendPeriod = 'week' | 'month' | 'year' | 'all';
 
-export interface DisputeEntry {
+export interface UploadActivityEntry {
   id: string;
-  itemName: string;
-  vendorId: string;
+  vendorId: string | null;
   vendorName: string;
   vendorColor: string;
-  vendorContactName?: string;
-  vendorContactPhone?: string;
-  date: string;
   amount: number;
+  invoiceDateLabel: string;
+  uploadedLabel: string;
+  periodLabel: string;
+  // True when the invoice's date falls outside the current calendar week —
+  // i.e. it was uploaded now but landed in a past (or future) week's totals
+  // instead of "This week's spend", which is otherwise invisible there.
+  isBackdated: boolean;
 }
 
 interface AppState {
   // Invoice
   currentInvoice: Invoice | null;
   scanStage: 'idle' | 'processing' | 'done';
-  todayInvoiceCount: number;
 
   // Dashboard
+  spendView: SpendPeriod;
+  yearsBack: number;
   selectedDay: number | null;
   weekTotal: number;
   weekPctChange: number;
   dayData: DayData[];
+  monthTotal: number;
+  monthPctChange: number;
+  monthData: DayData[];
+  // One bar per calendar year that has any invoice activity (plus the
+  // current year even if empty), oldest first — the "year"/"all time"
+  // views slice or sum this rather than each needing their own fetch.
+  allYearData: DayData[];
   categorySpend: CategorySpend[];
-  verificationBreakdown: VerificationBreakdown;
-  flaggedShortAmount: number;
-  flaggedShortCount: number;
-  disputedItems: DisputeEntry[];
+  uploadActivity: UploadActivityEntry[];
 
   // Alerts
   priceAlerts: PriceAlert[];
@@ -128,6 +142,8 @@ interface AppState {
 
   // Actions
   setScanStage: (stage: 'idle' | 'processing' | 'done') => void;
+  setSpendView: (view: SpendPeriod) => void;
+  setYearsBack: (n: number) => void;
   selectDay: (i: number | null) => void;
   showToast: (msg: string) => void;
   clearToast: () => void;
@@ -139,9 +155,8 @@ interface AppState {
   confirmItem: (itemId: string) => void;
   toggleItemExpand: (itemId: string) => void;
   setVerification: (itemId: string, status: VerificationStatus) => void;
-  saveCurrentInvoice: (supabase: SupabaseClient, organizationId: string) => Promise<void>;
-  fetchTodayInvoiceCount: (supabase: SupabaseClient, organizationId: string) => Promise<void>;
-  fetchDeliverySnapshot: (supabase: SupabaseClient, organizationId: string) => Promise<void>;
+  setItemNote: (itemId: string, note: string) => void;
+  saveCurrentInvoice: (supabase: SupabaseClient) => Promise<void>;
   fetchDashboardSummary: (supabase: SupabaseClient, organizationId: string) => Promise<void>;
   fetchPriceAlerts: (supabase: SupabaseClient, organizationId: string) => Promise<void>;
 }
@@ -168,26 +183,110 @@ function dayIndexMonFirst(dateStr: string): number {
   return (d.getDay() + 6) % 7;
 }
 
+function daysInMonth(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+// Buckets a month into ~7-day chunks (day 1-7, 8-14, ...) rather than
+// calendar weeks, so every bucket stays inside the selected month instead
+// of bleeding into the adjacent one at the start/end.
+function monthBucketCount(year: number, month: number): number {
+  return Math.ceil(daysInMonth(year, month) / 7);
+}
+
+function monthBucketIndex(dateStr: string, bucketCount: number): number {
+  const dayOfMonth = Number(dateStr.slice(8, 10));
+  return Math.min(Math.floor((dayOfMonth - 1) / 7), bucketCount - 1);
+}
+
+function monthBucketLabel(bucketIndex: number, year: number, month: number): string {
+  const dayStart = bucketIndex * 7 + 1;
+  const dayEnd = Math.min(dayStart + 6, daysInMonth(year, month));
+  return dayStart === dayEnd ? `${dayStart}` : `${dayStart}–${dayEnd}`;
+}
+
+function startOfWeekStr(dateStr: string): string {
+  return localDateStr(mondayOf(new Date(`${dateStr}T00:00:00`)));
+}
+
+function periodLabelFor(dateStr: string, currentWeekStartStr: string): { label: string; isBackdated: boolean } {
+  const wkStart = startOfWeekStr(dateStr);
+  if (wkStart === currentWeekStartStr) return { label: 'This week', isBackdated: false };
+
+  const diffDays = Math.round(
+    (new Date(`${currentWeekStartStr}T00:00:00`).getTime() - new Date(`${wkStart}T00:00:00`).getTime()) / 86400000
+  );
+  const diffWeeks = Math.round(diffDays / 7);
+  if (diffWeeks < 0) return { label: 'Scheduled ahead', isBackdated: true };
+  if (diffWeeks === 1) return { label: 'Last week', isBackdated: true };
+  if (diffWeeks <= 8) return { label: `${diffWeeks} weeks ago`, isBackdated: true };
+
+  const d = new Date(`${wkStart}T00:00:00`);
+  return { label: d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }), isBackdated: true };
+}
+
+function vendorDisplay(vendorId: string | null, vendorById: Map<string, any>): { name: string; color: string } {
+  const vendor = vendorId ? vendorById.get(vendorId) : null;
+  return {
+    name: vendor?.name ?? 'Unknown vendor',
+    color: vendor ? (vendor.color || fallbackVendorColor(vendor.id)) : DEFAULT_VENDOR_COLOR,
+  };
+}
+
+// Derives a single vendor's total within a period from the same
+// per-bucket breakdown data the aggregate chart already renders, so
+// per-vendor spend (Home's vendor list, the Vendors-page pills) doesn't
+// need its own fetch or its own per-vendor bucketing pass.
+export function vendorAmountFromBars(barData: DayData[], vendorId: string): number {
+  let sum = 0;
+  for (const bar of barData) {
+    for (const seg of bar.breakdown) {
+      if (seg.vendorId === vendorId) sum += seg.amount;
+    }
+  }
+  return Math.round(sum * 100) / 100;
+}
+
+function relativeUploadLabel(createdAtIso: string | null | undefined): string {
+  if (!createdAtIso) return '';
+  const created = new Date(createdAtIso);
+  if (Number.isNaN(created.getTime())) return '';
+
+  const diffMin = Math.floor((Date.now() - created.getTime()) / 60000);
+  if (diffMin < 1) return 'Just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay === 1) return 'Yesterday';
+  if (diffDay < 7) return `${diffDay} days ago`;
+  return created.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useStore = create<AppState>((set, get) => ({
   currentInvoice: null,
   scanStage: 'idle',
-  todayInvoiceCount: 0,
   selectedDay: null,
+  spendView: 'month',
+  yearsBack: 1,
   weekTotal: 0,
   weekPctChange: 0,
   dayData: DAY_LABELS.map((label) => ({ label, total: 0, breakdown: [] })),
+  monthTotal: 0,
+  monthPctChange: 0,
+  monthData: [],
+  allYearData: [],
   categorySpend: [],
-  verificationBreakdown: { received: 0, missing: 0, pending: 0 },
-  flaggedShortAmount: 0,
-  flaggedShortCount: 0,
-  disputedItems: [],
+  uploadActivity: [],
   priceAlerts: [],
   vendors: [],
   toast: null,
 
   setScanStage: (stage) => set({ scanStage: stage }),
+  setSpendView: (view) => set({ spendView: view, selectedDay: null }),
+  setYearsBack: (n) => set({ yearsBack: Math.max(1, n), selectedDay: null }),
   selectDay: (i) => set((s) => ({ selectedDay: s.selectedDay === i ? null : i })),
 
   showToast: (msg) => {
@@ -238,7 +337,16 @@ export const useStore = create<AppState>((set, get) => ({
     } : null,
   })),
 
-  saveCurrentInvoice: async (supabase, organizationId) => {
+  setItemNote: (itemId, note) => set((s) => ({
+    currentInvoice: s.currentInvoice ? {
+      ...s.currentInvoice,
+      lineItems: s.currentInvoice.lineItems.map((it) =>
+        it.id === itemId ? { ...it, note: note || undefined } : it
+      ),
+    } : null,
+  })),
+
+  saveCurrentInvoice: async (supabase) => {
     const { currentInvoice } = get();
     if (!currentInvoice) return;
 
@@ -256,6 +364,7 @@ export const useStore = create<AppState>((set, get) => ({
           .update({
             reconciliation_status,
             confirmed: it.confirmed,
+            note: it.note ?? null,
           })
           .eq('id', it.id);
       })
@@ -263,88 +372,8 @@ export const useStore = create<AppState>((set, get) => ({
     const lineItemErr = lineItemResults.find((r) => r.error)?.error;
     if (lineItemErr) throw new Error(`Could not save all line items: ${lineItemErr.message}`);
 
-    const missingItems = currentInvoice.lineItems.filter((it) => it.verification === 'missing');
-    if (missingItems.length > 0) {
-      const { error: disputeErr } = await supabase.from('delivery_disputes').insert(
-        missingItems.map((it) => ({
-          organization_id: organizationId,
-          invoice_id: currentInvoice.id,
-          line_item_id: it.id,
-          amount: it.ext,
-          status: 'open',
-        }))
-      );
-      if (disputeErr) throw new Error(`Could not record delivery disputes: ${disputeErr.message}`);
-    }
-
-    set((s) => ({
-      currentInvoice: null,
-      scanStage: 'idle',
-      todayInvoiceCount: s.todayInvoiceCount + 1,
-    }));
+    set({ currentInvoice: null, scanStage: 'idle' });
     get().showToast('Invoice saved');
-  },
-
-  fetchTodayInvoiceCount: async (supabase, organizationId) => {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-
-    const { count, error } = await supabase
-      .from('invoices')
-      .select('id', { count: 'exact', head: true })
-      .eq('organization_id', organizationId)
-      .eq('status', 'saved')
-      .gte('created_at', startOfToday.toISOString());
-
-    if (error) return;
-    set({ todayInvoiceCount: count ?? 0 });
-  },
-
-  fetchDeliverySnapshot: async (supabase, organizationId) => {
-    const { data: statusRows, error: statusErr } = await supabase
-      .from('invoice_line_items')
-      .select('reconciliation_status, invoices!inner(status)')
-      .eq('organization_id', organizationId)
-      .eq('invoices.status', 'saved');
-    if (statusErr) return;
-
-    const breakdown: VerificationBreakdown = { received: 0, missing: 0, pending: 0 };
-    for (const row of statusRows ?? []) {
-      if (row.reconciliation_status === 'received') breakdown.received++;
-      else if (row.reconciliation_status === 'missing' || row.reconciliation_status === 'short') breakdown.missing++;
-      else breakdown.pending++;
-    }
-
-    const { data: disputeRows, error: disputeErr } = await supabase
-      .from('delivery_disputes')
-      .select(`
-        id, amount,
-        invoice_line_items(raw_description, clean_name),
-        invoices(invoice_date, vendors(id, name, color, contact_name, contact_phone))
-      `)
-      .eq('organization_id', organizationId)
-      .neq('status', 'resolved')
-      .order('created_at', { ascending: false });
-    if (disputeErr) return;
-
-    const disputedItems: DisputeEntry[] = (disputeRows ?? []).map((d: any) => {
-      const vendor = d.invoices?.vendors;
-      return {
-        id: d.id,
-        itemName: d.invoice_line_items?.clean_name || d.invoice_line_items?.raw_description || 'Unknown item',
-        vendorId: vendor?.id ?? 'unknown',
-        vendorName: vendor?.name ?? 'Unknown vendor',
-        vendorColor: vendor ? (vendor.color || fallbackVendorColor(vendor.id)) : DEFAULT_VENDOR_COLOR,
-        vendorContactName: vendor?.contact_name ?? undefined,
-        vendorContactPhone: vendor?.contact_phone ?? undefined,
-        date: formatDate(d.invoices?.invoice_date),
-        amount: Number(d.amount ?? 0),
-      };
-    });
-    const flaggedShortAmount = Math.round(disputedItems.reduce((a, d) => a + d.amount, 0));
-    const flaggedShortCount = disputedItems.length;
-
-    set({ verificationBreakdown: breakdown, disputedItems, flaggedShortAmount, flaggedShortCount });
   },
 
   // Powers both the Vendors tab and the home dashboard's spend card/bar
@@ -359,9 +388,10 @@ export const useStore = create<AppState>((set, get) => ({
 
     const { data: invoiceRows, error: invoiceErr } = await supabase
       .from('invoices')
-      .select('vendor_id, total, invoice_date, created_at, invoice_line_items(category, extended_price)')
+      .select('id, vendor_id, total, invoice_date, created_at, invoice_line_items(category, extended_price, voided_at)')
       .eq('organization_id', organizationId)
-      .eq('status', 'saved');
+      .eq('status', 'saved')
+      .order('created_at', { ascending: false });
     if (invoiceErr) return;
 
     const today = new Date();
@@ -370,13 +400,31 @@ export const useStore = create<AppState>((set, get) => ({
     const weekEndStr = localDateStr(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6));
     const prevWeekStartStr = localDateStr(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() - 7));
 
+    const monthYear = today.getFullYear();
+    const monthIdx = today.getMonth();
+    const monthStartStr = localDateStr(new Date(monthYear, monthIdx, 1));
+    const monthEndStr = localDateStr(new Date(monthYear, monthIdx + 1, 0));
+    const prevMonthYear = monthIdx === 0 ? monthYear - 1 : monthYear;
+    const prevMonthIdx = monthIdx === 0 ? 11 : monthIdx - 1;
+    const prevMonthStartStr = localDateStr(new Date(prevMonthYear, prevMonthIdx, 1));
+    const prevMonthEndStr = localDateStr(new Date(prevMonthYear, prevMonthIdx + 1, 0));
+    const bucketCount = monthBucketCount(monthYear, monthIdx);
+
     const vendorById = new Map((vendorRows ?? []).map((v: any) => [v.id, v]));
-    const vendorStats = new Map<string, { weekSpend: number; invoiceCount: number; lastOrder: string | null }>();
+    const vendorStats = new Map<string, { totalInvoiceCount: number; lastOrder: string | null }>();
     const dayTotals = DAY_LABELS.map(() => 0);
-    const dayBreakdowns = DAY_LABELS.map(() => new Map<string, { amount: number; color: string }>());
+    const dayBreakdowns = DAY_LABELS.map(() => new Map<string, { vendorId: string | null; name: string; amount: number; color: string }>());
+    const monthBucketTotals = Array.from({ length: bucketCount }, () => 0);
+    const monthBucketBreakdowns = Array.from({ length: bucketCount }, () => new Map<string, { vendorId: string | null; name: string; amount: number; color: string }>());
     const categoryTotals = new Map<string, number>();
+    // Total spend per calendar year, across every invoice regardless of
+    // date — backs the year-stepper/all-time view without a re-fetch.
+    const yearlyTotals = new Map<number, number>();
+    const yearlyBreakdowns = new Map<number, Map<string, { vendorId: string | null; name: string; amount: number; color: string }>>();
     let weekTotal = 0;
     let prevWeekTotal = 0;
+    let monthTotal = 0;
+    let prevMonthTotal = 0;
 
     for (const inv of invoiceRows ?? []) {
       // invoice_date is model-extracted and occasionally missing (or wrong,
@@ -386,45 +434,65 @@ export const useStore = create<AppState>((set, get) => ({
       if (!dateStr) continue;
       const amount = Number(inv.total ?? 0);
       const vendorId = inv.vendor_id as string | null;
+      // Un-keyed rows would otherwise collide under a shared 'unknown' bucket.
+      const breakdownKey = vendorId ?? '__unknown__';
 
       if (vendorId) {
-        const entry = vendorStats.get(vendorId) ?? { weekSpend: 0, invoiceCount: 0, lastOrder: null };
+        const entry = vendorStats.get(vendorId) ?? { totalInvoiceCount: 0, lastOrder: null };
         if (!entry.lastOrder || dateStr > entry.lastOrder) entry.lastOrder = dateStr;
+        entry.totalInvoiceCount += 1;
         vendorStats.set(vendorId, entry);
       }
 
+      const { name: vendorName, color: vendorColor } = vendorDisplay(vendorId, vendorById);
+
       if (dateStr >= weekStartStr && dateStr <= weekEndStr) {
         weekTotal += amount;
-        if (vendorId) {
-          const entry = vendorStats.get(vendorId)!;
-          entry.weekSpend += amount;
-          entry.invoiceCount += 1;
-        }
 
         const dow = dayIndexMonFirst(dateStr);
         dayTotals[dow] += amount;
-        const vendor = vendorId ? vendorById.get(vendorId) : null;
-        const vendorName = vendor?.name ?? 'Unknown vendor';
-        const vendorColor = vendor ? (vendor.color || fallbackVendorColor(vendor.id)) : DEFAULT_VENDOR_COLOR;
         const bucket = dayBreakdowns[dow];
-        const existing = bucket.get(vendorName);
+        const existing = bucket.get(breakdownKey);
         if (existing) existing.amount += amount;
-        else bucket.set(vendorName, { amount, color: vendorColor });
+        else bucket.set(breakdownKey, { vendorId, name: vendorName, amount, color: vendorColor });
 
         for (const li of (inv as any).invoice_line_items ?? []) {
+          if (li.voided_at) continue;
           const cat = (li.category ?? '').toLowerCase() || 'other';
           categoryTotals.set(cat, (categoryTotals.get(cat) ?? 0) + Number(li.extended_price ?? 0));
         }
       } else if (dateStr >= prevWeekStartStr && dateStr < weekStartStr) {
         prevWeekTotal += amount;
       }
+
+      // Month bucketing runs independently of the week check above — a date
+      // can be in the current month without being in the current week.
+      if (dateStr >= monthStartStr && dateStr <= monthEndStr) {
+        monthTotal += amount;
+        const bIdx = monthBucketIndex(dateStr, bucketCount);
+        monthBucketTotals[bIdx] += amount;
+        const bucket = monthBucketBreakdowns[bIdx];
+        const existing = bucket.get(breakdownKey);
+        if (existing) existing.amount += amount;
+        else bucket.set(breakdownKey, { vendorId, name: vendorName, amount, color: vendorColor });
+      } else if (dateStr >= prevMonthStartStr && dateStr <= prevMonthEndStr) {
+        prevMonthTotal += amount;
+      }
+
+      const invYear = Number(dateStr.slice(0, 4));
+      yearlyTotals.set(invYear, (yearlyTotals.get(invYear) ?? 0) + amount);
+      const yearBucket = yearlyBreakdowns.get(invYear) ?? new Map<string, { vendorId: string | null; name: string; amount: number; color: string }>();
+      const yearExisting = yearBucket.get(breakdownKey);
+      if (yearExisting) yearExisting.amount += amount;
+      else yearBucket.set(breakdownKey, { vendorId, name: vendorName, amount, color: vendorColor });
+      yearlyBreakdowns.set(invYear, yearBucket);
     }
 
     const dayData: DayData[] = DAY_LABELS.map((label, i) => ({
       label,
       total: Math.round(dayTotals[i] * 100) / 100,
-      breakdown: Array.from(dayBreakdowns[i].entries()).map(([name, v]) => ({
-        name, amount: Math.round(v.amount * 100) / 100, color: v.color,
+      breakdown: Array.from(dayBreakdowns[i].values()).map((v) => ({
+        vendorId: v.vendorId, name: v.name, amount: Math.round(v.amount * 100) / 100, color: v.color,
       })),
     }));
 
@@ -432,14 +500,38 @@ export const useStore = create<AppState>((set, get) => ({
       ? Math.round(((weekTotal - prevWeekTotal) / prevWeekTotal) * 1000) / 10
       : (weekTotal > 0 ? 100 : 0);
 
+    const monthData: DayData[] = monthBucketTotals.map((total, i) => ({
+      label: monthBucketLabel(i, monthYear, monthIdx),
+      total: Math.round(total * 100) / 100,
+      breakdown: Array.from(monthBucketBreakdowns[i].values()).map((v) => ({
+        vendorId: v.vendorId, name: v.name, amount: Math.round(v.amount * 100) / 100, color: v.color,
+      })),
+    }));
+
+    // Always include the current year, even with no invoices yet, so the
+    // year/all-time view always has at least one bar to show.
+    if (!yearlyTotals.has(monthYear)) yearlyTotals.set(monthYear, 0);
+    const allYearData: DayData[] = Array.from(yearlyTotals.keys())
+      .sort((a, b) => a - b)
+      .map((y) => ({
+        label: String(y),
+        total: Math.round((yearlyTotals.get(y) ?? 0) * 100) / 100,
+        breakdown: Array.from((yearlyBreakdowns.get(y) ?? new Map()).values()).map((v: any) => ({
+          vendorId: v.vendorId, name: v.name, amount: Math.round(v.amount * 100) / 100, color: v.color,
+        })),
+      }));
+
+    const monthPctChange = prevMonthTotal > 0
+      ? Math.round(((monthTotal - prevMonthTotal) / prevMonthTotal) * 1000) / 10
+      : (monthTotal > 0 ? 100 : 0);
+
     const vendors: Vendor[] = (vendorRows ?? []).map((v: any) => {
       const stats = vendorStats.get(v.id);
       return {
         id: v.id,
         name: v.name,
         color: v.color || fallbackVendorColor(v.id),
-        weekSpend: Math.round((stats?.weekSpend ?? 0) * 100) / 100,
-        invoiceCount: stats?.invoiceCount ?? 0,
+        invoiceCount: stats?.totalInvoiceCount ?? 0,
         lastOrder: stats?.lastOrder ? formatDate(stats.lastOrder) : '—',
         contactName: v.contact_name ?? undefined,
         contactPhone: v.contact_phone ?? undefined,
@@ -455,7 +547,36 @@ export const useStore = create<AppState>((set, get) => ({
       }))
       .sort((a, b) => b.amount - a.amount);
 
-    set({ vendors, weekTotal: Math.round(weekTotal * 100) / 100, weekPctChange, dayData, categorySpend });
+    // invoiceRows is already ordered by created_at desc, so the most
+    // recently uploaded invoices — regardless of what week they're dated —
+    // are simply the first N rows.
+    const uploadActivity: UploadActivityEntry[] = (invoiceRows ?? []).slice(0, 8).map((inv: any) => {
+      const dateStr: string | undefined = inv.invoice_date ?? inv.created_at?.slice(0, 10);
+      const { name: vendorName, color: vendorColor } = vendorDisplay(inv.vendor_id ?? null, vendorById);
+      const { label: periodLabel, isBackdated } = dateStr
+        ? periodLabelFor(dateStr, weekStartStr)
+        : { label: 'Undated', isBackdated: false };
+
+      return {
+        id: inv.id,
+        vendorId: inv.vendor_id ?? null,
+        vendorName,
+        vendorColor,
+        amount: Math.round(Number(inv.total ?? 0) * 100) / 100,
+        invoiceDateLabel: dateStr ? formatDate(dateStr) : 'No date',
+        uploadedLabel: relativeUploadLabel(inv.created_at),
+        periodLabel,
+        isBackdated,
+      };
+    });
+
+    set({
+      vendors,
+      weekTotal: Math.round(weekTotal * 100) / 100, weekPctChange, dayData,
+      monthTotal: Math.round(monthTotal * 100) / 100, monthPctChange, monthData,
+      allYearData,
+      categorySpend, uploadActivity,
+    });
   },
 
   fetchPriceAlerts: async (supabase, organizationId) => {
