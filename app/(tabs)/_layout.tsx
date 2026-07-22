@@ -228,7 +228,12 @@ function GlassBackground() {
 // something real to frost.
 function useTabBarStyle() {
   const insets = useSafeAreaInsets();
-  return [styles.tabBar, { bottom: Math.max(insets.bottom, 14) }];
+  // Flush to the very bottom edge. Extend the bar down into the safe area and
+  // pad its contents up by that inset so icons/labels clear the home indicator.
+  return [
+    styles.tabBar,
+    { bottom: 0, height: 70 + insets.bottom, paddingBottom: insets.bottom },
+  ];
 }
 
 export default function TabLayout() {
@@ -345,8 +350,8 @@ const styles = StyleSheet.create({
   // itself — the frosted material is painted by GlassBackground behind it.
   tabBar: {
     position: "absolute",
-    left: 16,
-    right: 16,
+    left: 28,
+    right: 28,
     height: 70,
     borderRadius: 26,
     backgroundColor: "transparent",
