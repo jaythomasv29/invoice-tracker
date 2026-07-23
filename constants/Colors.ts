@@ -43,6 +43,17 @@ export const Colors = {
   darkText: '#FFFFFF',
   darkTextMuted: 'rgba(255,255,255,0.5)',
 
+  // Dashboard chart accents (spend trend + bar/area viz)
+  chartGrid: '#EFEFF4',          // recessive gridlines / baseline
+  chartBarFrom: '#74C48D',       // duotone bar — light top
+  chartBarTo: '#43925A',         // duotone bar — dark bottom (emphasis)
+  chartBarMutedFrom: '#CBE9D5',  // past-period bar — light top
+  chartBarMutedTo: '#A2D3B2',    // past-period bar — dark bottom
+  chartAreaFrom: 'rgba(93,176,117,0.18)',
+  chartAreaTo: 'rgba(93,176,117,0.0)',
+  heroTintTop: '#F2FBF5',        // faint green wash for the hero card
+  heroTintBottom: '#FFFFFF',
+
   // Misc
   shadow: 'rgba(0,0,0,0.08)',
   tabBar: '#FFFFFF',

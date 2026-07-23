@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet,
+  View, Text, TouchableOpacity, StyleSheet, Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -17,8 +17,8 @@ import Animated, {
 import { Colors } from '../../constants/Colors';
 import { useStore } from '../../store/useStore';
 import { useSupabase } from '../../lib/supabase';
-import { createDraftInvoice, uploadInvoiceImages, extractInvoice } from '../../lib/invoicePipeline';
-import { ExtractionLimitError } from '../../lib/entitlements';
+import { createDraftInvoice, uploadInvoiceImages, extractInvoice, deleteInvoice, formatDate } from '../../lib/invoicePipeline';
+import { ExtractionLimitError, DuplicateInvoiceError } from '../../lib/entitlements';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { useExtractionUsage } from '../../hooks/useExtractionUsage';
 import Toast from '../../components/ui/Toast';
@@ -40,6 +40,18 @@ export default function ScanScreen() {
 
   const [cameraReady, setCameraReady] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
+  // Set when the edge function flags a likely duplicate (HTTP 409). Drives the
+  // "possible duplicate" confirmation modal — a warn-and-override, not a block.
+  // Carries the abandoned draft's id + images (needed to delete it or force it
+  // through) alongside the existing invoice's details to show/link.
+  const [duplicateInfo, setDuplicateInfo] = useState<{
+    draftInvoiceId: string;
+    jpegUris: string[];
+    existingInvoiceId: string;
+    vendorName: string | null;
+    invoiceDate: string | null;
+    total: number | null;
+  } | null>(null);
 
   const isOffline = network.isConnected === false || network.isInternetReachable === false;
 
@@ -81,18 +93,22 @@ export default function ScanScreen() {
       return;
     }
     setScanStage('processing');
+    // Hoisted so the catch block can reference the draft invoice / images when
+    // the server flags a duplicate (to delete it or force it through later).
+    let invoiceId: string | undefined;
+    let jpegUris: string[] = [];
     try {
       // Photos from the library can come back as HEIC (Apple's default) or
       // other formats — Claude's vision API only accepts jpeg/png/gif/webp,
       // so every image is re-encoded to a guaranteed-real JPEG regardless of
       // source format before it ever gets uploaded.
-      const jpegUris = await Promise.all(
+      jpegUris = await Promise.all(
         uris.map(async (uri) => {
           const result = await manipulateAsync(uri, [], { compress: 0.85, format: SaveFormat.JPEG });
           return result.uri;
         })
       );
-      const invoiceId = await createDraftInvoice(supabase, organization.id);
+      invoiceId = await createDraftInvoice(supabase, organization.id);
       await uploadInvoiceImages(supabase, organization.id, invoiceId, jpegUris);
       const invoice = await extractInvoice(supabase, invoiceId);
       refreshUsage();
@@ -105,11 +121,108 @@ export default function ScanScreen() {
         router.push('/paywall');
         return;
       }
+      // Server thinks this is a duplicate — surface the confirm modal instead
+      // of a dead-end toast; the user decides whether to view or force it.
+      if (err instanceof DuplicateInvoiceError && invoiceId) {
+        setDuplicateInfo({
+          draftInvoiceId: invoiceId,
+          jpegUris,
+          existingInvoiceId: err.existingInvoiceId,
+          vendorName: err.vendorName,
+          invoiceDate: err.invoiceDate,
+          total: err.total,
+        });
+        return;
+      }
       console.error('[scan] processImages failed:', err);
       showToast(err?.message ?? 'Could not process invoice');
     } finally {
       setScanStage('idle');
     }
+  };
+
+  // "View existing invoice" — drop the abandoned draft, then navigate to the
+  // invoice this one duplicates.
+  const handleViewExisting = async () => {
+    const info = duplicateInfo;
+    setDuplicateInfo(null);
+    if (!info) return;
+    try {
+      await deleteInvoice(supabase, info.draftInvoiceId);
+    } catch {
+      // Best-effort cleanup — don't block navigation on a failed delete.
+    }
+    router.push(`/invoice/${info.existingInvoiceId}`);
+  };
+
+  // "Continue anyway" — force this scan through the full extraction, skipping
+  // both dedup layers, then proceed exactly like the normal success path.
+  const handleContinueAnyway = async () => {
+    const info = duplicateInfo;
+    setDuplicateInfo(null);
+    if (!info) return;
+    setScanStage('processing');
+    try {
+      const invoice = await extractInvoice(supabase, info.draftInvoiceId, { skipDuplicateCheck: true });
+      refreshUsage();
+      setCurrentInvoice({ ...invoice, imageUris: info.jpegUris });
+      router.replace('/scan/review');
+    } catch (err: any) {
+      if (err instanceof ExtractionLimitError) {
+        router.push('/paywall');
+        return;
+      }
+      console.error('[scan] continue anyway failed:', err);
+      showToast(err?.message ?? 'Could not process invoice');
+    } finally {
+      setScanStage('idle');
+    }
+  };
+
+  // Cancel/close — discard the abandoned draft and return to the camera.
+  const handleDismissDuplicate = async () => {
+    const info = duplicateInfo;
+    setDuplicateInfo(null);
+    if (!info) return;
+    try {
+      await deleteInvoice(supabase, info.draftInvoiceId);
+    } catch {
+      // Best-effort cleanup.
+    }
+  };
+
+  const renderDuplicateModal = () => {
+    if (!duplicateInfo) return null;
+    const { vendorName, invoiceDate, total } = duplicateInfo;
+    const dateLabel = formatDate(invoiceDate);
+    const totalLabel = total != null ? `$${total.toFixed(2)}` : null;
+    const detail = [dateLabel, totalLabel].filter(Boolean).join(' · ');
+    return (
+      <Modal visible transparent animationType="fade" onRequestClose={handleDismissDuplicate}>
+        <View style={styles.dupBackdrop}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleDismissDuplicate} />
+          <View style={styles.dupCard}>
+            <Text style={styles.dupTitle}>Possible duplicate</Text>
+            <Text style={styles.dupSubtitle}>
+              This looks like an invoice you already have:
+            </Text>
+            <View style={styles.dupExisting}>
+              <Text style={styles.dupVendor}>{vendorName ?? 'Unknown vendor'}</Text>
+              {!!detail && <Text style={styles.dupDetail}>{detail}</Text>}
+            </View>
+            <TouchableOpacity style={styles.dupPrimaryBtn} onPress={handleViewExisting} activeOpacity={0.85}>
+              <Text style={styles.dupPrimaryText}>View existing invoice</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.dupSecondaryBtn} onPress={handleContinueAnyway} activeOpacity={0.85}>
+              <Text style={styles.dupSecondaryText}>Continue anyway</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.dupCancelBtn} onPress={handleDismissDuplicate} activeOpacity={0.7}>
+              <Text style={styles.dupCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
   };
 
   const handleCapture = async () => {
@@ -164,6 +277,7 @@ export default function ScanScreen() {
             <Text style={styles.importBtnText}>Import from library</Text>
           </TouchableOpacity>
         </View>
+        {renderDuplicateModal()}
         <Toast />
       </View>
     );
@@ -244,6 +358,7 @@ export default function ScanScreen() {
         </TouchableOpacity>
       </View>
 
+      {renderDuplicateModal()}
       <Toast />
     </View>
   );
@@ -356,4 +471,42 @@ const styles = StyleSheet.create({
     borderRadius: 14, height: 50, paddingHorizontal: 28, alignItems: 'center', justifyContent: 'center',
   },
   importBtnText: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
+
+  // Possible-duplicate confirmation modal — mirrors OnboardingExplainerSheet's
+  // backdrop + centered card convention (Colors + Manrope tokens only).
+  dupBackdrop: {
+    flex: 1, backgroundColor: 'rgba(10,10,16,0.5)',
+    alignItems: 'center', justifyContent: 'center', padding: 24,
+  },
+  dupCard: {
+    width: '100%', maxWidth: 380, backgroundColor: Colors.background,
+    borderRadius: 24, paddingHorizontal: 24, paddingTop: 26, paddingBottom: 20,
+  },
+  dupTitle: {
+    fontSize: 21, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary,
+    letterSpacing: -0.4, textAlign: 'center', marginBottom: 8,
+  },
+  dupSubtitle: {
+    fontSize: 14.5, fontFamily: 'Manrope_500Medium', color: Colors.textSecondary,
+    lineHeight: 21, textAlign: 'center', marginBottom: 16,
+  },
+  dupExisting: {
+    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 20,
+    alignItems: 'center',
+  },
+  dupVendor: { fontSize: 16, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary, textAlign: 'center' },
+  dupDetail: { fontSize: 13.5, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary, marginTop: 4 },
+  dupPrimaryBtn: {
+    width: '100%', backgroundColor: Colors.primary, borderRadius: 14, height: 52,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 10,
+  },
+  dupPrimaryText: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: '#fff' },
+  dupSecondaryBtn: {
+    width: '100%', backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center', marginBottom: 6,
+  },
+  dupSecondaryText: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
+  dupCancelBtn: { width: '100%', height: 44, alignItems: 'center', justifyContent: 'center' },
+  dupCancelText: { fontSize: 14, fontFamily: 'Manrope_600SemiBold', color: Colors.textTertiary },
 });

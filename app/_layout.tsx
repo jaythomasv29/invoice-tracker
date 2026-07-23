@@ -5,10 +5,11 @@ import { useFonts, Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold, M
 import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ClerkProvider, ClerkLoaded } from '@clerk/clerk-expo';
+import { ClerkProvider, useAuth } from '@clerk/clerk-expo';
 import * as Sentry from '@sentry/react-native';
 import { clerkTokenCache } from '../lib/clerkTokenCache';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import LoadingScreen from '../components/LoadingScreen';
 
 // Sentry.init is a no-op if dsn is undefined/empty, which is expected until
 // a real project DSN is set in .env as EXPO_PUBLIC_SENTRY_DSN (see
@@ -40,32 +41,45 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
+    // Hide the native splash as soon as fonts are ready. Our own <LoadingScreen />
+    // (same background color as the native splash) takes over immediately and
+    // stays up while Clerk hydrates the session, so there's never a blank frame.
     if (fontsLoaded) SplashScreen.hideAsync();
   }, [fontsLoaded]);
-
-  if (!fontsLoaded) return null;
 
   return (
     <ErrorBoundary>
       <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={clerkTokenCache}>
-        <ClerkLoaded>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <SafeAreaProvider>
-              <StatusBar style="dark" />
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(auth)" />
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="onboarding/organization" />
-                <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
-                <Stack.Screen name="scan/index" options={{ presentation: 'fullScreenModal' }} />
-                <Stack.Screen name="scan/review" />
-                <Stack.Screen name="vendor/[id]" options={{ animation: 'fade_from_bottom' }} />
-                <Stack.Screen name="invoice/[id]" options={{ animation: 'fade_from_bottom' }} />
-              </Stack>
-            </SafeAreaProvider>
-          </GestureHandlerRootView>
-        </ClerkLoaded>
+        {fontsLoaded ? <AppContent /> : <LoadingScreen />}
       </ClerkProvider>
     </ErrorBoundary>
+  );
+}
+
+// Rendered inside ClerkProvider so it can read Clerk's hydration state via
+// useAuth().isLoaded (the idiomatic replacement for <ClerkLoaded>, without
+// leaving the provider's context tree). Until Clerk finishes hydrating the
+// session we keep the branded <LoadingScreen /> up instead of a blank frame.
+function AppContent() {
+  const { isLoaded } = useAuth();
+
+  if (!isLoaded) return <LoadingScreen />;
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="onboarding/organization" />
+          <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="scan/index" options={{ presentation: 'fullScreenModal' }} />
+          <Stack.Screen name="scan/review" />
+          <Stack.Screen name="vendor/[id]" options={{ animation: 'fade_from_bottom' }} />
+          <Stack.Screen name="invoice/[id]" options={{ animation: 'fade_from_bottom' }} />
+        </Stack>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

@@ -1,4 +1,9 @@
+import { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import Animated, {
+  useSharedValue, useAnimatedStyle, withTiming, withDelay, Easing,
+  type SharedValue,
+} from 'react-native-reanimated';
 import { Colors } from '../../constants/Colors';
 import type { TopItem } from '../../store/useStore';
 
@@ -12,7 +17,50 @@ interface TopItemsCardProps {
   topItems: TopItem[];
 }
 
+// One Pareto row. The share bar fills in from the left on mount / whenever the
+// data changes, via a shared reanimated `fill` value (the house animation
+// pattern) — the "vital few" leading items are the vivid brand green, the long
+// tail a muted green, so the 80/20 split is legible from color alone.
+function ItemRow({
+  item, index, targetPct, isVitalFew, fill,
+}: {
+  item: TopItem; index: number; targetPct: number; isVitalFew: boolean; fill: SharedValue<number>;
+}) {
+  const barStyle = useAnimatedStyle(() => ({
+    width: `${fill.value * targetPct}%`,
+  }));
+  return (
+    <View style={styles.row}>
+      <Text style={[styles.rank, isVitalFew && styles.rankVital]}>{index + 1}</Text>
+      <View style={styles.rowMain}>
+        <View style={styles.rowTop}>
+          <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
+          <Text style={styles.amount}>{formatAmount(item.amount)}</Text>
+        </View>
+        <View style={styles.barTrack}>
+          <Animated.View
+            style={[
+              styles.barFill,
+              { backgroundColor: isVitalFew ? Colors.primary : Colors.primaryMuted },
+              barStyle,
+            ]}
+          />
+        </View>
+      </View>
+      <Text style={styles.pct}>{item.pct}%</Text>
+    </View>
+  );
+}
+
 export default function TopItemsCard({ topItems }: TopItemsCardProps) {
+  const fill = useSharedValue(0);
+
+  const dataKey = topItems.map((t) => t.name).join('|');
+  useEffect(() => {
+    fill.value = 0;
+    fill.value = withDelay(120, withTiming(1, { duration: 760, easing: Easing.out(Easing.cubic) }));
+  }, [dataKey, fill]);
+
   if (topItems.length === 0) return null;
 
   // The "vital few": leading items whose cumulative share reaches ~80%.
@@ -39,34 +87,16 @@ export default function TopItemsCard({ topItems }: TopItemsCardProps) {
       </Text>
 
       <View style={styles.list}>
-        {rows.map((item, i) => {
-          const isVitalFew = i < vitalFewCount;
-          const barWidth = Math.min(100, Math.max(2, (item.pct / topPct) * 100));
-
-          return (
-            <View key={item.name} style={styles.row}>
-              <Text style={styles.rank}>{i + 1}</Text>
-              <View style={styles.rowMain}>
-                <View style={styles.rowTop}>
-                  <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
-                  <Text style={styles.amount}>{formatAmount(item.amount)}</Text>
-                </View>
-                <View style={styles.barTrack}>
-                  <View
-                    style={[
-                      styles.barFill,
-                      {
-                        width: `${barWidth}%`,
-                        backgroundColor: isVitalFew ? Colors.primary : Colors.border,
-                      },
-                    ]}
-                  />
-                </View>
-              </View>
-              <Text style={styles.pct}>{item.pct}%</Text>
-            </View>
-          );
-        })}
+        {rows.map((item, i) => (
+          <ItemRow
+            key={item.name}
+            item={item}
+            index={i}
+            targetPct={Math.min(100, Math.max(2, (item.pct / topPct) * 100))}
+            isVitalFew={i < vitalFewCount}
+            fill={fill}
+          />
+        ))}
       </View>
     </View>
   );
@@ -82,20 +112,21 @@ const styles = StyleSheet.create({
   title: { fontSize: 17, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, letterSpacing: -0.2 },
   insight: { fontSize: 12, fontFamily: 'Manrope_500Medium', color: Colors.textSecondary, marginTop: 2, marginBottom: 14 },
 
-  list: { gap: 12 },
+  list: { gap: 13 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   rank: {
     width: 16, fontSize: 11, fontFamily: 'Manrope_700Bold', color: Colors.textTertiary,
     textAlign: 'center',
   },
+  rankVital: { color: Colors.primaryDark },
   rowMain: { flex: 1, minWidth: 0 },
-  rowTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5 },
+  rowTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   itemName: { flex: 1, minWidth: 0, fontSize: 13.5, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
   amount: { fontSize: 13, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
   barTrack: {
-    height: 5, borderRadius: 3, backgroundColor: Colors.borderLight, overflow: 'hidden',
+    height: 7, borderRadius: 4, backgroundColor: Colors.borderLight, overflow: 'hidden',
   },
-  barFill: { height: '100%', borderRadius: 3 },
+  barFill: { height: '100%', borderRadius: 4 },
   pct: {
     width: 34, fontSize: 10.5, fontFamily: 'Manrope_600SemiBold', color: Colors.textTertiary,
     textAlign: 'right',

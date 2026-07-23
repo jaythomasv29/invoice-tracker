@@ -31,6 +31,8 @@ export default function VendorSpendListCard({
       .sort((a, b) => b.amount - a.amount);
   }, [vendors, periodBarData]);
 
+  const maxAmount = Math.max(1, ...rows.map((r) => r.amount));
+
   return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
@@ -69,6 +71,19 @@ export default function VendorSpendListCard({
                 <Text style={styles.invoiceCount}>
                   {v.invoiceCount} invoice{v.invoiceCount === 1 ? '' : 's'} total
                 </Text>
+                {/* proportional spend bar — share of the top vendor's spend
+                    for the selected period, colored by the vendor */}
+                <View style={styles.spendTrack}>
+                  <View
+                    style={[
+                      styles.spendFill,
+                      {
+                        width: `${amount > 0 ? Math.max(4, (amount / maxAmount) * 100) : 0}%`,
+                        backgroundColor: v.color,
+                      },
+                    ]}
+                  />
+                </View>
               </View>
               <View style={styles.pill}>
                 <Text style={styles.pillAmount}>${amount.toLocaleString()}</Text>
@@ -106,6 +121,11 @@ const styles = StyleSheet.create({
   dot: { width: 10, height: 10, borderRadius: 5 },
   vendorName: { fontSize: 14.5, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
   invoiceCount: { fontSize: 11.5, fontFamily: 'Manrope_500Medium', color: Colors.textTertiary, marginTop: 1 },
+  spendTrack: {
+    height: 5, borderRadius: 3, backgroundColor: Colors.borderLight,
+    overflow: 'hidden', marginTop: 7, marginRight: 8,
+  },
+  spendFill: { height: '100%', borderRadius: 3 },
 
   pill: {
     backgroundColor: Colors.background, borderRadius: 13,

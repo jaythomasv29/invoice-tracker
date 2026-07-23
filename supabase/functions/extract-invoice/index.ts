@@ -25,6 +25,10 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const CLERK_SECRET_KEY = Deno.env.get('CLERK_SECRET_KEY');
 
 const MODEL_SONNET = 'claude-sonnet-5';
+// Cheap vision model used only for the duplicate-fingerprint pre-check (a few
+// header fields, small max_tokens) — never for the real line-item extraction.
+// Keep the model-id convention in sync with MODEL_SONNET above.
+const MODEL_HAIKU = 'claude-haiku-4-5-20251001';
 
 // Free orgs may extract this many invoices per calendar month. Keep in sync
 // with FREE_MONTHLY_EXTRACTION_CAP in lib/entitlements.ts (RN bundle).
@@ -171,10 +175,15 @@ interface ExtractionResult {
 // `path` is a storage object path (e.g. "org_xxx/invoice-id/0.jpg") in the
 // private invoice-images bucket, not a directly-fetchable URL — sign it
 // first through the caller's own RLS-scoped client, then fetch that.
+//
+// Also returns a SHA-256 hash of the raw image bytes (hex) for the exact-image
+// dedup layer. Deno's runtime ships Web Crypto (`crypto.subtle`), so this costs
+// no dependency and no client-side work — and it must stay server-side so the
+// client can't spoof or skip it.
 async function storagePathToBase64(
   supabase: any,
   path: string
-): Promise<{ data: string; mediaType: string }> {
+): Promise<{ data: string; mediaType: string; hash: string }> {
   const { data: signed, error } = await supabase.storage
     .from('invoice-images')
     .createSignedUrl(path, 60);
@@ -185,9 +194,15 @@ async function storagePathToBase64(
   const mediaType = res.headers.get('content-type') ?? 'image/jpeg';
   const buf = await res.arrayBuffer();
   const bytes = new Uint8Array(buf);
+
+  const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+  const hash = Array.from(new Uint8Array(hashBuf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+
   let binary = '';
   for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return { data: btoa(binary), mediaType };
+  return { data: btoa(binary), mediaType, hash };
 }
 
 async function extractWithModel(
@@ -230,6 +245,108 @@ async function extractWithModel(
   const toolUse = json.content?.find((b: any) => b.type === 'tool_use');
   if (!toolUse) throw new Error('Model did not return a structured extraction.');
   return toolUse.input as ExtractionResult;
+}
+
+// --- Duplicate detection ---------------------------------------------------
+//
+// Two layers run before the (expensive) Sonnet extraction, both server-side:
+//
+//   1. Exact image-hash overlap (free) catches a literal re-upload of the same
+//      file — see storagePathToBase64's SHA-256 hash.
+//   2. A cheap Haiku fingerprint catches the *same paper invoice re-photographed*
+//      — a new photo has different bytes, so layer 1 misses it, but the printed
+//      vendor/number/date/total are the same. We spend one small Haiku call
+//      (four header fields, tiny max_tokens, no line items) to read just those
+//      and compare against the org's existing invoices. This second layer is a
+//      deliberate, already-decided tradeoff: a duplicate costs one cheap Haiku
+//      call instead of a full Sonnet extraction; a non-duplicate costs one cheap
+//      Haiku call on top of the Sonnet call.
+
+const FINGERPRINT_TOOL = {
+  name: 'record_invoice_fingerprint',
+  description: 'Record only the identifying header fields of a restaurant distributor invoice, for duplicate detection.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      vendor_name: { type: 'string' },
+      invoice_number: { type: 'string' },
+      invoice_date: { type: 'string', description: 'ISO 8601 date, e.g. 2026-07-14' },
+      total: { type: 'number' },
+    },
+    required: ['vendor_name'],
+  },
+};
+
+const FINGERPRINT_PROMPT = `Read ONLY the identifying header of this restaurant food-distributor invoice photo: the vendor/company name, the invoice number, the invoice date, and the grand total. Do not read line items. Report exactly what is printed; leave a field out if it isn't clearly visible. Call record_invoice_fingerprint with the result.`;
+
+interface FingerprintResult {
+  vendor_name: string;
+  invoice_number?: string;
+  invoice_date?: string;
+  total?: number;
+}
+
+async function fingerprintWithModel(
+  model: string,
+  images: { data: string; mediaType: string }[]
+): Promise<FingerprintResult> {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 256,
+      tools: [FINGERPRINT_TOOL],
+      tool_choice: { type: 'tool', name: 'record_invoice_fingerprint' },
+      messages: [
+        {
+          role: 'user',
+          content: [
+            ...images.map((img) => ({
+              type: 'image',
+              source: { type: 'base64', media_type: img.mediaType, data: img.data },
+            })),
+            { type: 'text', text: FINGERPRINT_PROMPT },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Anthropic API error (${res.status}): ${body}`);
+  }
+
+  const json = await res.json();
+  const toolUse = json.content?.find((b: any) => b.type === 'tool_use');
+  if (!toolUse) throw new Error('Model did not return a structured fingerprint.');
+  return toolUse.input as FingerprintResult;
+}
+
+const DUPLICATE_INVOICE_CODE = 'DUPLICATE_INVOICE_DETECTED';
+
+// Builds the shared 409 body the client turns into the "possible duplicate"
+// confirmation UI. Same shape for either dedup layer — the client doesn't need
+// to know which one caught it. `existing` is a row selected with
+// `id, invoice_date, total, vendors(name)`.
+function duplicateResponse(existing: any): Response {
+  const vendorName = existing.vendors?.name ?? null;
+  return new Response(
+    JSON.stringify({
+      error: 'This looks like a duplicate of an invoice you already have.',
+      code: DUPLICATE_INVOICE_CODE,
+      existingInvoiceId: existing.id,
+      vendorName,
+      invoiceDate: existing.invoice_date ?? null,
+      total: existing.total ?? null,
+    }),
+    { status: 409, headers: { ...corsHeaders, 'content-type': 'application/json' } }
+  );
 }
 
 const PRICE_ALERT_THRESHOLD_PCT = 3;
@@ -299,7 +416,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { invoiceId } = await req.json();
+    const { invoiceId, skipDuplicateCheck } = await req.json();
     if (!invoiceId) throw new Error('invoiceId is required');
 
     // Forward the caller's Clerk-issued JWT so every query below runs
@@ -342,6 +459,56 @@ Deno.serve(async (req) => {
     const images = await Promise.all(
       invoice.image_urls.map((path: string) => storagePathToBase64(supabase, path))
     );
+
+    const imageHashes = images.map((img) => img.hash);
+
+    // Duplicate detection — runs before any Sonnet spend, unless the client
+    // explicitly forced this scan through ("continue anyway"). "Warn, let the
+    // user override": on a likely duplicate we don't extract and don't fail
+    // silently — we return a structured 409 the client turns into a confirm UI.
+    if (!skipDuplicateCheck) {
+      // Layer 1 — exact image bytes (free). Postgres array-overlap (`&&`)
+      // against this org's already-extracted invoices.
+      const { data: hashMatches } = await supabase
+        .from('invoices')
+        .select('id, invoice_date, total, vendors(name)')
+        .eq('organization_id', invoice.organization_id)
+        .in('status', ['scanned', 'saved'])
+        .overlaps('image_hashes', imageHashes)
+        .limit(1);
+      if (hashMatches && hashMatches.length > 0) {
+        return duplicateResponse(hashMatches[0]);
+      }
+
+      // Layer 2 — cheap Haiku fingerprint. Catches the same paper invoice
+      // re-photographed (different bytes, so layer 1 missed it) by reading only
+      // vendor/number/date/total and matching against existing invoices.
+      const fp = await fingerprintWithModel(MODEL_HAIKU, images);
+      const normalizedFpVendor = normalizeVendorName(fp.vendor_name ?? '');
+      if (normalizedFpVendor) {
+        const { data: candidates } = await supabase
+          .from('invoices')
+          .select('id, invoice_number, invoice_date, total, vendors(name)')
+          .eq('organization_id', invoice.organization_id)
+          .in('status', ['scanned', 'saved']);
+
+        const fpMatch = (candidates ?? []).find((c: any) => {
+          if (normalizeVendorName(c.vendors?.name ?? '') !== normalizedFpVendor) return false;
+          // Vendor matches; confirm with either the invoice number or the
+          // date+total pair (a photo re-take won't change these printed values).
+          const numberMatch =
+            !!fp.invoice_number && !!c.invoice_number && fp.invoice_number === c.invoice_number;
+          const dateTotalMatch =
+            !!fp.invoice_date &&
+            fp.invoice_date === c.invoice_date &&
+            fp.total != null &&
+            c.total != null &&
+            Math.abs(Number(fp.total) - Number(c.total)) < 0.01;
+          return numberMatch || dateTotalMatch;
+        });
+        if (fpMatch) return duplicateResponse(fpMatch);
+      }
+    }
 
     const result = await extractWithModel(MODEL_SONNET, images);
 
@@ -401,6 +568,9 @@ Deno.serve(async (req) => {
         raw_ai_response: result,
         status: 'scanned',
         extraction_model: 'sonnet_5',
+        // Persist the image hashes so future scans can dedup (layer 1) against
+        // this invoice for free.
+        image_hashes: imageHashes,
       })
       .eq('id', invoiceId)
       .select('*, vendors(name)')

@@ -1,6 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Invoice, LineItem, LineItemType, VerificationStatus } from '../store/useStore';
-import { ExtractionLimitError, EXTRACTION_LIMIT_CODE } from './entitlements';
+import {
+  ExtractionLimitError,
+  EXTRACTION_LIMIT_CODE,
+  DuplicateInvoiceError,
+  DUPLICATE_INVOICE_CODE,
+} from './entitlements';
 
 const CATEGORY_COLORS: Record<string, string> = {
   protein: '#E07A30',
@@ -172,16 +177,31 @@ export async function uploadInvoiceImages(
   return paths;
 }
 
-export async function extractInvoice(supabase: SupabaseClient, invoiceId: string): Promise<Invoice> {
+export async function extractInvoice(
+  supabase: SupabaseClient,
+  invoiceId: string,
+  opts?: { skipDuplicateCheck?: boolean }
+): Promise<Invoice> {
   const { data, error } = await supabase.functions.invoke('extract-invoice', {
-    body: { invoiceId },
+    body: { invoiceId, skipDuplicateCheck: opts?.skipDuplicateCheck },
   });
   if (error) {
     // FunctionsHttpError's own .message is just "non-2xx status code" — the
     // real error text this edge function actually threw is in the response
     // body carried on error.context.
     const context = (error as { context?: Response }).context;
-    let body: { error?: string; code?: string; used?: number; cap?: number } | undefined;
+    let body:
+      | {
+          error?: string;
+          code?: string;
+          used?: number;
+          cap?: number;
+          existingInvoiceId?: string;
+          vendorName?: string | null;
+          invoiceDate?: string | null;
+          total?: number | null;
+        }
+      | undefined;
     try {
       const raw = await context?.text();
       body = raw ? JSON.parse(raw) : undefined;
@@ -192,6 +212,17 @@ export async function extractInvoice(supabase: SupabaseClient, invoiceId: string
     // Free-tier cap hit: throw a typed error so the caller opens the paywall.
     if (body?.code === EXTRACTION_LIMIT_CODE) {
       throw new ExtractionLimitError(body.error, body.used, body.cap);
+    }
+    // Looks like a duplicate: throw a typed error so the caller can warn the
+    // user and offer "view existing" / "continue anyway" instead of failing.
+    if (body?.code === DUPLICATE_INVOICE_CODE && body.existingInvoiceId) {
+      throw new DuplicateInvoiceError(
+        body.error ?? 'This looks like a duplicate.',
+        body.existingInvoiceId,
+        body.vendorName ?? null,
+        body.invoiceDate ?? null,
+        body.total ?? null
+      );
     }
     throw new Error(body?.error ?? error.message ?? 'Extraction failed');
   }
