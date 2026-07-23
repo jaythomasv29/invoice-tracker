@@ -13,8 +13,21 @@ import Toast from '../../components/ui/Toast';
 import Spinner from '../../components/ui/Spinner';
 import InvoiceRow from '../../components/ui/InvoiceRow';
 import SpendCard from '../../components/dashboard/SpendCard';
+import InfoButton from '../../components/ui/InfoButton';
+import {
+  OnboardingExplainer, OnboardingExplainerSheet, type ExplainerConfig,
+} from '../../components/ui/OnboardingExplainerSheet';
+import { InvoiceParsePreview } from '../../components/onboarding/PreviewCards';
 
 type Tab = 'vendors' | 'invoices';
+
+const INVOICE_EXPLAINER: ExplainerConfig = {
+  eyebrow: 'SCAN & CAPTURE',
+  title: 'Every invoice,\nturned into data',
+  subtitle: 'Scan an invoice and Sift pulls out the vendor, line items, and prices for you — so every delivery is searchable and your price history builds itself.',
+  Illustration: InvoiceParsePreview,
+  ctaLabel: 'Scan an invoice',
+};
 
 export default function VendorsScreen() {
   const router = useRouter();
@@ -31,6 +44,12 @@ export default function VendorsScreen() {
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
+
+  const goToScan = () => {
+    Haptics.selectionAsync();
+    router.push('/scan');
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -78,12 +97,17 @@ export default function VendorsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>{tab === 'vendors' ? 'Vendors' : 'All Invoices'}</Text>
-        <Text style={styles.subtitle}>
-          {tab === 'vendors'
-            ? `${activeCount} active ${shortLabel}`
-            : `${allInvoices.length} invoice${allInvoices.length === 1 ? '' : 's'} captured`}
-        </Text>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={styles.title}>{tab === 'vendors' ? 'Vendors' : 'All Invoices'}</Text>
+          <Text style={styles.subtitle}>
+            {tab === 'vendors'
+              ? `${activeCount} active ${shortLabel}`
+              : `${allInvoices.length} invoice${allInvoices.length === 1 ? '' : 's'} captured`}
+          </Text>
+        </View>
+        {tab === 'invoices' && allInvoices.length > 0 && (
+          <InfoButton onPress={() => setInfoOpen(true)} />
+        )}
       </View>
 
       <View style={styles.segmentRow}>
@@ -134,42 +158,53 @@ export default function VendorsScreen() {
         </ScrollView>
       ) : (
         <View style={{ flex: 1 }}>
-          <View style={styles.searchWrap}>
-            <TextInput
-              style={styles.searchInput}
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search by vendor or invoice #"
-              placeholderTextColor={Colors.textTertiary}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
+          {!invoicesLoading && allInvoices.length === 0 ? (
+            <OnboardingExplainer config={INVOICE_EXPLAINER} onCta={goToScan} />
+          ) : (
+            <>
+              <View style={styles.searchWrap}>
+                <TextInput
+                  style={styles.searchInput}
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholder="Search by vendor or invoice #"
+                  placeholderTextColor={Colors.textTertiary}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
 
-          <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-            {invoicesLoading ? (
-              <View style={styles.empty}><Spinner /></View>
-            ) : (
-              <>
-                {filteredInvoices.map((inv) => (
-                  <InvoiceRow key={inv.id} invoice={inv} showVendorName onPress={() => {
-                    Haptics.selectionAsync();
-                    router.push(`/invoice/${inv.id}`);
-                  }} />
-                ))}
-                {filteredInvoices.length === 0 && (
-                  <View style={styles.empty}>
-                    <Text style={styles.emptyTitle}>{query ? 'No matches' : 'No invoices yet'}</Text>
-                    <Text style={styles.emptySub}>
-                      {query ? 'Try a different vendor name or invoice number.' : 'Scanned invoices will show up here.'}
-                    </Text>
-                  </View>
+              <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+                {invoicesLoading ? (
+                  <View style={styles.empty}><Spinner /></View>
+                ) : (
+                  <>
+                    {filteredInvoices.map((inv) => (
+                      <InvoiceRow key={inv.id} invoice={inv} showVendorName onPress={() => {
+                        Haptics.selectionAsync();
+                        router.push(`/invoice/${inv.id}`);
+                      }} />
+                    ))}
+                    {filteredInvoices.length === 0 && (
+                      <View style={styles.empty}>
+                        <Text style={styles.emptyTitle}>No matches</Text>
+                        <Text style={styles.emptySub}>Try a different vendor name or invoice number.</Text>
+                      </View>
+                    )}
+                  </>
                 )}
-              </>
-            )}
-          </ScrollView>
+              </ScrollView>
+            </>
+          )}
         </View>
       )}
+
+      <OnboardingExplainerSheet
+        visible={infoOpen}
+        config={INVOICE_EXPLAINER}
+        onClose={() => setInfoOpen(false)}
+        onCta={goToScan}
+      />
 
       <Toast />
     </SafeAreaView>
@@ -226,7 +261,10 @@ function VendorCard({ vendor: v, periodAmount, periodLabel }: { vendor: Vendor; 
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
-  header: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 12 },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 12,
+  },
   title: { fontSize: 28, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, letterSpacing: -0.5 },
   subtitle: { fontSize: 13, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary, marginTop: 2 },
 

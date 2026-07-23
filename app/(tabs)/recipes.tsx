@@ -10,6 +10,19 @@ import { fetchRecipes, RecipeListItem } from '../../lib/recipeCosting';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import Spinner from '../../components/ui/Spinner';
 import ProLockCard from '../../components/ui/ProLockCard';
+import InfoButton from '../../components/ui/InfoButton';
+import {
+  OnboardingExplainer, OnboardingExplainerSheet, type ExplainerConfig,
+} from '../../components/ui/OnboardingExplainerSheet';
+import { RecipeCostPreview } from '../../components/onboarding/PreviewCards';
+
+const RECIPE_EXPLAINER: ExplainerConfig = {
+  eyebrow: 'RECIPE COSTING',
+  title: 'Know what every\ndish really costs',
+  subtitle: 'Name a dish or snap a photo and AI drafts its ingredients. Confirm the quantities and Sift prices the plate from your real invoice history — updated as vendor prices move.',
+  Illustration: RecipeCostPreview,
+  ctaLabel: 'Start a dish',
+};
 
 function confidenceMeta(confidence: number): { label: string; color: string } {
   if (confidence >= 0.8) return { label: 'High', color: Colors.primary };
@@ -30,6 +43,7 @@ export default function RecipesTabScreen() {
   const { isPro } = useEntitlement();
   const [recipes, setRecipes] = useState<RecipeListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [infoOpen, setInfoOpen] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -68,6 +82,7 @@ export default function RecipesTabScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>Recipe costing</Text>
+        {recipes.length > 0 && <InfoButton onPress={() => setInfoOpen(true)} />}
       </View>
 
       {loading ? (
@@ -75,15 +90,7 @@ export default function RecipesTabScreen() {
           <Spinner />
         </View>
       ) : recipes.length === 0 ? (
-        <View style={styles.centerFill}>
-          <Text style={styles.emptyTitle}>Cost out your first dish</Text>
-          <Text style={styles.emptySub}>
-            Snap a photo of a recipe or plated dish and we&apos;ll estimate its ingredient cost from your invoice history.
-          </Text>
-          <TouchableOpacity style={styles.cta} onPress={goToNew} activeOpacity={0.85}>
-            <Text style={styles.ctaText}>Start a dish</Text>
-          </TouchableOpacity>
-        </View>
+        <OnboardingExplainer config={RECIPE_EXPLAINER} onCta={goToNew} />
       ) : (
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <TouchableOpacity style={styles.cta} onPress={goToNew} activeOpacity={0.85}>
@@ -120,21 +127,26 @@ export default function RecipesTabScreen() {
           })}
         </ScrollView>
       )}
+
+      <OnboardingExplainerSheet
+        visible={infoOpen}
+        config={RECIPE_EXPLAINER}
+        onClose={() => setInfoOpen(false)}
+        onCta={goToNew}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
-  header: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 14 },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 14,
+  },
   title: { fontSize: 28, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, letterSpacing: -0.5 },
 
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 10, paddingBottom: 90 },
-  emptyTitle: { fontSize: 18, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, textAlign: 'center' },
-  emptySub: {
-    fontSize: 14, fontFamily: 'Manrope_500Medium', color: Colors.textSecondary,
-    textAlign: 'center', lineHeight: 20, marginBottom: 8,
-  },
 
   scroll: { padding: 16, gap: 10, paddingBottom: 120 },
 
