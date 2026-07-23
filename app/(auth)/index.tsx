@@ -81,7 +81,7 @@ export default function WelcomeScreen() {
       <View style={styles.topRow}>
         <View style={styles.brandRow}>
           <View style={styles.brandDot} />
-          <Text style={styles.brandText}>Invoice Intelligence</Text>
+          <Text style={styles.brandText}>Sift</Text>
         </View>
         {activeIndex < LAST_INDEX && (
           <TouchableOpacity onPress={goToSignIn} hitSlop={8} activeOpacity={0.7}>

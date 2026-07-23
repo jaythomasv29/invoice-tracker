@@ -20,8 +20,48 @@ import { corsHeaders } from '../_shared/cors.ts';
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
+// Server-side secret (never EXPO_PUBLIC_) used to read the org's plan flag off
+// Clerk. Set with: npx supabase secrets set CLERK_SECRET_KEY=sk_...
+const CLERK_SECRET_KEY = Deno.env.get('CLERK_SECRET_KEY');
 
 const MODEL_SONNET = 'claude-sonnet-5';
+
+// Free orgs may extract this many invoices per calendar month. Keep in sync
+// with FREE_MONTHLY_EXTRACTION_CAP in lib/entitlements.ts (RN bundle).
+const FREE_MONTHLY_EXTRACTION_CAP = 10;
+
+// Reads the org's plan from Clerk publicMetadata. Authoritative (can't be
+// spoofed by the client) and always fresh. Fails safe to 'free' if the secret
+// isn't configured or the lookup fails — extraction still works up to the free
+// cap, it just won't recognize Pro until CLERK_SECRET_KEY is set.
+async function getOrgPlan(orgId: string): Promise<'free' | 'pro'> {
+  if (!CLERK_SECRET_KEY) return 'free';
+  try {
+    const res = await fetch(`https://api.clerk.com/v1/organizations/${orgId}`, {
+      headers: { Authorization: `Bearer ${CLERK_SECRET_KEY}` },
+    });
+    if (!res.ok) return 'free';
+    const org = await res.json();
+    return org?.public_metadata?.plan === 'pro' ? 'pro' : 'free';
+  } catch {
+    return 'free';
+  }
+}
+
+// Count of this calendar month's extracted invoices for an org (status
+// scanned/saved) — the draft being processed now is still 'pending', so it
+// isn't counted until it succeeds.
+async function monthlyExtractionCount(supabase: any, orgId: string): Promise<number> {
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  const { count } = await supabase
+    .from('invoices')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', orgId)
+    .in('status', ['scanned', 'saved'])
+    .gte('created_at', monthStart);
+  return count ?? 0;
+}
 
 // Matches VENDOR_FALLBACK_PALETTE in lib/invoicePipeline.ts (the client's
 // fallback for vendor rows that predate this) — kept in sync by hand since
@@ -279,6 +319,26 @@ Deno.serve(async (req) => {
     if (fetchErr || !invoice) throw new Error(`Invoice not found: ${fetchErr?.message}`);
     if (!invoice.image_urls?.length) throw new Error('Invoice has no images to extract from');
 
+    // Plan gate — enforced here, before any Claude spend. Free orgs get
+    // FREE_MONTHLY_EXTRACTION_CAP extractions per calendar month; Pro is
+    // unlimited. Over the cap, return 402 with a code the client maps to the
+    // paywall (rather than a generic error toast).
+    const plan = await getOrgPlan(invoice.organization_id);
+    if (plan !== 'pro') {
+      const used = await monthlyExtractionCount(supabase, invoice.organization_id);
+      if (used >= FREE_MONTHLY_EXTRACTION_CAP) {
+        return new Response(
+          JSON.stringify({
+            error: 'You’ve used all your free extractions this month.',
+            code: 'FREE_LIMIT_REACHED',
+            used,
+            cap: FREE_MONTHLY_EXTRACTION_CAP,
+          }),
+          { status: 402, headers: { ...corsHeaders, 'content-type': 'application/json' } }
+        );
+      }
+    }
+
     const images = await Promise.all(
       invoice.image_urls.map((path: string) => storagePathToBase64(supabase, path))
     );
@@ -369,6 +429,11 @@ Deno.serve(async (req) => {
       .select();
     if (lineItemsErr) throw new Error(`Could not save line items: ${lineItemsErr.message}`);
 
+    // Always detect price creep so free orgs can see the *count* as an upgrade
+    // teaser ("3 price increases this month"); the alert *details* stay
+    // Pro-gated in the UI. Detection is cheap SQL (no AI spend), so running it
+    // for everyone is fine — and it means a converting user immediately sees the
+    // alerts that were already waiting for them.
     if (vendorId) {
       await detectPriceCreep(supabase, invoice.organization_id, vendorId, invoiceId, insertedLineItems ?? []);
     }

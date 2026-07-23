@@ -6,7 +6,10 @@ import * as Haptics from 'expo-haptics';
 import { useAuth, useOrganization, useUser } from '@clerk/clerk-expo';
 import { Colors } from '../../constants/Colors';
 import { useStore } from '../../store/useStore';
+import { useEntitlement } from '../../hooks/useEntitlement';
+import { useExtractionUsage } from '../../hooks/useExtractionUsage';
 import { useSupabase } from '../../lib/supabase';
+import { openBillingPortal } from '../../lib/billing';
 import { fetchAllInvoices } from '../../lib/invoicePipeline';
 import { exportInvoicesCsv } from '../../lib/csvExport';
 import { initialsFor } from '../../lib/initials';
@@ -19,6 +22,8 @@ export default function MoreScreen() {
   const { signOut } = useAuth();
   const { organization } = useOrganization();
   const { user } = useUser();
+  const { isPro } = useEntitlement();
+  const { used, cap } = useExtractionUsage();
   const { showToast } = useStore();
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -51,6 +56,14 @@ export default function MoreScreen() {
       setExporting(false);
     }
   };
+  const handleManageSubscription = async () => {
+    try {
+      await openBillingPortal(supabase);
+    } catch (err: any) {
+      showToast(err?.message ?? 'Could not open billing portal');
+    }
+  };
+
   const handleDeleteAccount = () => {
     if (deleting) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -82,6 +95,12 @@ export default function MoreScreen() {
     {
       header: 'Intelligence',
       rows: [
+        {
+          label: 'Recipe costing',
+          detail: isPro ? 'New' : 'Pro',
+          accent: !isPro,
+          onPress: () => router.push(isPro ? '/recipes' : '/paywall'),
+        },
         { label: 'Export to CSV', detail: exporting ? 'Exporting…' : undefined, onPress: handleExport },
       ],
     },
@@ -90,7 +109,15 @@ export default function MoreScreen() {
       rows: [
         { label: 'Restaurant name', detail: restaurantName },
         { label: 'Email', detail: email || 'you@restaurant.com' },
-        { label: 'Subscription', detail: 'Free tier' },
+        {
+          label: 'Plan',
+          detail: isPro ? 'Pro' : 'Free',
+          accent: isPro,
+          onPress: () => router.push('/paywall'),
+        },
+        ...(isPro
+          ? [{ label: 'Manage subscription', onPress: handleManageSubscription } as Row]
+          : [{ label: 'Extractions this month', detail: `${used} of ${cap} used` } as Row]),
         { label: 'Invite staff', onPress: () => showToast('Staff invite — coming soon') },
       ],
     },
@@ -155,7 +182,7 @@ export default function MoreScreen() {
           <Text style={styles.deleteText}>{deleting ? 'Deleting account…' : 'Delete account'}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.version}>Invoice Intelligence v1.0.0</Text>
+        <Text style={styles.version}>Sift v1.0.0</Text>
       </ScrollView>
       <Toast />
     </SafeAreaView>

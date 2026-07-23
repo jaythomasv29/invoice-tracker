@@ -395,6 +395,23 @@ deno_version = 2
 [functions.extract-invoice]
 verify_jwt = false
 
+# Billing functions. create-checkout / billing-portal read the caller's Clerk
+# token manually (Supabase can't verify a Clerk JWT), so the platform gate is
+# off — same as extract-invoice. stripe-webhook is called by Stripe with no
+# user token at all; it authenticates via the Stripe signature instead.
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.billing-portal]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+# Recipe-costing AI draft — reads the Clerk token via RLS, same as extract-invoice.
+[functions.draft-recipe]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

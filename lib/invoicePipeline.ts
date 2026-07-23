@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Invoice, LineItem, LineItemType, VerificationStatus } from '../store/useStore';
+import { ExtractionLimitError, EXTRACTION_LIMIT_CODE } from './entitlements';
 
 const CATEGORY_COLORS: Record<string, string> = {
   protein: '#E07A30',
@@ -180,15 +181,19 @@ export async function extractInvoice(supabase: SupabaseClient, invoiceId: string
     // real error text this edge function actually threw is in the response
     // body carried on error.context.
     const context = (error as { context?: Response }).context;
-    let detail: string | undefined;
+    let body: { error?: string; code?: string; used?: number; cap?: number } | undefined;
     try {
       const raw = await context?.text();
-      detail = raw ? JSON.parse(raw)?.error : undefined;
+      body = raw ? JSON.parse(raw) : undefined;
     } catch {
       // context wasn't JSON (network-level failure, not our function's own
       // error response) — fall back to the generic message below.
     }
-    throw new Error(detail ?? error.message ?? 'Extraction failed');
+    // Free-tier cap hit: throw a typed error so the caller opens the paywall.
+    if (body?.code === EXTRACTION_LIMIT_CODE) {
+      throw new ExtractionLimitError(body.error, body.used, body.cap);
+    }
+    throw new Error(body?.error ?? error.message ?? 'Extraction failed');
   }
   if (data?.error) throw new Error(data.error);
   return mapInvoice(data.invoice, data.lineItems);

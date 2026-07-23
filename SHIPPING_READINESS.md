@@ -5,6 +5,7 @@ Resume-point document for the scan-screen redesign + App Store readiness pass. R
 ## What changed
 
 ### Phase 1 — Scan screen redesign (`app/scan/index.tsx`, `app/scan/review.tsx`)
+
 - Real rotating processing spinner (`react-native-reanimated`), replacing a static non-spinning `View` that only looked like a loading indicator.
 - The store's existing `scanStage`/`setScanStage` is now the single source of truth for processing state — the screen no longer duplicates it with local `useState`.
 - Shutter-flash animation on capture; the real captured photo now carries through as `Invoice.imageUris` and displays as an actual thumbnail on the review screen (previously a solid gray placeholder box).
@@ -16,12 +17,14 @@ Resume-point document for the scan-screen redesign + App Store readiness pass. R
 - The Save button on the review screen now shows a real "Saving…" state with a spinner instead of silently pausing for 900ms with no visual change.
 
 ### Phase 2 — App-wide polish pass (4 parallel subagents)
+
 - **Haptics + Toast + data-integrity fixes**: consistent `expo-haptics` feedback added across `vendors.tsx`, `more.tsx`, `vendor/[id].tsx`, onboarding screens, and auth screens (previously only 4 of ~19 route files used haptics at all). Mounted `<Toast />` on the More screen, which called `showToast` four times with nothing rendering it. Fixed two hardcoded `"4 active this week"` strings (home dashboard + vendors screen) to derive from the real `vendors.length`.
 - **Loading states**: new reusable `components/ui/Spinner.tsx`, generalized from the scan screen's rotating indicator. Applied to auth/verify/onboarding submit buttons and the home dashboard's data-fetch window, replacing bare text swaps with a visible loading state.
 - **Transitions + data animations**: `briefing`/`disputes` now use `slide_from_bottom`, `vendor/[id]`/`invoice/[id]` use `fade_from_bottom` (previously all four used the default full push, despite reading as detail/sheet views). `DonutChart`'s ring segments now animate in on data change instead of snapping. The Alerts screen animates the read/unread section move via `LayoutAnimation`.
 - **Error boundary + Sentry + housekeeping**: new `components/ErrorBoundary.tsx` wraps the whole app — a render crash now shows a real "Something went wrong / Try again" screen instead of blank/white with zero telemetry. `@sentry/react-native` is installed and initialized (no-ops safely until a real DSN is supplied — see Setup below). Removed dead root `App.tsx`/`index.ts` Expo boilerplate (recoverable from git history if ever needed; confirmed nothing referenced them).
 
 ### Phase 3 — App Store technical readiness
+
 - `eas.json` created (development/preview/production build profiles; `submit.production.ios` left blank pending your Apple Developer account details).
 - `expo-splash-screen` wired into `app.json` (was previously unused despite the asset existing).
 - Fixed the microphone permission string — `expo-camera`'s plugin always injects an `NSMicrophoneUsageDescription` even though this app never uses audio; it now reads as an accurate, App-Review-safe explanation instead of Expo's generic boilerplate default.
@@ -45,10 +48,12 @@ original image kept. Two kinds of work: cutting things outside that scope,
 and finishing the things inside it that were still mock.
 
 **Cut:**
+
 - **Opus 4.8 escalation tier** (`supabase/functions/extract-invoice/index.ts`) — extraction is Sonnet 5 only now. Low-confidence flagging (`confidence`, `low_confidence_fields`) is unchanged and still drives the 2-tap confirm UI; only the automatic re-extraction on a bigger model was removed.
 - **Weight-parsing** — `parsed_weight`/`weight_source`/`weight_basis` removed from the extraction prompt/schema, `store/useStore.ts`, `lib/invoicePipeline.ts`, and the "Add weight to compare vendors" UI block in `app/scan/review.tsx`. Soft cut: the DB columns (`invoice_line_items.parsed_weight`/`weight_source`/`weight_basis`/`normalized_price_per_lb`) were left in place, nullable and unused, rather than a destructive migration. Price alerts work at whatever unit the vendor printed (case, lb, box) and never needed this.
 
 **Built (previously mock or missing entirely):**
+
 - **Vendor dedup bug, fixed + live data merged.** Root cause: not literal duplicate names — OCR whitespace/punctuation drift ("S. J. Distributors LLC" vs "S.J. Distributors LLC") that the old exact-match `ilike` query correctly failed to catch. Vendor resolution in `extract-invoice/index.ts` now normalizes (lowercase, strip punctuation, collapse whitespace) and checks the `aliases` column (existed in the schema since the initial migration, never populated until now) before creating a new vendor. The two existing duplicate rows in the live DB were merged: the orphaned row's invoice was repointed to the survivor, the variant spelling was added to `aliases`, and the duplicate row was deleted.
 - **Real price-creep alerts** — previously `MOCK_ALERTS`, now a real detection pass. `price_alerts` table already existed in the initial schema (shaped around the not-yet-built canonical `items` catalog); extended with `line_item_id`/`item_name` via migration `20260720150000_price_alerts_line_item_ref.sql` so alerts don't require that catalog to exist. `extract-invoice/index.ts` compares each new charge line item against the same vendor's most recent prior line item with a matching `clean_name` + `unit_of_measure` (case-insensitive), and inserts an alert when price rose more than 3%. `store/useStore.ts`'s `fetchPriceAlerts` replaces the mock array; `markAlertRead` now writes through to the DB.
 - **Vendor/invoice screens wired to real Supabase data** (`MOCK_VENDORS`/`MOCK_INVOICES`/`MOCK_DAY_DATA` removed) — this was mostly done in the prior session (`fetchDashboardSummary`, `fetchVendorInvoices`, `fetchInvoiceById`); this pass added the pieces still missing for the "manage invoices/search/history" part of the scope:
@@ -60,6 +65,7 @@ and finishing the things inside it that were still mock.
 - Also fixed while wiring price alerts sign display: the spend-change arrow on the home dashboard was hardcoded to always show ↑ in green — now shows ↑/↓ matching the actual sign, red when spend increased.
 
 **Not touched, still true:**
+
 - **Cross-vendor item-normalization catalog** (`invoice_line_items.item_id` / `items.canonical_name`) — still unbuilt. Price alerts now work without it (matching directly on `clean_name` + `unit_of_measure` per vendor), so this is lower priority than it was.
 - **Real offline upload queueing** — still just connectivity detection, no queue/retry. Explicitly out of scope per the "camera-only capture, no offline queue" launch scope.
 - **AI briefings** — still hardcoded text in `app/briefing.tsx`.
@@ -72,11 +78,13 @@ and finishing the things inside it that were still mock.
 Audited the app specifically against Apple's App Review Guidelines, not just feature completeness. One hard blocker found and fixed; the rest were submission-process gaps.
 
 **Fixed:**
+
 - **No in-app account deletion (Guideline 5.1.1(v) — hard rejection reason).** The app supports account creation (Clerk email/OTP sign-up) but had no way to delete that account from within the app, which Apple requires. Added a "Delete account" action to `app/(tabs)/more.tsx` (destructive `Alert` confirm → `user.delete()` via Clerk → redirect to `/(auth)`). This only deletes the person's sign-in identity, not their organization's invoice data — the confirmation copy says so explicitly, since org data is shared with any other members. Requires a one-time Clerk dashboard toggle ("Allow users to delete their own account") — added to `SETUP.md`, unchecked; until it's enabled, the button surfaces Clerk's error via toast rather than silently failing.
 - **Legal links were dead text, and no privacy policy existed anywhere.** The sign-in screen's "Terms of Service and Privacy Policy" line was static, non-tappable text pointing at nothing — Apple requires a live, working Privacy Policy URL in App Store Connect, and dead legal links read poorly in review either way. Drafted `legal/privacy-policy.html` and `legal/terms-of-service.html` (self-contained static pages, accurate to this app's actual data flow: Clerk for auth, Supabase for storage, Anthropic for OCR extraction, Sentry for crash reports, no ads/tracking/data sale). Both have `[FILL IN ...]` placeholders for the launch date and a real contact email — intentionally not invented. Wired `constants/legal.ts` (`PRIVACY_POLICY_URL`/`TERMS_URL`, read from `EXPO_PUBLIC_PRIVACY_POLICY_URL`/`EXPO_PUBLIC_TERMS_URL`) into the sign-in screen's legal text and More → "Privacy & data" (previously a `coming soon` stub). Until those env vars are set, both fall back to a no-op/toast instead of opening a dead link. `SETUP.md` has the hosting + env var checklist.
 - **Export compliance question on every build.** Added `ios.infoPlist.ITSAppUsesNonExemptEncryption: false` to `app.json` — the app only uses HTTPS, so this is accurate and skips App Store Connect's encryption questionnaire on each submission.
 
 **Checked, no issue found:**
+
 - RLS is enabled with tenant-isolation policies on every table (`supabase/migrations/20260717035812_init_schema.sql`) — no cross-org data leak risk.
 - App icon is 1024×1024 with no alpha channel — meets App Store asset requirements.
 - `.env` is properly gitignored and was never tracked; no secrets in the client bundle (only Clerk publishable key + Supabase anon key, both designed to be public).

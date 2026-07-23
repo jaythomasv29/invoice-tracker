@@ -12,12 +12,11 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Path, Circle, Rect } from "react-native-svg";
+import Svg, { Path, Circle } from "react-native-svg";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { useAuth, useOrganization, useSession } from "@clerk/clerk-expo";
 import { Colors } from "../../constants/Colors";
-import { useStore } from "../../store/useStore";
 
 const SCAN_SIZE = 46; // diameter of the inline green scan circle
 const ICON_SIZE = 24; // standardized icon box for every tab
@@ -59,32 +58,30 @@ function HomeIcon({ color }: { color: any }) {
   );
 }
 
-function AlertIcon({ color }: { color: any }) {
+function RecipeIcon({ color }: { color: any }) {
   return (
     <IconBase color={color}>
-      <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-      <Path d="M13.73 21a2 2 0 0 1-3.46 0" />
+      <Circle cx="12" cy="12" r="8.5" />
+      <Circle cx="12" cy="12" r="3" />
     </IconBase>
   );
 }
 
-function VendorIcon({ color }: { color: any }) {
+function InvoicesIcon({ color }: { color: any }) {
   return (
     <IconBase color={color}>
-      <Path d="M3 21h18" />
-      <Path d="M4 21V9l8-5 8 5v12" />
-      <Rect x="9.5" y="13" width="5" height="8" />
-      <Path d="M7.5 9.5h.01M12 9.5h.01M16.5 9.5h.01" />
+      <Path d="M6 2h9l4 4v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" />
+      <Path d="M14 2v5h5" />
+      <Path d="M8 12h7M8 16h7" />
     </IconBase>
   );
 }
 
-function MoreIcon({ color }: { color: any }) {
+function ProfileIcon({ color }: { color: any }) {
   return (
     <IconBase color={color}>
-      <Circle cx="5" cy="12" r="1.6" fill={color} stroke="none" />
-      <Circle cx="12" cy="12" r="1.6" fill={color} stroke="none" />
-      <Circle cx="19" cy="12" r="1.6" fill={color} stroke="none" />
+      <Circle cx="12" cy="8" r="4" />
+      <Path d="M4 21a8 8 0 0 1 16 0" />
     </IconBase>
   );
 }
@@ -213,7 +210,7 @@ function GlassBackground() {
       <BlurView
         intensity={15}
         tint="light"
-        experimentalBlurMethod="dimezisBlurView"
+        blurMethod="dimezisBlurView"
         style={StyleSheet.absoluteFill}
       />
       <View style={styles.glassTint} />
@@ -241,9 +238,6 @@ export default function TabLayout() {
   const { isLoaded, isSignedIn } = useAuth();
   const { isLoaded: sessionLoaded, session } = useSession();
   const { isLoaded: orgLoaded, organization } = useOrganization();
-  const unreadAlerts = useStore(
-    (s) => s.priceAlerts.filter((a) => !a.read).length,
-  );
   const tabBarStyle = useTabBarStyle();
 
   useEffect(() => {
@@ -297,16 +291,14 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="alerts"
+        name="recipes"
         options={{
-          title: "Alerts",
+          title: "Recipes",
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon focused={focused}>
-              <AlertIcon color={color} />
+              <RecipeIcon color={color} />
             </AnimatedTabIcon>
           ),
-          tabBarBadge: unreadAlerts > 0 ? unreadAlerts : undefined,
-          tabBarBadgeStyle: styles.badge,
         }}
       />
       <Tabs.Screen
@@ -322,10 +314,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="vendors"
         options={{
-          title: "Vendors",
+          title: "Invoices",
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon focused={focused}>
-              <VendorIcon color={color} />
+              <InvoicesIcon color={color} />
             </AnimatedTabIcon>
           ),
         }}
@@ -333,14 +325,17 @@ export default function TabLayout() {
       <Tabs.Screen
         name="more"
         options={{
-          title: "More",
+          title: "Profile",
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon focused={focused}>
-              <MoreIcon color={color} />
+              <ProfileIcon color={color} />
             </AnimatedTabIcon>
           ),
         }}
       />
+      {/* Alerts is no longer a tab — it's the bell in the Home header. Kept
+          routable (href: null hides the tab button, the route still works). */}
+      <Tabs.Screen name="alerts" options={{ href: null }} />
     </Tabs>
   );
 }

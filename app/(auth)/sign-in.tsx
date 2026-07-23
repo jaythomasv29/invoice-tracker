@@ -108,11 +108,11 @@ export default function SignInScreen() {
 
           <View style={styles.logoRow}>
             <View style={styles.logoIcon}>
-              <Text style={styles.logoIconText}>II</Text>
+              <Text style={styles.logoIconText}>S</Text>
             </View>
           </View>
 
-          <Text style={styles.headline}>Invoice Intelligence</Text>
+          <Text style={styles.headline}>Sift</Text>
           <Text style={styles.sub}>
             Sign in with your email — no password needed.
             Built for independent restaurant operators.

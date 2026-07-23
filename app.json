@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "Invoice Intelligence",
-    "slug": "invoice-intelligence",
+    "name": "Sift",
+    "slug": "sift",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "scheme": "invoiceintelligence",
+    "scheme": "sift",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.invoiceintelligence.app",
+      "bundleIdentifier": "com.sift.app",
       "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -25,14 +25,14 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Invoice Intelligence needs camera access to scan your invoices.",
-          "microphonePermission": "Invoice Intelligence's camera is used only to photograph invoices — audio is never recorded or accessed."
+          "cameraPermission": "Sift needs camera access to scan your invoices.",
+          "microphonePermission": "Sift's camera is used only to photograph invoices — audio is never recorded or accessed."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Invoice Intelligence needs photo library access to import invoices."
+          "photosPermission": "Sift needs photo library access to import invoices."
         }
       ],
       [

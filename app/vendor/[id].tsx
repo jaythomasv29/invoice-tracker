@@ -8,9 +8,38 @@ import { Colors } from '../../constants/Colors';
 import { useStore, Invoice } from '../../store/useStore';
 import { useSupabase } from '../../lib/supabase';
 import { fetchVendorInvoices } from '../../lib/invoicePipeline';
+import { useEntitlement } from '../../hooks/useEntitlement';
 import Spinner from '../../components/ui/Spinner';
 import BackButton from '../../components/ui/BackButton';
 import InvoiceRow from '../../components/ui/InvoiceRow';
+
+// Median gap (in days) between distinct order days, turned into a
+// human-readable cadence label. Returns '—' when there isn't enough date
+// history to make a call.
+function cadenceLabel(invoices: Invoice[]): string {
+  const days = Array.from(
+    new Set(
+      invoices
+        .map((inv) => inv.dateIso)
+        .filter((iso): iso is string => iso !== null)
+        .map((iso) => Math.floor(new Date(iso).getTime() / 86400000))
+    )
+  ).sort((a, b) => a - b);
+
+  if (days.length < 2) return '—';
+
+  const gaps: number[] = [];
+  for (let i = 1; i < days.length; i++) gaps.push(days[i] - days[i - 1]);
+  gaps.sort((a, b) => a - b);
+  const mid = Math.floor(gaps.length / 2);
+  const medianGap = gaps.length % 2 === 0 ? (gaps[mid - 1] + gaps[mid]) / 2 : gaps[mid];
+
+  if (medianGap <= 2) return 'Most days';
+  if (medianGap <= 4) return 'A few times a week';
+  if (medianGap <= 10) return 'About weekly';
+  if (medianGap <= 18) return 'Every couple weeks';
+  return 'About monthly';
+}
 
 export default function VendorDetailScreen() {
   const router = useRouter();
@@ -18,6 +47,7 @@ export default function VendorDetailScreen() {
   const { organization } = useOrganization();
   const supabase = useSupabase();
   const { vendors } = useStore();
+  const { isPro } = useEntitlement();
 
   const vendor = vendors.find((v) => v.id === id);
   const [vendorInvoices, setVendorInvoices] = useState<Invoice[]>([]);
@@ -78,6 +108,33 @@ export default function VendorDetailScreen() {
           </View>
         )}
 
+        {isPro && !loading && vendorInvoices.length > 0 && (() => {
+          const orderCount = vendorInvoices.length;
+          const avgOrderSize = vendorInvoices.reduce((sum, inv) => sum + inv.total, 0) / orderCount;
+          const cadence = cadenceLabel(vendorInvoices);
+          return (
+            <View style={styles.patternsCard}>
+              <Text style={styles.patternsHeader}>Order patterns</Text>
+              <View style={styles.patternsRow}>
+                <View style={styles.patternsTile}>
+                  <Text style={styles.patternsValue}>
+                    ${Math.round(avgOrderSize).toLocaleString('en-US')}
+                  </Text>
+                  <Text style={styles.patternsLabel}>Avg order</Text>
+                </View>
+                <View style={styles.patternsTile}>
+                  <Text style={styles.patternsValue}>{orderCount}</Text>
+                  <Text style={styles.patternsLabel}>Orders</Text>
+                </View>
+                <View style={styles.patternsTile}>
+                  <Text style={styles.patternsValue}>{cadence}</Text>
+                  <Text style={styles.patternsLabel}>Cadence</Text>
+                </View>
+              </View>
+            </View>
+          );
+        })()}
+
         <Text style={styles.sectionLabel}>Invoices</Text>
         {loading ? (
           <View style={styles.empty}>
@@ -124,6 +181,16 @@ const styles = StyleSheet.create({
   },
   contactItem: { fontSize: 13, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary },
   contactPhone: { fontSize: 13, fontFamily: 'Manrope_600SemiBold', color: Colors.primary, textDecorationLine: 'underline' },
+
+  patternsCard: {
+    backgroundColor: Colors.surface, borderRadius: 16,
+    borderWidth: 1, borderColor: Colors.border, padding: 14,
+  },
+  patternsHeader: { fontSize: 14, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, letterSpacing: -0.2, marginBottom: 10 },
+  patternsRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  patternsTile: { flex: 1, alignItems: 'center', gap: 2 },
+  patternsValue: { fontSize: 16, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, textAlign: 'center' },
+  patternsLabel: { fontSize: 11.5, fontFamily: 'Manrope_600SemiBold', color: Colors.textTertiary, textAlign: 'center' },
 
   sectionLabel: {
     fontSize: 11, fontFamily: 'Manrope_700Bold', letterSpacing: 0.5,

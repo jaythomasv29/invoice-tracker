@@ -7,6 +7,9 @@ import { useOrganization } from '@clerk/clerk-expo';
 import { Colors } from '../../constants/Colors';
 import { useStore, PriceAlert } from '../../store/useStore';
 import { useSupabase } from '../../lib/supabase';
+import { useEntitlement } from '../../hooks/useEntitlement';
+import { usePriceAlertCount } from '../../hooks/usePriceAlertCount';
+import ProLockCard from '../../components/ui/ProLockCard';
 import Toast from '../../components/ui/Toast';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -16,16 +19,25 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 export default function AlertsScreen() {
   const supabase = useSupabase();
   const { organization } = useOrganization();
+  const { isPro } = useEntitlement();
   const { priceAlerts, markAlertRead, fetchPriceAlerts } = useStore();
 
   useFocusEffect(
     useCallback(() => {
-      if (organization?.id) fetchPriceAlerts(supabase, organization.id);
-    }, [organization?.id, supabase, fetchPriceAlerts])
+      // Price-creep detection is Pro-only — don't fetch for free orgs.
+      if (isPro && organization?.id) fetchPriceAlerts(supabase, organization.id);
+    }, [isPro, organization?.id, supabase, fetchPriceAlerts])
   );
 
   const unread = priceAlerts.filter((a) => !a.read);
   const read = priceAlerts.filter((a) => a.read);
+
+  // Free orgs get the feature pitch instead of the alert list — but teased with
+  // their real count of price increases (detection runs for everyone; only the
+  // details are Pro-gated).
+  if (!isPro) {
+    return <FreeAlertsUpsell />;
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -68,6 +80,27 @@ export default function AlertsScreen() {
             <Text style={styles.emptySub}>We'll notify you when vendor prices move significantly.</Text>
           </View>
         )}
+      </ScrollView>
+      <Toast />
+    </SafeAreaView>
+  );
+}
+
+function FreeAlertsUpsell() {
+  const { count } = usePriceAlertCount();
+  const has = count > 0;
+  return (
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Price Alerts</Text>
+      </View>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ProLockCard
+          stat={has ? String(count) : undefined}
+          statLabel={has ? (count === 1 ? 'price increase this month' : 'price increases this month') : undefined}
+          title={has ? 'Someone’s prices are creeping up' : 'Never miss a quiet price hike'}
+          body="Pro checks every new invoice against your price history and flags any item that creeps up — so a vendor’s slow increases never slip past you."
+        />
       </ScrollView>
       <Toast />
     </SafeAreaView>

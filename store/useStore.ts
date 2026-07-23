@@ -92,6 +92,13 @@ export interface CategorySpend {
   color: string;
 }
 
+export interface TopItem {
+  name: string;
+  amount: number;        // all-time spend on this item
+  pct: number;           // share of total item spend (0-100)
+  cumulativePct: number; // running cumulative share, for the 80/20 line
+}
+
 export type SpendPeriod = 'week' | 'month' | 'year' | 'all';
 
 export interface UploadActivityEntry {
@@ -129,6 +136,7 @@ interface AppState {
   // views slice or sum this rather than each needing their own fetch.
   allYearData: DayData[];
   categorySpend: CategorySpend[];
+  topItems: TopItem[];
   uploadActivity: UploadActivityEntry[];
 
   // Alerts
@@ -279,6 +287,7 @@ export const useStore = create<AppState>((set, get) => ({
   monthData: [],
   allYearData: [],
   categorySpend: [],
+  topItems: [],
   uploadActivity: [],
   priceAlerts: [],
   vendors: [],
@@ -388,7 +397,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     const { data: invoiceRows, error: invoiceErr } = await supabase
       .from('invoices')
-      .select('id, vendor_id, total, invoice_date, created_at, invoice_line_items(category, extended_price, voided_at)')
+      .select('id, vendor_id, total, invoice_date, created_at, invoice_line_items(clean_name, category, extended_price, line_item_type, voided_at)')
       .eq('organization_id', organizationId)
       .eq('status', 'saved')
       .order('created_at', { ascending: false });
@@ -417,6 +426,8 @@ export const useStore = create<AppState>((set, get) => ({
     const monthBucketTotals = Array.from({ length: bucketCount }, () => 0);
     const monthBucketBreakdowns = Array.from({ length: bucketCount }, () => new Map<string, { vendorId: string | null; name: string; amount: number; color: string }>());
     const categoryTotals = new Map<string, number>();
+    // All-time spend per item (keyed by clean_name) for the top-spend/Pareto view.
+    const itemTotals = new Map<string, number>();
     // Total spend per calendar year, across every invoice regardless of
     // date — backs the year-stepper/all-time view without a re-fetch.
     const yearlyTotals = new Map<number, number>();
@@ -445,6 +456,15 @@ export const useStore = create<AppState>((set, get) => ({
       }
 
       const { name: vendorName, color: vendorColor } = vendorDisplay(vendorId, vendorById);
+
+      // All-time per-item spend (by clean_name) for the top-spend / 80-20
+      // Pareto view — charges only, voided items excluded. Runs for every
+      // invoice regardless of period, unlike the week-scoped category totals.
+      for (const li of (inv as any).invoice_line_items ?? []) {
+        if (li.voided_at || li.line_item_type === 'credit') continue;
+        const itemName = (li.clean_name ?? '').trim() || 'Unnamed item';
+        itemTotals.set(itemName, (itemTotals.get(itemName) ?? 0) + Number(li.extended_price ?? 0));
+      }
 
       if (dateStr >= weekStartStr && dateStr <= weekEndStr) {
         weekTotal += amount;
@@ -570,12 +590,32 @@ export const useStore = create<AppState>((set, get) => ({
       };
     });
 
+    // Top-spend items (Pareto): items ranked by all-time spend, each with its
+    // share of total and the running cumulative share, so the UI can draw the
+    // 80/20 line. Capped to the top 20.
+    const itemRanked = Array.from(itemTotals.entries())
+      .map(([name, amount]) => ({ name, amount: Math.round(amount * 100) / 100 }))
+      .filter((x) => x.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
+    const itemGrandTotal = itemRanked.reduce((s, x) => s + x.amount, 0);
+    let cumulative = 0;
+    const topItems: TopItem[] = itemRanked.slice(0, 20).map((x) => {
+      const pct = itemGrandTotal > 0 ? (x.amount / itemGrandTotal) * 100 : 0;
+      cumulative += pct;
+      return {
+        name: x.name,
+        amount: x.amount,
+        pct: Math.round(pct * 10) / 10,
+        cumulativePct: Math.round(cumulative * 10) / 10,
+      };
+    });
+
     set({
       vendors,
       weekTotal: Math.round(weekTotal * 100) / 100, weekPctChange, dayData,
       monthTotal: Math.round(monthTotal * 100) / 100, monthPctChange, monthData,
       allYearData,
-      categorySpend, uploadActivity,
+      categorySpend, uploadActivity, topItems,
     });
   },
 

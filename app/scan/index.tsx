@@ -18,6 +18,9 @@ import { Colors } from '../../constants/Colors';
 import { useStore } from '../../store/useStore';
 import { useSupabase } from '../../lib/supabase';
 import { createDraftInvoice, uploadInvoiceImages, extractInvoice } from '../../lib/invoicePipeline';
+import { ExtractionLimitError } from '../../lib/entitlements';
+import { useEntitlement } from '../../hooks/useEntitlement';
+import { useExtractionUsage } from '../../hooks/useExtractionUsage';
 import Toast from '../../components/ui/Toast';
 
 export default function ScanScreen() {
@@ -28,6 +31,8 @@ export default function ScanScreen() {
   const supabase = useSupabase();
   const network = useNetworkState();
   const cameraRef = useRef<CameraView>(null);
+  const { isPro } = useEntitlement();
+  const { remaining, refresh: refreshUsage } = useExtractionUsage();
   const {
     scanStage, setScanStage,
     setCurrentInvoice, showToast,
@@ -68,6 +73,13 @@ export default function ScanScreen() {
       showToast('No restaurant selected');
       return;
     }
+    // Client-side pre-check: free orgs already over the monthly cap go straight
+    // to the paywall, so we don't waste an upload. The edge function enforces
+    // the same limit server-side, so this is UX, not the security boundary.
+    if (!isPro && remaining <= 0) {
+      router.push('/paywall');
+      return;
+    }
     setScanStage('processing');
     try {
       // Photos from the library can come back as HEIC (Apple's default) or
@@ -83,9 +95,16 @@ export default function ScanScreen() {
       const invoiceId = await createDraftInvoice(supabase, organization.id);
       await uploadInvoiceImages(supabase, organization.id, invoiceId, jpegUris);
       const invoice = await extractInvoice(supabase, invoiceId);
+      refreshUsage();
       setCurrentInvoice({ ...invoice, imageUris: jpegUris });
       router.replace('/scan/review');
     } catch (err: any) {
+      // Server said the free cap is used up (e.g. a teammate extracted since we
+      // loaded the meter) — send them to the paywall, not a dead-end toast.
+      if (err instanceof ExtractionLimitError) {
+        router.push('/paywall');
+        return;
+      }
       console.error('[scan] processImages failed:', err);
       showToast(err?.message ?? 'Could not process invoice');
     } finally {
