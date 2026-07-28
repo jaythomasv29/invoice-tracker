@@ -115,7 +115,7 @@ export default function SpendTrendCard({
             <Text style={styles.label}>{spendPeriodLabel(period, yearsBack)}</Text>
             {isLoading && <Spinner size={12} color={Colors.textSecondary} />}
           </View>
-          <Text style={styles.amount}>${periodTotal.toLocaleString()}</Text>
+          <Text style={styles.amount}>${Math.round(periodTotal).toLocaleString()}</Text>
         </View>
         {compare && (
           <View style={[styles.trendPill, isUp ? styles.trendPillUp : styles.trendPillDown]}>

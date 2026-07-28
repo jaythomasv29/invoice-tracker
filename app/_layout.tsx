@@ -78,6 +78,7 @@ function AppContent() {
           <Stack.Screen name="scan/review" />
           <Stack.Screen name="vendor/[id]" options={{ animation: 'fade_from_bottom' }} />
           <Stack.Screen name="invoice/[id]" options={{ animation: 'fade_from_bottom' }} />
+          <Stack.Screen name="item-history" options={{ animation: 'fade_from_bottom' }} />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>

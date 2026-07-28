@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { formatDate, fallbackVendorColor, categoryColor, categoryLabel } from '../lib/invoicePipeline';
+import { formatDate, fallbackVendorColor, categoryColor, categoryLabel, localDateFromTimestamp } from '../lib/invoicePipeline';
+import { buildDemoState } from '../lib/demoData';
 
 export type VerificationStatus = 'pending' | 'received' | 'missing';
 export type LineItemType = 'charge' | 'credit';
@@ -57,6 +58,7 @@ export interface Invoice {
 export interface PriceAlert {
   id: string;
   itemName: string;
+  vendorId: string | null;
   vendorName: string;
   previousPrice: number;
   newPrice: number;
@@ -101,6 +103,20 @@ export interface TopItem {
 
 export type SpendPeriod = 'week' | 'month' | 'year' | 'all';
 
+// A single line item still flagged missing/short at save time — money paid
+// for product that (per the operator's own review-screen confirmation) never
+// actually showed up. Surfaced as a recovery worklist: the reconciliation
+// data has always been captured on save, but until now it was write-only —
+// nothing ever rolled it up into a dollar figure or a follow-up list.
+export interface DeliveryGapEntry {
+  id: string;
+  invoiceId: string;
+  vendorName: string;
+  itemName: string;
+  amount: number;
+  dateLabel: string;
+}
+
 export interface UploadActivityEntry {
   id: string;
   vendorId: string | null;
@@ -138,6 +154,10 @@ interface AppState {
   categorySpend: CategorySpend[];
   topItems: TopItem[];
   uploadActivity: UploadActivityEntry[];
+  // All-time total + worklist of line items still flagged missing/short —
+  // money already paid for product that never showed up.
+  deliveryGapTotal: number;
+  deliveryGapItems: DeliveryGapEntry[];
 
   // Alerts
   priceAlerts: PriceAlert[];
@@ -147,6 +167,13 @@ interface AppState {
 
   // Toast
   toast: string | null;
+
+  // Demo mode — first-run product tour. When true, every data source in the
+  // app returns fixture values instead of querying Supabase (the two fetch
+  // actions below early-return; the store-bypassing hooks guard themselves).
+  demoMode: boolean;
+  startDemo: () => void;
+  endDemo: () => void;
 
   // Actions
   setScanStage: (stage: 'idle' | 'processing' | 'done') => void;
@@ -289,9 +316,60 @@ export const useStore = create<AppState>((set, get) => ({
   categorySpend: [],
   topItems: [],
   uploadActivity: [],
+  deliveryGapTotal: 0,
+  deliveryGapItems: [],
   priceAlerts: [],
   vendors: [],
   toast: null,
+  demoMode: false,
+
+  startDemo: () => {
+    const { dashboard, priceAlerts } = buildDemoState(new Date());
+    set({
+      demoMode: true,
+      vendors: dashboard.vendors,
+      weekTotal: dashboard.weekTotal,
+      weekPctChange: dashboard.weekPctChange,
+      dayData: dashboard.dayData,
+      monthTotal: dashboard.monthTotal,
+      monthPctChange: dashboard.monthPctChange,
+      monthData: dashboard.monthData,
+      allYearData: dashboard.allYearData,
+      categorySpend: dashboard.categorySpend,
+      topItems: dashboard.topItems,
+      uploadActivity: dashboard.uploadActivity,
+      deliveryGapTotal: dashboard.deliveryGapTotal,
+      deliveryGapItems: dashboard.deliveryGapItems,
+      priceAlerts,
+      // Reset any period selection so the seeded month view shows cleanly.
+      spendView: 'month',
+      selectedDay: null,
+    });
+  },
+
+  endDemo: () => {
+    // Flip the flag FIRST so any in-flight focus effect that re-fires now runs
+    // the real fetch, then clear the fixture back to the empty initial state —
+    // the next fetchDashboardSummary/fetchPriceAlerts (now unguarded) repopulates
+    // with the user's real data.
+    set({
+      demoMode: false,
+      vendors: [],
+      weekTotal: 0,
+      weekPctChange: 0,
+      dayData: DAY_LABELS.map((label) => ({ label, total: 0, breakdown: [] })),
+      monthTotal: 0,
+      monthPctChange: 0,
+      monthData: [],
+      allYearData: [],
+      categorySpend: [],
+      topItems: [],
+      uploadActivity: [],
+      deliveryGapTotal: 0,
+      deliveryGapItems: [],
+      priceAlerts: [],
+    });
+  },
 
   setScanStage: (stage) => set({ scanStage: stage }),
   setSpendView: (view) => set({ spendView: view, selectedDay: null }),
@@ -389,19 +467,31 @@ export const useStore = create<AppState>((set, get) => ({
   // chart — computed from the same saved-invoices fetch so wiring both up
   // doesn't mean two near-identical queries.
   fetchDashboardSummary: async (supabase, organizationId) => {
+    // In demo mode the dashboard is seeded by startDemo(); never overwrite it
+    // with a real query (this fires from every tab focus). Live read via get().
+    if (get().demoMode) return;
     const { data: vendorRows, error: vendorErr } = await supabase
       .from('vendors')
       .select('id, name, color, contact_name, contact_phone, account_number')
       .eq('organization_id', organizationId);
-    if (vendorErr) return;
+    // A silent bail here used to leave the dashboard showing whatever it last
+    // rendered (or the $0 initial state on first load) with no indication
+    // anything failed — indistinguishable from "no spend yet." Surface it.
+    if (vendorErr) {
+      get().showToast('Could not load dashboard data');
+      return;
+    }
 
     const { data: invoiceRows, error: invoiceErr } = await supabase
       .from('invoices')
-      .select('id, vendor_id, total, invoice_date, created_at, invoice_line_items(clean_name, category, extended_price, line_item_type, voided_at)')
+      .select('id, vendor_id, total, invoice_date, created_at, invoice_line_items(id, clean_name, category, extended_price, line_item_type, voided_at, reconciliation_status)')
       .eq('organization_id', organizationId)
       .eq('status', 'saved')
       .order('created_at', { ascending: false });
-    if (invoiceErr) return;
+    if (invoiceErr) {
+      get().showToast('Could not load dashboard data');
+      return;
+    }
 
     const today = new Date();
     const weekStart = mondayOf(today);
@@ -428,6 +518,12 @@ export const useStore = create<AppState>((set, get) => ({
     const categoryTotals = new Map<string, number>();
     // All-time spend per item (keyed by clean_name) for the top-spend/Pareto view.
     const itemTotals = new Map<string, number>();
+    // Delivery-gap worklist: line items still flagged missing/short as of
+    // their invoice's save — money already paid for product that never
+    // showed up. 'short' is a valid DB value collapsed into 'missing' for
+    // display everywhere else in the app (see mapLineItem); same collapse here.
+    let deliveryGapTotal = 0;
+    const deliveryGapCandidates: (DeliveryGapEntry & { dateIso: string })[] = [];
     // Total spend per calendar year, across every invoice regardless of
     // date — backs the year-stepper/all-time view without a re-fetch.
     const yearlyTotals = new Map<number, number>();
@@ -441,7 +537,9 @@ export const useStore = create<AppState>((set, get) => ({
       // invoice_date is model-extracted and occasionally missing (or wrong,
       // on a bad OCR read) — created_at is always real, so it's the
       // fallback rather than silently dropping the invoice from every chart.
-      const dateStr: string | undefined = inv.invoice_date ?? inv.created_at?.slice(0, 10);
+      // Converted to a *local* date (not a UTC slice) since every bucket
+      // boundary below (week/month/year) is computed from local `today`.
+      const dateStr: string | undefined = inv.invoice_date ?? localDateFromTimestamp(inv.created_at);
       if (!dateStr) continue;
       const amount = Number(inv.total ?? 0);
       const vendorId = inv.vendor_id as string | null;
@@ -464,6 +562,20 @@ export const useStore = create<AppState>((set, get) => ({
         if (li.voided_at || li.line_item_type === 'credit') continue;
         const itemName = (li.clean_name ?? '').trim() || 'Unnamed item';
         itemTotals.set(itemName, (itemTotals.get(itemName) ?? 0) + Number(li.extended_price ?? 0));
+
+        if (li.reconciliation_status === 'missing' || li.reconciliation_status === 'short') {
+          const gapAmount = Number(li.extended_price ?? 0);
+          deliveryGapTotal += gapAmount;
+          deliveryGapCandidates.push({
+            id: li.id,
+            invoiceId: inv.id,
+            vendorName,
+            itemName,
+            amount: Math.round(gapAmount * 100) / 100,
+            dateLabel: formatDate(dateStr),
+            dateIso: dateStr,
+          });
+        }
       }
 
       if (dateStr >= weekStartStr && dateStr <= weekEndStr) {
@@ -571,7 +683,7 @@ export const useStore = create<AppState>((set, get) => ({
     // recently uploaded invoices — regardless of what week they're dated —
     // are simply the first N rows.
     const uploadActivity: UploadActivityEntry[] = (invoiceRows ?? []).slice(0, 8).map((inv: any) => {
-      const dateStr: string | undefined = inv.invoice_date ?? inv.created_at?.slice(0, 10);
+      const dateStr: string | undefined = inv.invoice_date ?? localDateFromTimestamp(inv.created_at);
       const { name: vendorName, color: vendorColor } = vendorDisplay(inv.vendor_id ?? null, vendorById);
       const { label: periodLabel, isBackdated } = dateStr
         ? periodLabelFor(dateStr, weekStartStr)
@@ -610,26 +722,43 @@ export const useStore = create<AppState>((set, get) => ({
       };
     });
 
+    // Most-recent first, capped — this is a follow-up worklist, not an
+    // exhaustive ledger; the total above already reflects every flagged item.
+    const deliveryGapItems: DeliveryGapEntry[] = deliveryGapCandidates
+      .sort((a, b) => b.dateIso.localeCompare(a.dateIso))
+      .slice(0, 25)
+      .map(({ dateIso, ...entry }) => entry);
+
+    // Re-check demo mode before committing: a fetch that started just before
+    // the tour seeded (demoMode flipped true while this awaited Supabase) must
+    // not clobber the fixture with real data.
+    if (get().demoMode) return;
     set({
       vendors,
       weekTotal: Math.round(weekTotal * 100) / 100, weekPctChange, dayData,
       monthTotal: Math.round(monthTotal * 100) / 100, monthPctChange, monthData,
       allYearData,
       categorySpend, uploadActivity, topItems,
+      deliveryGapTotal: Math.round(deliveryGapTotal * 100) / 100, deliveryGapItems,
     });
   },
 
   fetchPriceAlerts: async (supabase, organizationId) => {
+    if (get().demoMode) return; // seeded by startDemo(); see fetchDashboardSummary.
     const { data, error } = await supabase
       .from('price_alerts')
-      .select('id, item_name, previous_price, new_price, unit, pct_change, read, detected_at, vendors(name)')
+      .select('id, item_name, vendor_id, previous_price, new_price, unit, pct_change, read, detected_at, vendors(name)')
       .eq('organization_id', organizationId)
       .order('detected_at', { ascending: false });
-    if (error) return;
+    if (error) {
+      get().showToast('Could not load price alerts');
+      return;
+    }
 
     const priceAlerts: PriceAlert[] = (data ?? []).map((row: any) => ({
       id: row.id,
       itemName: row.item_name,
+      vendorId: row.vendor_id ?? null,
       vendorName: row.vendors?.name ?? 'Unknown vendor',
       previousPrice: Number(row.previous_price),
       newPrice: Number(row.new_price),
@@ -640,6 +769,7 @@ export const useStore = create<AppState>((set, get) => ({
       read: row.read ?? false,
     }));
 
+    if (get().demoMode) return; // don't clobber a seed that arrived mid-fetch.
     set({ priceAlerts });
   },
 }));

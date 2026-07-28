@@ -13,6 +13,7 @@ export interface RecipeIngredient {
   aiQty: number | null;
   aiUnit: string | null;
   aiEstCostShare: number | null;
+  aiEstUnitCost: number | null;  // AI's rough $/unit guess — fallback until matched to a priced item
   confirmed: boolean;
   itemId: string | null;        // resolved catalog item, once matched
   position: number;
@@ -76,16 +77,42 @@ function resolvedCost(ing: RecipeIngredient): number | null {
   return grams * ing.costPerGram;
 }
 
+// Fallback point cost for an ingredient with no real price match yet: the
+// AI's rough $/unit guess from general market knowledge, scaled by qty. This
+// is what keeps the dish total from reading $0.00 right after Auto Cost,
+// before anything's been matched to invoice history.
+function aiEstimatedCost(ing: RecipeIngredient): number | null {
+  if (ing.aiEstUnitCost == null) return null;
+  return ing.qty * ing.aiEstUnitCost;
+}
+
+// How much a resolved price should count, scaled by how many recent
+// purchases back it (resolve_item_cost_per_gram averages up to 3 — see the
+// migration RPC — so 3 is where this maxes out). A price backed by a single
+// invoice is a real price, just a thin one; this is what makes uploading
+// more invoices for an already-matched ingredient measurably sharpen the
+// estimate, instead of a 1-purchase match scoring identically to a 3+.
+function sampleConfidence(sampleSize: number | undefined): number {
+  const n = sampleSize ?? 1;
+  if (n <= 0) return 0.3;
+  if (n === 1) return 0.5;
+  if (n === 2) return 0.75;
+  return 1.0;
+}
+
 // Computes the dish's live cost, range, and confidence from its ingredients.
-// Resolved ingredients use real per-gram cost; unresolved ones are estimated
-// from their AI cost-share, scaled to the implied dish total the resolved
-// ingredients establish. Confidence is cost-share-weighted (nailing the
-// expensive ingredients matters far more than the cheap ones).
+// Resolved ingredients use real per-gram cost from invoice history, weighted
+// by how many purchases back that price (sampleConfidence); ones with an AI
+// unit-cost guess use that (scaled by qty); anything left uses the AI
+// cost-share scaled to the implied dish total the resolved ingredients
+// establish (0 if none are resolved yet). Confidence is cost-share-weighted
+// (nailing the expensive ingredients matters far more than the cheap ones).
 export function computeRecipeCost(ingredients: RecipeIngredient[]): RecipeCost {
   if (ingredients.length === 0) return { estimate: 0, low: 0, high: 0, confidence: 0 };
 
-  // Establish an implied dish total from the resolved ingredients, so the
-  // unresolved ones can be estimated proportionally to their AI cost-share.
+  // Establish an implied dish total from the resolved ingredients, so any
+  // ingredient with neither a real price nor an AI unit-cost guess can still
+  // be estimated proportionally to its AI cost-share.
   let resolvedSum = 0;
   let resolvedShareSum = 0;
   for (const ing of ingredients) {
@@ -95,7 +122,18 @@ export function computeRecipeCost(ingredients: RecipeIngredient[]): RecipeCost {
       resolvedShareSum += ing.aiEstCostShare ?? 0;
     }
   }
-  const impliedTotal = resolvedShareSum > 0 ? resolvedSum / resolvedShareSum : 0;
+  // Floor the divisor so a resolved ingredient with a tiny AI-estimated cost
+  // share can't extrapolate to a wildly inflated implied dish total — e.g. a
+  // $2 garnish tagged at a 5% cost share would otherwise imply a $40 dish,
+  // and every unresolved ingredient gets costed off that inflated total. This
+  // caps how much any single resolved ingredient can amplify the implied
+  // total (at MIN_SHARE_FOR_EXTRAPOLATION = 0.2, at most 5x) without
+  // affecting dishes where the resolved ingredients already cover a
+  // reasonable share of the cost.
+  const MIN_SHARE_FOR_EXTRAPOLATION = 0.2;
+  const impliedTotal = resolvedShareSum > 0
+    ? resolvedSum / Math.max(resolvedShareSum, MIN_SHARE_FOR_EXTRAPOLATION)
+    : 0;
 
   const point: number[] = [];
   const isResolved: boolean[] = [];
@@ -104,10 +142,15 @@ export function computeRecipeCost(ingredients: RecipeIngredient[]): RecipeCost {
     if (rc != null) {
       point.push(rc);
       isResolved.push(true);
+      continue;
+    }
+    const aiCost = aiEstimatedCost(ing);
+    if (aiCost != null) {
+      point.push(aiCost);
     } else {
       point.push((ing.aiEstCostShare ?? 0) * impliedTotal);
-      isResolved.push(false);
     }
+    isResolved.push(false);
   }
 
   const total = point.reduce((s, x) => s + x, 0);
@@ -123,9 +166,11 @@ export function computeRecipeCost(ingredients: RecipeIngredient[]): RecipeCost {
 
     // Uncertainty band + per-ingredient confidence.
     if (isResolved[i] && ing.confirmed) {
-      low += pc;
-      high += pc;
-      confidence += share * 1.0;
+      const sc = sampleConfidence(ing.sampleSize);
+      const u = (1 - sc) * 0.2;
+      low += pc * (1 - u);
+      high += pc * (1 + u);
+      confidence += share * sc;
     } else if (ing.confirmed) {
       // confirmed but not weight-resolvable (e.g. an "each"/volume item) —
       // trusted quantity, but the cost itself is still an estimate.
@@ -147,6 +192,19 @@ export function computeRecipeCost(ingredients: RecipeIngredient[]): RecipeCost {
     high: Math.round(high * 100) / 100,
     confidence: Math.round(confidence * 100) / 100,
   };
+}
+
+// Plain-language explanation of what's driving the confidence score, and what
+// to do about it — confidence is built entirely from ingredients matched to
+// real invoice line items (see resolveIngredientCost's trailing purchase
+// average), so the fix is always "match more ingredients" / "upload more
+// invoices" rather than anything the operator can do by hand.
+export function confidenceHint(confidence: number): string {
+  if (confidence >= 0.8) return 'Backed mostly by real purchase prices from your invoices.';
+  if (confidence >= 0.4) {
+    return 'Match more ingredients to your invoice history, or upload recent invoices, to sharpen this estimate.';
+  }
+  return 'This is mostly a rough starting estimate. Match ingredients to real purchases — or upload more invoices — for a tighter number.';
 }
 
 // ---- Data access -----------------------------------------------------------
@@ -207,6 +265,7 @@ function mapIngredient(row: any): RecipeIngredient {
     aiQty: row.ai_qty == null ? null : Number(row.ai_qty),
     aiUnit: row.ai_unit ?? null,
     aiEstCostShare: row.ai_est_cost_share == null ? null : Number(row.ai_est_cost_share),
+    aiEstUnitCost: row.ai_est_unit_cost == null ? null : Number(row.ai_est_unit_cost),
     confirmed: !!row.confirmed,
     itemId: row.item_id ?? null,
     position: row.position ?? 0,
@@ -237,7 +296,9 @@ export async function fetchRecipes(
 export async function fetchRecipe(supabase: SupabaseClient, recipeId: string): Promise<Recipe> {
   const { data, error } = await supabase
     .from('recipes')
-    .select('id, name, source_photo_path, menu_price, cost_estimate, confidence, ai_draft_raw, recipe_ingredients(*)')
+    .select(
+      'id, name, source_photo_path, menu_price, cost_estimate, confidence, ai_draft_raw, recipe_ingredients!recipe_ingredients_recipe_id_fkey(*)'
+    )
     .eq('id', recipeId)
     .single();
   if (error || !data) throw new Error(error?.message ?? 'Recipe not found');
@@ -304,6 +365,36 @@ export async function createItem(
   if (error || !data) throw new Error(error?.message ?? 'Could not create item');
   await supabase.rpc('link_line_items_to_item', { p_item_id: data.id, p_canonical_name: canonicalName });
   return data.id as string;
+}
+
+export async function deleteIngredient(supabase: SupabaseClient, ingredientId: string): Promise<void> {
+  const { error } = await supabase.from('recipe_ingredients').delete().eq('id', ingredientId);
+  if (error) throw new Error(error.message);
+}
+
+export async function addIngredient(
+  supabase: SupabaseClient,
+  organizationId: string,
+  recipeId: string,
+  input: { rawName: string; qty: number; unit: string },
+  position: number,
+): Promise<RecipeIngredient> {
+  const { data, error } = await supabase
+    .from('recipe_ingredients')
+    .insert({
+      organization_id: organizationId,
+      recipe_id: recipeId,
+      component_type: 'item',
+      raw_ingredient_name: input.rawName,
+      qty: input.qty,
+      unit: input.unit,
+      confirmed: true,
+      position,
+    })
+    .select()
+    .single();
+  if (error || !data) throw new Error(error?.message ?? 'Could not add ingredient');
+  return mapIngredient(data);
 }
 
 export async function updateIngredient(

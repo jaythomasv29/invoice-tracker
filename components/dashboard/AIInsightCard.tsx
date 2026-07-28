@@ -43,7 +43,7 @@ export default function AIInsightCard({ priceAlerts, onPress }: AIInsightCardPro
                   <Text style={styles.vendorName} numberOfLines={1}>{a.vendorName}</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.pctChange}>+{a.pctChange}%</Text>
+                  <Text style={styles.pctChange}>+{Math.round(a.pctChange)}%</Text>
                   <Text style={styles.priceChange}>
                     ${a.previousPrice.toFixed(2)} → ${a.newPrice.toFixed(2)}
                   </Text>

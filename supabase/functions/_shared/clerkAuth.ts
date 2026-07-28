@@ -3,6 +3,8 @@
 // for the plan flag). CLERK_SECRET_KEY is a function secret — never
 // EXPO_PUBLIC_. Set with: npx supabase secrets set CLERK_SECRET_KEY=sk_...
 
+import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
+
 const CLERK_API = 'https://api.clerk.com/v1';
 
 function clerkKey(): string {
@@ -11,10 +13,10 @@ function clerkKey(): string {
   return k;
 }
 
-// Decodes (does NOT re-verify) the Clerk JWT payload. Safe here because these
-// functions also touch RLS-protected data with the same token, and a forged
-// token wouldn't get past Supabase's third-party-auth verification on those
-// queries — so we're only reading claims off a token that's already trusted.
+// Decodes (does NOT verify) the Clerk JWT payload. Only safe to read claims
+// that don't gate access to anything — e.g. `sub` to look up an email for
+// pre-filling a Stripe customer. NEVER use this for org_id: use
+// getVerifiedOrgId instead, which is spoof-proof.
 function decodeJwt(authHeader: string | null): Record<string, any> | null {
   if (!authHeader) return null;
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
@@ -29,16 +31,28 @@ function decodeJwt(authHeader: string | null): Record<string, any> | null {
   }
 }
 
-// The active organization id from the token. Clerk exposes it as a flat
-// `org_id` claim on the Supabase-integration token, but fall back to the nested
-// `o.id` form just in case the session token shape differs.
-export function getOrgId(authHeader: string | null): string | null {
-  const c = decodeJwt(authHeader);
-  return c?.org_id ?? c?.o?.id ?? null;
-}
-
 export function getUserId(authHeader: string | null): string | null {
   return decodeJwt(authHeader)?.sub ?? null;
+}
+
+// The active organization id, verified. Rather than trusting the org_id claim
+// off a locally-decoded (unsigned-check) JWT — which any caller could forge —
+// this asks Postgres for private.current_org_id() through an RLS-scoped
+// client carrying the caller's token. Supabase's third-party-auth integration
+// only populates auth.jwt() from a token whose signature it has verified
+// against Clerk's JWKS, so a forged token yields no org id here rather than an
+// attacker-chosen one. Use this (not the JWT claim) anywhere an org_id drives
+// a privileged action, e.g. issuing Stripe billing-portal/checkout sessions.
+export async function getVerifiedOrgId(authHeader: string | null): Promise<string | null> {
+  if (!authHeader) return null;
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+  const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data, error } = await supabase.rpc('current_org_id');
+  if (error) return null;
+  return (data as string | null) ?? null;
 }
 
 export async function getOrganization(orgId: string): Promise<any> {

@@ -14,7 +14,7 @@ export default function PriceAlertBanner({ alert, onPress }: { alert: PriceAlert
           {alert.itemName} · {alert.vendorName.split(' ')[0]}
         </Text>
         <Text style={styles.alertSub}>
-          up ${alert.absChange.toFixed(2)}/{alert.unit} ({alert.pctChange}%) since last order
+          up ${alert.absChange.toFixed(2)}/{alert.unit} ({Math.round(alert.pctChange)}%) since last order
         </Text>
       </View>
       <Text style={styles.chevron}>›</Text>

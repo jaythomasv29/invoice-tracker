@@ -12,13 +12,40 @@
 // customer.subscription.deleted.
 
 import { getStripe } from '../_shared/stripe.ts';
-import { setOrgPlan, updateOrgMetadata } from '../_shared/clerkAuth.ts';
+import { updateOrgMetadata, getOrganization } from '../_shared/clerkAuth.ts';
 
 const WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET');
 
 // Subscription statuses that should keep the org on Pro (past_due gives a grace
 // window rather than an instant downgrade).
 const ACTIVE_STATUSES = ['active', 'trialing', 'past_due'];
+
+// Stripe delivers webhooks at-least-once and does NOT guarantee order — a
+// retried or delayed event can arrive after a newer one already changed the
+// org's plan (e.g. a late "subscription.updated: active" retry landing after
+// the real "subscription.deleted" already downgraded the org back to free).
+// Applying it blindly would silently re-grant Pro. We track the last applied
+// event's id + unix timestamp in the org's own Clerk private_metadata (no new
+// table needed) and only apply an event that's both new (different id) and
+// not older than what's already applied.
+async function shouldApply(orgId: string, event: { id: string; created: number }): Promise<boolean> {
+  try {
+    const org = await getOrganization(orgId);
+    const lastId = org.private_metadata?.stripe_last_event_id;
+    const lastCreated = org.private_metadata?.stripe_last_event_created;
+    if (lastId === event.id) return false; // exact duplicate delivery
+    if (typeof lastCreated === 'number' && event.created < lastCreated) return false; // stale/out-of-order
+    return true;
+  } catch {
+    // Can't confirm ordering — fail open rather than silently dropping what
+    // might be a real cancellation/downgrade.
+    return true;
+  }
+}
+
+function eventStampMetadata(event: { id: string; created: number }) {
+  return { stripe_last_event_id: event.id, stripe_last_event_created: event.created };
+}
 
 Deno.serve(async (req) => {
   const sig = req.headers.get('stripe-signature');
@@ -43,12 +70,19 @@ Deno.serve(async (req) => {
       case 'checkout.session.completed': {
         const s = event.data.object as any;
         const orgId = s.client_reference_id as string | null;
-        if (orgId) {
+        // For async payment methods, a completed Checkout session can still
+        // have an unpaid session (payment_status: 'unpaid') — the actual
+        // grant happens once customer.subscription.updated reports the
+        // subscription active. Granting Pro here regardless would let a
+        // not-yet-paid session unlock the product for free in the meantime.
+        const paid = s.payment_status === 'paid' || s.payment_status === 'no_payment_required';
+        if (orgId && paid && (await shouldApply(orgId, event))) {
           await updateOrgMetadata(orgId, {
             public_metadata: { plan: 'pro' },
             private_metadata: {
               stripe_customer_id: s.customer,
               stripe_subscription_id: s.subscription,
+              ...eventStampMetadata(event),
             },
           });
         }
@@ -59,13 +93,14 @@ Deno.serve(async (req) => {
       case 'customer.subscription.updated': {
         const sub = event.data.object as any;
         const orgId = sub.metadata?.org_id as string | undefined;
-        if (orgId) {
+        if (orgId && (await shouldApply(orgId, event))) {
           const active = ACTIVE_STATUSES.includes(sub.status);
           await updateOrgMetadata(orgId, {
             public_metadata: { plan: active ? 'pro' : 'free' },
             private_metadata: {
               stripe_customer_id: sub.customer,
               stripe_subscription_id: sub.id,
+              ...eventStampMetadata(event),
             },
           });
         }
@@ -75,7 +110,12 @@ Deno.serve(async (req) => {
       case 'customer.subscription.deleted': {
         const sub = event.data.object as any;
         const orgId = sub.metadata?.org_id as string | undefined;
-        if (orgId) await setOrgPlan(orgId, 'free');
+        if (orgId && (await shouldApply(orgId, event))) {
+          await updateOrgMetadata(orgId, {
+            public_metadata: { plan: 'free' },
+            private_metadata: eventStampMetadata(event),
+          });
+        }
         break;
       }
     }

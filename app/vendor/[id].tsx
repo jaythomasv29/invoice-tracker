@@ -8,6 +8,7 @@ import { Colors } from '../../constants/Colors';
 import { useStore, Invoice } from '../../store/useStore';
 import { useSupabase } from '../../lib/supabase';
 import { fetchVendorInvoices } from '../../lib/invoicePipeline';
+import { initialsFor } from '../../lib/initials';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import Spinner from '../../components/ui/Spinner';
 import BackButton from '../../components/ui/BackButton';
@@ -84,7 +85,7 @@ export default function VendorDetailScreen() {
         <BackButton onPress={() => router.back()} />
         <View style={[styles.vendorAvatar, { backgroundColor: vendor.color + '20' }]}>
           <Text style={[styles.vendorAvatarText, { color: vendor.color }]}>
-            {vendor.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}
+            {initialsFor(vendor.name)}
           </Text>
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>

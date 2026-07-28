@@ -3,7 +3,13 @@ import { Colors } from '../../constants/Colors';
 
 export default function BackButton({ onPress }: { onPress: () => void }) {
   return (
-    <TouchableOpacity style={styles.backBtn} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={styles.backBtn}
+      onPress={onPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel="Back"
+    >
       <View style={styles.backChevron} />
     </TouchableOpacity>
   );

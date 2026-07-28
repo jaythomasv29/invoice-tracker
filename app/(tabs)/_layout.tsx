@@ -17,6 +17,10 @@ import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { useAuth, useOrganization, useSession } from "@clerk/clerk-expo";
 import { Colors } from "../../constants/Colors";
+import { TourProvider } from "../../components/tour/TourProvider";
+import { TourTarget } from "../../components/tour/TourTarget";
+import SpotlightOverlay from "../../components/tour/SpotlightOverlay";
+import DemoBanner from "../../components/tour/DemoBanner";
 
 const SCAN_SIZE = 46; // diameter of the inline green scan circle
 const ICON_SIZE = 24; // standardized icon box for every tab
@@ -193,6 +197,7 @@ function ScanButton({
         scale.value = withSpring(1, { damping: 10, stiffness: 200 });
       }}
       accessibilityRole="button"
+      accessibilityLabel="Scan invoice"
     >
       <Animated.View style={[styles.scanCircle, pressStyle]}>
         <CameraIcon />
@@ -256,6 +261,7 @@ export default function TabLayout() {
   }, [isLoaded, sessionLoaded, session, isSignedIn, orgLoaded, organization]);
 
   return (
+    <TourProvider>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -307,7 +313,9 @@ export default function TabLayout() {
           title: "",
           tabBarLabel: () => null,
           tabBarButton: (props) => (
-            <ScanButton onPress={() => router.push("/scan")} />
+            <TourTarget id="tab-scan" style={styles.scanBtnWrap}>
+              <ScanButton onPress={() => router.push("/scan")} />
+            </TourTarget>
           ),
         }}
       />
@@ -337,6 +345,9 @@ export default function TabLayout() {
           routable (href: null hides the tab button, the route still works). */}
       <Tabs.Screen name="alerts" options={{ href: null }} />
     </Tabs>
+      <SpotlightOverlay />
+      <DemoBanner />
+    </TourProvider>
   );
 }
 
@@ -394,11 +405,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.7)",
   },
   tabLabel: { fontSize: 11, fontFamily: "Manrope_700Bold", marginTop: 4 },
-  badge: {
-    backgroundColor: Colors.danger,
-    fontSize: 10,
-    fontFamily: "Manrope_700Bold",
-  },
 
   tabButtonInner: { flex: 1, alignItems: "center", justifyContent: "center" },
 

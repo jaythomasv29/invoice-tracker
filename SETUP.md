@@ -74,10 +74,19 @@ moment someone taps Upgrade. Full walkthrough: `BILLING.md`.
 
 ## Legal pages (required before App Store submission)
 
-- [ ] Fill in the placeholders in `legal/privacy-policy.html` and `legal/terms-of-service.html` — the `[FILL IN DATE BEFORE PUBLISHING]` and `[FILL IN CONTACT EMAIL]` markers in each file. Have a human (ideally with legal review, even if brief) confirm the drafted content is accurate for your actual data practices before publishing.
-- [ ] Host both files somewhere public — easiest is GitHub Pages: enable Pages on this repo (Settings → Pages → deploy from `main` branch, `/legal` or root), or paste the content into a Notion page shared publicly, or host on any static site.
+- [ ] Fill in the placeholders in `legal/privacy-policy.html` and `legal/terms-of-service.html` (and their ported copies at `website/src/app/privacy/page.tsx` / `website/src/app/terms/page.tsx`, see below) — the `[FILL IN DATE BEFORE PUBLISHING]` and `[FILL IN CONTACT EMAIL]` markers in each file. Have a human (ideally with legal review, even if brief) confirm the drafted content is accurate for your actual data practices before publishing.
+- [ ] Host them somewhere public. As of 2026-07-23 the easiest path is the `website/` marketing site (see below) — it already serves this content at `/privacy` and `/terms` once deployed. GitHub Pages / a Notion page / any static host still work fine as alternatives if you'd rather not stand up the marketing site first.
 - [ ] Put the resulting URLs in `.env` as `EXPO_PUBLIC_PRIVACY_POLICY_URL` and `EXPO_PUBLIC_TERMS_URL`. Until these are set, the sign-in screen's legal links and More → Privacy & data silently no-op instead of opening a dead link — so nothing breaks, but submission needs them filled in.
 - [ ] Apple also requires the Privacy Policy URL entered directly in App Store Connect (App Privacy section) — same URL, separate field.
+
+## Marketing website (`website/`, added 2026-07-23)
+
+Standalone Next.js parallax landing page + waitlist signup, nested in this repo but deployed independently — see `website/README.md` for the full checklist. Short version:
+
+- [ ] `supabase db push` from the repo root — adds `waitlist_signups` (this site's signup form) plus two earlier security-fix migrations from the same session, if not already applied.
+- [ ] Deploy `website/` (Vercel is the easiest fit for Next.js) with `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` set in its environment (`website/.env.local.example` documents these — same Supabase project as the app, plus the service-role key from Project Settings → API).
+- [ ] Once deployed, `npx supabase secrets set APP_RETURN_URL=https://<domain>/billing-return` — Stripe checkout/portal currently redirect to a placeholder (`example.com`).
+- [ ] Add Apple's official "Download on the App Store" badge to the site once there's a real App Store listing to link it to — deliberately left out for now (nothing to link to yet, and it's not ours to fabricate).
 
 ## Apple (later — App Store release phase)
 

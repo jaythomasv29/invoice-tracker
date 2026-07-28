@@ -86,7 +86,7 @@ export default function VendorSpendListCard({
                 </View>
               </View>
               <View style={styles.pill}>
-                <Text style={styles.pillAmount}>${amount.toLocaleString()}</Text>
+                <Text style={styles.pillAmount}>${Math.round(amount).toLocaleString()}</Text>
                 <Text style={styles.pillLabel}>{shortLabel}</Text>
               </View>
             </TouchableOpacity>

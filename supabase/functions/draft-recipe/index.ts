@@ -50,8 +50,13 @@ const RECIPE_DRAFT_TOOL = {
               type: 'number',
               description: '0-1 rough share of this dish’s total ingredient cost; shares should sum to ~1',
             },
+            est_unit_cost: {
+              type: 'number',
+              description:
+                'Rough current US market price in USD per single unit of the given `unit` (e.g. dollars per oz, per lb, per each) — a ballpark from general knowledge, not this restaurant\'s real price. Used only as a placeholder until the operator matches the ingredient to their actual invoice history.',
+            },
           },
-          required: ['raw_name', 'approx_qty', 'unit', 'is_likely_prep', 'est_cost_share'],
+          required: ['raw_name', 'approx_qty', 'unit', 'is_likely_prep', 'est_cost_share', 'est_unit_cost'],
         },
       },
       draft_confidence: { type: 'number', description: '0-1 confidence this is a reasonable starting template' },
@@ -68,6 +73,7 @@ ${hasPhoto ? 'A photo of the plated dish is attached — use what you can see, c
 - Prefer specific, purchasable ingredient names ("boneless chicken thigh", not "chicken") so each can be matched against the restaurant's real invoice history.
 - If an ingredient is itself a compound prep component (a sauce, stock, marinade, dressing, batter), do NOT expand it inline — list it as one ingredient and set is_likely_prep = true.
 - est_cost_share values should sum to roughly 1 across the whole list, reflecting each ingredient's rough share of the dish's ingredient cost.
+- est_unit_cost is a separate, absolute estimate: your best general-knowledge guess at USD per single unit of the ingredient's own unit (e.g. $/oz, $/lb, $/each). It won't match this restaurant's real price — it's just a starting number so the dish shows a nonzero cost before the operator matches ingredients to their invoice history.
 - Never invent oddly precise numbers; these are estimates the operator will refine.
 
 Call record_recipe_draft with the complete template.`;
@@ -93,6 +99,7 @@ interface RecipeDraft {
     unit: string;
     is_likely_prep: boolean;
     est_cost_share: number;
+    est_unit_cost: number;
   }>;
   draft_confidence: number;
 }
@@ -188,6 +195,15 @@ Deno.serve(async (req) => {
       .single();
     if (updateErr) throw new Error(`Could not save draft: ${updateErr.message}`);
 
+    // A (re-)draft fully replaces the ingredient list — clear whatever's
+    // there (manual entries or a prior draft) before inserting the new one,
+    // so this is safe to call again on a recipe that already has ingredients.
+    const { error: clearErr } = await supabase
+      .from('recipe_ingredients')
+      .delete()
+      .eq('recipe_id', recipeId);
+    if (clearErr) throw new Error(`Could not clear existing ingredients: ${clearErr.message}`);
+
     // Phase 1: every drafted ingredient is a plain item (no prep expansion yet).
     const ingredientRows = draft.ingredients.map((ing, i) => ({
       organization_id: recipe.organization_id,
@@ -199,6 +215,7 @@ Deno.serve(async (req) => {
       ai_qty: ing.approx_qty,
       ai_unit: ing.unit,
       ai_est_cost_share: ing.est_cost_share,
+      ai_est_unit_cost: ing.est_unit_cost,
       confirmed: false,
       position: i,
     }));
@@ -214,7 +231,10 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, 'content-type': 'application/json' } }
     );
   } catch (err) {
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
+    console.error('[draft-recipe] failed:', err);
+    const message = (err as Error).message ?? 'Could not draft recipe';
+    const safeMessage = message.startsWith('Anthropic API error') ? 'Could not draft recipe — please try again.' : message;
+    return new Response(JSON.stringify({ error: safeMessage }), {
       status: 400,
       headers: { ...corsHeaders, 'content-type': 'application/json' },
     });

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import Animated, {
   ZoomIn, FadeInDown,
   useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, withDelay, Easing,
+  interpolate, Extrapolation,
   type SharedValue,
 } from 'react-native-reanimated';
 import { Colors } from '../../constants/Colors';
@@ -23,8 +24,20 @@ function Frame({ children, dark }: { children: React.ReactNode; dark?: boolean }
   );
 }
 
+// Scan: a live viewfinder that resolves an invoice into structured data. A green
+// beam sweeps the framed document and lights up each extracted price in turn —
+// the "photo in, line items out" promise happening on screen.
+const SCAN_VIEW_H = 240;
+const SCAN_BEAM_H = 30;
+const SCAN_ROWS = [
+  { threshold: 0.33, width: '54%', price: '$184.00' },
+  { threshold: 0.50, width: '44%', price: '$96.40' },
+  { threshold: 0.67, width: '60%', price: '$61.20' },
+] as const;
+
 export function ScanPreview({ active }: PreviewProps) {
   const pulse = useSharedValue(0);
+  const scan = useSharedValue(0);
 
   useEffect(() => {
     if (active) {
@@ -35,10 +48,18 @@ export function ScanPreview({ active }: PreviewProps) {
         ),
         -1
       );
+      scan.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 1900, easing: Easing.inOut(Easing.ease) }),
+          withDelay(650, withTiming(1, { duration: 0 }))
+        ),
+        -1
+      );
     } else {
       pulse.value = 0;
+      scan.value = 0;
     }
-  }, [active, pulse]);
+  }, [active, pulse, scan]);
 
   const cornerStyle = useAnimatedStyle(() => ({
     opacity: 0.55 + pulse.value * 0.45,
@@ -46,22 +67,61 @@ export function ScanPreview({ active }: PreviewProps) {
   const ringStyle = useAnimatedStyle(() => ({
     transform: [{ scale: 1 + pulse.value * 0.08 }],
   }));
+  const beamStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scan.value, [0, 0.06, 0.92, 1], [0, 1, 1, 0], Extrapolation.CLAMP),
+    transform: [{ translateY: interpolate(scan.value, [0, 1], [0, SCAN_VIEW_H - SCAN_BEAM_H], Extrapolation.CLAMP) }],
+  }));
 
   return (
     <Frame dark>
-      <View style={styles.scanCorners}>
+      <View style={styles.scanViewfinder}>
         <Animated.View style={[styles.corner, styles.cornerTL, cornerStyle]} />
         <Animated.View style={[styles.corner, styles.cornerTR, cornerStyle]} />
         <Animated.View style={[styles.corner, styles.cornerBL, cornerStyle]} />
         <Animated.View style={[styles.corner, styles.cornerBR, cornerStyle]} />
-        <Text style={styles.scanHint}>Align invoice within frame</Text>
+
+        <View style={styles.scanDoc}>
+          <View style={styles.scanDocTitle} />
+          {SCAN_ROWS.map((row) => (
+            <ScanDocRow key={row.price} scan={scan} threshold={row.threshold} width={row.width} price={row.price} />
+          ))}
+          <View style={styles.scanDocDivider} />
+          <ScanDocRow scan={scan} threshold={0.86} width="34%" price="$341.60" total />
+        </View>
+
+        <Animated.View style={[styles.scanBeam, beamStyle]}>
+          <View style={styles.scanBeamGlow} />
+          <View style={styles.scanBeamLine} />
+        </Animated.View>
       </View>
+
       <View style={styles.scanBottomBar}>
+        <Text style={styles.scanHint}>Extracting line items</Text>
         <Animated.View style={[styles.scanCaptureRing, ringStyle]}>
           <View style={styles.scanCaptureBtn} />
         </Animated.View>
       </View>
     </Frame>
+  );
+}
+
+function ScanDocRow({
+  scan, threshold, width, price, total,
+}: { scan: SharedValue<number>; threshold: number; width: string; price: string; total?: boolean }) {
+  const chipStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scan.value, [threshold - 0.05, threshold + 0.05], [0, 1], Extrapolation.CLAMP),
+    transform: [{ scale: interpolate(scan.value, [threshold - 0.05, threshold + 0.05], [0.8, 1], Extrapolation.CLAMP) }],
+  }));
+  return (
+    <View style={styles.scanDocRow}>
+      <View style={[styles.scanDocName, { width } as any]} />
+      <View style={styles.scanDocPriceSlot}>
+        <View style={[styles.scanDocPricePh, total && styles.scanDocPricePhTotal]} />
+        <Animated.View style={[styles.scanDocChip, total && styles.scanDocChipTotal, chipStyle]}>
+          <Text style={[styles.scanDocChipText, total && styles.scanDocChipTextTotal]}>{price}</Text>
+        </Animated.View>
+      </View>
+    </View>
   );
 }
 
@@ -268,6 +328,103 @@ export function InvoiceParsePreview({ active }: PreviewProps) {
   );
 }
 
+// Whole-app overview: the home dashboard at a glance — a running spend total,
+// a mini spend-trend chart, and the per-vendor / top-item rollups underneath.
+// The total counts up and the bars fill in, so it reads as Sift turning a pile
+// of invoices into a single live picture of the business.
+const OV_BARS = [40, 62, 50, 78, 58, 90] as const;
+
+export function DashboardOverviewPreview({ active }: PreviewProps) {
+  const [total, setTotal] = useState(0);
+  const fill = useSharedValue(0);
+
+  useEffect(() => {
+    if (!active) {
+      setTotal(0);
+      fill.value = 0;
+      return;
+    }
+    fill.value = withDelay(120, withTiming(1, { duration: 760, easing: Easing.out(Easing.cubic) }));
+    let raf = 0;
+    const start = Date.now();
+    const duration = 850;
+    const tick = () => {
+      const t = Math.min((Date.now() - start) / duration, 1);
+      setTotal(Math.round(t * 12480));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [active, fill]);
+
+  return (
+    <Frame>
+      <View style={ov.headRow}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={ov.headLabel}>Spend this month</Text>
+          <Text style={ov.headTotal}>${total.toLocaleString('en-US')}</Text>
+        </View>
+        <View style={ov.trendPill}>
+          <Text style={ov.trendText}>↑ 8%</Text>
+        </View>
+      </View>
+
+      <View style={ov.chartRow}>
+        {OV_BARS.map((h, i) => (
+          <OverviewBar key={i} target={h} fill={fill} accent={i === OV_BARS.length - 1} />
+        ))}
+      </View>
+
+      <View style={ov.divider} />
+
+      <View style={ov.metricRow}>
+        <View style={[ov.metricDot, { backgroundColor: Colors.vendorGolden }]} />
+        <Text style={ov.metricName} numberOfLines={1}>Cascade Foods</Text>
+        <Text style={ov.metricVal}>$4,210</Text>
+      </View>
+      <View style={[ov.metricRow, { marginBottom: 0 }]}>
+        <View style={[ov.metricDot, { backgroundColor: Colors.warning }]} />
+        <Text style={ov.metricName} numberOfLines={1}>Chicken breast · top item</Text>
+        <Text style={ov.metricVal}>$1,980</Text>
+      </View>
+    </Frame>
+  );
+}
+
+function OverviewBar({
+  target, fill, accent,
+}: { target: number; fill: SharedValue<number>; accent: boolean }) {
+  const barStyle = useAnimatedStyle(() => ({
+    height: `${fill.value * target}%`,
+  }));
+  return (
+    <View style={ov.barTrack}>
+      <Animated.View
+        style={[ov.bar, { backgroundColor: accent ? Colors.chartBarTo : Colors.primaryMuted }, barStyle]}
+      />
+    </View>
+  );
+}
+
+const ov = StyleSheet.create({
+  headRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  headLabel: { fontSize: 12, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary },
+  headTotal: { fontSize: 24, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, letterSpacing: -0.5, marginTop: 3 },
+  trendPill: { backgroundColor: Colors.primaryLight, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 5, flexShrink: 0 },
+  trendText: { fontSize: 12, fontFamily: 'Manrope_700Bold', color: Colors.primaryDark },
+
+  chartRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 9, height: 60, marginTop: 18 },
+  barTrack: { flex: 1, height: '100%', justifyContent: 'flex-end' },
+  bar: { width: '100%', borderRadius: 5, minHeight: 4 },
+
+  divider: { height: 1, backgroundColor: Colors.borderLight, marginVertical: 14 },
+
+  metricRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  metricDot: { width: 9, height: 9, borderRadius: 4.5, flexShrink: 0 },
+  metricName: { flex: 1, minWidth: 0, fontSize: 12.5, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary },
+  metricVal: { fontSize: 12.5, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
+});
+
 const styles = StyleSheet.create({
   frame: {
     width: '100%', borderRadius: 22, padding: 18,
@@ -277,18 +434,47 @@ const styles = StyleSheet.create({
   frameDark: { backgroundColor: Colors.darkBg, borderWidth: 1, borderColor: Colors.darkBorder },
 
   // Scan preview
-  scanCorners: {
-    height: 150, borderRadius: 16, backgroundColor: Colors.darkSurface,
-    borderWidth: 1, borderColor: Colors.border,
-    alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden',
+  scanViewfinder: {
+    height: 240, borderRadius: 16, backgroundColor: Colors.darkSurface,
+    borderWidth: 1, borderColor: Colors.darkBorder, position: 'relative', overflow: 'hidden',
   },
-  corner: { position: 'absolute', width: 22, height: 22 },
+  corner: { position: 'absolute', width: 22, height: 22, zIndex: 2 },
   cornerTL: { top: 12, left: 12, borderTopWidth: 3, borderLeftWidth: 3, borderColor: Colors.primary, borderTopLeftRadius: 6 },
   cornerTR: { top: 12, right: 12, borderTopWidth: 3, borderRightWidth: 3, borderColor: Colors.primary, borderTopRightRadius: 6 },
   cornerBL: { bottom: 12, left: 12, borderBottomWidth: 3, borderLeftWidth: 3, borderColor: Colors.primary, borderBottomLeftRadius: 6 },
   cornerBR: { bottom: 12, right: 12, borderBottomWidth: 3, borderRightWidth: 3, borderColor: Colors.primary, borderBottomRightRadius: 6 },
-  scanHint: { fontSize: 12, fontFamily: 'Manrope_600SemiBold', color: 'rgba(255,255,255,0.45)' },
+
+  scanDoc: {
+    position: 'absolute', top: 24, left: 24, right: 24, bottom: 24,
+    backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 10,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)',
+    paddingHorizontal: 14, paddingVertical: 16, justifyContent: 'center',
+  },
+  scanDocTitle: { width: '46%', height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.30)', marginBottom: 18 },
+  scanDocRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 17 },
+  scanDocName: { height: 7, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.16)' },
+  scanDocPriceSlot: { marginLeft: 'auto', width: 66, height: 19, position: 'relative' },
+  scanDocPricePh: { position: 'absolute', right: 0, top: 5.5, width: 42, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.10)' },
+  scanDocPricePhTotal: { width: 50 },
+  scanDocChip: {
+    position: 'absolute', right: 0, top: 0, height: 19, paddingHorizontal: 7, borderRadius: 6,
+    backgroundColor: 'rgba(93,176,117,0.20)', borderWidth: 1, borderColor: 'rgba(93,176,117,0.55)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  scanDocChipTotal: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  scanDocChipText: { fontSize: 10.5, fontFamily: 'Manrope_700Bold', color: Colors.primary },
+  scanDocChipTextTotal: { color: '#fff' },
+  scanDocDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.09)', marginTop: 3, marginBottom: 17 },
+
+  scanBeam: { position: 'absolute', top: 0, left: 10, right: 10, height: 30, zIndex: 1 },
+  scanBeamGlow: { flex: 1, borderRadius: 8, backgroundColor: 'rgba(93,176,117,0.10)' },
+  scanBeamLine: {
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, borderRadius: 2, backgroundColor: Colors.primary,
+    shadowColor: Colors.primary, shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 },
+  },
+
   scanBottomBar: { alignItems: 'center', marginTop: 16 },
+  scanHint: { fontSize: 11.5, fontFamily: 'Manrope_600SemiBold', color: 'rgba(255,255,255,0.45)', letterSpacing: 0.2, marginBottom: 12 },
   scanCaptureRing: {
     width: 52, height: 52, borderRadius: 26, borderWidth: 3.5, borderColor: Colors.primary,
     alignItems: 'center', justifyContent: 'center',

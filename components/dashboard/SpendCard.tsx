@@ -52,7 +52,7 @@ export default function SpendCard({
             <Text style={styles.spendLabel}>{spendPeriodLabel(period, yearsBack)}</Text>
             {isLoading && <Spinner size={12} color={Colors.textSecondary} />}
           </View>
-          <Text style={styles.spendAmount}>${periodTotal.toLocaleString()}</Text>
+          <Text style={styles.spendAmount}>${Math.round(periodTotal).toLocaleString()}</Text>
           {compare && (
             <View style={styles.spendChange}>
               <Text style={[styles.spendChangeArrow, periodPctChange > 0 && styles.spendChangeUp]}>
@@ -82,7 +82,7 @@ export default function SpendCard({
           {selData.breakdown.map((b, i) => (
             <View key={i} style={styles.breakdownRow}>
               <Text style={styles.breakdownName} numberOfLines={1}>{b.name}</Text>
-              <Text style={styles.breakdownAmt}>${b.amount.toLocaleString()}</Text>
+              <Text style={styles.breakdownAmt}>${Math.round(b.amount).toLocaleString()}</Text>
             </View>
           ))}
         </View>
@@ -118,7 +118,7 @@ export default function SpendCard({
                 <View style={{ flex: 1 }} />
                 <View style={{ width: '100%', overflow: 'hidden', borderRadius: 5 }}>
                   {d.breakdown.map((seg, si) => {
-                    const segH = Math.max(Math.round((seg.amount / d.total) * barH), 3);
+                    const segH = d.total > 0 ? Math.max(Math.round((seg.amount / d.total) * barH), 3) : 3;
                     return (
                       <View key={si} style={{ width: '100%', height: segH, backgroundColor: seg.color }} />
                     );

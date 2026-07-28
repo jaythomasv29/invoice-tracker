@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -9,7 +9,6 @@ import { PLAN_FEATURES, PRO_PRICE_LABEL, PAYWALL_HEADLINE, PAYWALL_SUBHEAD } fro
 import { useExtractionUsage } from '../hooks/useExtractionUsage';
 import { useEntitlement } from '../hooks/useEntitlement';
 import { useSupabase } from '../lib/supabase';
-import { planFromOrg } from '../lib/entitlements';
 import { startProCheckout } from '../lib/billing';
 
 export default function PaywallScreen() {
@@ -21,6 +20,18 @@ export default function PaywallScreen() {
   const { used, cap } = useExtractionUsage();
   const [busy, setBusy] = useState(false);
 
+  // `isPro` mirrored into a ref so the polling loop below can observe it
+  // updating across re-renders. The loop used to read `planFromOrg(organization)`
+  // straight off the `organization` object captured in handleUpgrade's own
+  // closure — but that reference doesn't necessarily reflect what
+  // `organization?.reload?.()` fetched (Clerk may hand back a new resource
+  // object rather than mutating this one in place), so the loop routinely ran
+  // all 5 iterations regardless of whether the upgrade had actually landed.
+  // Reading a ref kept in sync via effect always reflects the latest render's
+  // reactive `isPro`, however Clerk delivers the update.
+  const isProRef = useRef(isPro);
+  useEffect(() => { isProRef.current = isPro; }, [isPro]);
+
   const usagePct = cap > 0 ? Math.min(1, used / cap) : 0;
 
   const handleUpgrade = async () => {
@@ -31,10 +42,20 @@ export default function PaywallScreen() {
       // The subscription is fulfilled server-side by the stripe-webhook
       // function (it flips the org's plan). Poll the Clerk org a few times so
       // the paywall flips to the "You're on Pro" state without a manual reload.
-      for (let i = 0; i < 5; i++) {
+      let confirmed = false;
+      for (let i = 0; i < 5 && !confirmed; i++) {
         await organization?.reload?.();
-        if (planFromOrg(organization) === 'pro') break;
-        await new Promise((r) => setTimeout(r, 1500));
+        // Give React a beat to re-render with the reloaded org (and this
+        // screen's `isPro`/`isProRef` to catch up) before checking.
+        await new Promise((r) => setTimeout(r, 400));
+        if (isProRef.current) { confirmed = true; break; }
+        await new Promise((r) => setTimeout(r, 1100));
+      }
+      // Auto-close back to whatever screen sent the user to the paywall
+      // (often mid-scan, having just hit the free cap) instead of leaving
+      // them stuck here to notice and dismiss it themselves.
+      if (confirmed) {
+        setTimeout(() => router.back(), 900);
       }
     } catch (e: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -47,7 +68,14 @@ export default function PaywallScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()} activeOpacity={0.7} hitSlop={8}>
+        <TouchableOpacity
+          style={styles.closeBtn}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
           <Text style={styles.closeIcon}>✕</Text>
         </TouchableOpacity>
       </View>

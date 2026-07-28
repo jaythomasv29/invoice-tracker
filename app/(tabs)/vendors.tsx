@@ -9,6 +9,7 @@ import { useStore, Vendor, Invoice, vendorAmountFromBars } from '../../store/use
 import { useSpendPeriod, spendPeriodShortLabel } from '../../hooks/useSpendPeriod';
 import { useSupabase } from '../../lib/supabase';
 import { fetchAllInvoices } from '../../lib/invoicePipeline';
+import { initialsFor } from '../../lib/initials';
 import Toast from '../../components/ui/Toast';
 import Spinner from '../../components/ui/Spinner';
 import InvoiceRow from '../../components/ui/InvoiceRow';
@@ -33,7 +34,7 @@ export default function VendorsScreen() {
   const router = useRouter();
   const supabase = useSupabase();
   const { organization } = useOrganization();
-  const { vendors, selectedDay, selectDay, fetchDashboardSummary } = useStore();
+  const { vendors, selectedDay, selectDay, fetchDashboardSummary, demoMode } = useStore();
   const {
     spendView, setSpendView, yearsBack, setYearsBack, maxYears,
     periodTotal, periodPctChange, periodBarData,
@@ -63,13 +64,17 @@ export default function VendorsScreen() {
   // invoice from its detail screen drops the now-gone row.
   useFocusEffect(
     useCallback(() => {
-      if (tab !== 'invoices' || !organization?.id) return;
+      if (tab !== 'invoices') return;
+      // The tour doesn't visit the All-Invoices sub-tab; keep it empty in demo
+      // mode rather than hitting Supabase.
+      if (demoMode) { setAllInvoices([]); setInvoicesLoading(false); return; }
+      if (!organization?.id) return;
       setInvoicesLoading(true);
       fetchAllInvoices(supabase, organization.id)
         .then(setAllInvoices)
         .catch(() => setAllInvoices([]))
         .finally(() => setInvoicesLoading(false));
-    }, [tab, organization?.id, supabase])
+    }, [tab, organization?.id, supabase, demoMode])
   );
 
   const shortLabel = spendPeriodShortLabel(spendView, yearsBack);
@@ -225,17 +230,17 @@ function VendorCard({ vendor: v, periodAmount, periodLabel }: { vendor: Vendor; 
       <View style={styles.vendorTop}>
         <View style={[styles.vendorAvatar, { backgroundColor: v.color + '20' }]}>
           <Text style={[styles.vendorAvatarText, { color: v.color }]}>
-            {v.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}
+            {initialsFor(v.name)}
           </Text>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.vendorName}>{v.name}</Text>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={styles.vendorName} numberOfLines={1}>{v.name}</Text>
           <Text style={styles.vendorMeta}>
             {v.invoiceCount} invoice{v.invoiceCount === 1 ? '' : 's'} total · last order {v.lastOrder}
           </Text>
         </View>
         <View style={styles.vendorSpendPill}>
-          <Text style={styles.vendorSpendAmt}>${periodAmount.toLocaleString()}</Text>
+          <Text style={styles.vendorSpendAmt}>${Math.round(periodAmount).toLocaleString()}</Text>
           <Text style={styles.vendorSpendLabel}>{periodLabel}</Text>
         </View>
       </View>

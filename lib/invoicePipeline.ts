@@ -50,6 +50,23 @@ export function formatDate(isoDate: string | null | undefined): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+// Converts a full timestamptz (e.g. `created_at`) to a local yyyy-mm-dd date
+// string — the same bucket key `invoice_date` values already are. Used as the
+// fallback for undated invoices when bucketing into weeks/months/years, which
+// are themselves computed from the device's local calendar. A plain
+// `isoTimestamp.slice(0, 10)` instead returns the *UTC* date, which
+// silently misfiles an undated invoice scanned late at night into the wrong
+// local day/week/month/year near a boundary.
+export function localDateFromTimestamp(isoTimestamp: string | null | undefined): string | undefined {
+  if (!isoTimestamp) return undefined;
+  const d = new Date(isoTimestamp);
+  if (Number.isNaN(d.getTime())) return undefined;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 // DB row shapes, as returned by the extract-invoice edge function.
 interface DbLineItem {
   id: string;
@@ -390,4 +407,55 @@ export async function fetchInvoiceImageUrls(
     })
   );
   return signed;
+}
+
+export interface ItemPricePoint {
+  invoiceId: string;
+  dateLabel: string;
+  dateIso: string | null;
+  vendorName: string;
+  unitPrice: number;
+  unit: string;
+}
+
+// One item's unit-price history — every non-voided charge line item matching
+// `itemName` exactly (optionally narrowed to one vendor), oldest first. Turns
+// a price alert's single "then vs now" diff, or a Top Item's all-time total,
+// into the actual trend behind it. Matches on clean_name with `.eq` (not
+// `.ilike`) since an item's raw description can itself contain `%`/`_`,
+// which `ilike` would otherwise treat as wildcards.
+export async function fetchItemPriceHistory(
+  supabase: SupabaseClient,
+  organizationId: string,
+  itemName: string,
+  vendorId?: string | null
+): Promise<ItemPricePoint[]> {
+  let req = supabase
+    .from('invoice_line_items')
+    .select('unit_price, unit_of_measure, invoices!inner(id, invoice_date, created_at, vendor_id, status, vendors(name))')
+    .eq('organization_id', organizationId)
+    .eq('clean_name', itemName)
+    .eq('line_item_type', 'charge')
+    .is('voided_at', null)
+    .eq('invoices.status', 'saved');
+  if (vendorId) req = req.eq('invoices.vendor_id', vendorId);
+
+  const { data, error } = await req;
+  if (error) throw new Error(error.message);
+
+  return (data ?? [])
+    .map((row: any) => {
+      const inv = row.invoices;
+      const dateIso: string | null = inv?.invoice_date ?? localDateFromTimestamp(inv?.created_at) ?? null;
+      return {
+        invoiceId: inv?.id as string,
+        dateLabel: dateIso ? formatDate(dateIso) : 'Undated',
+        dateIso,
+        vendorName: inv?.vendors?.name ?? 'Unknown vendor',
+        unitPrice: Number(row.unit_price ?? 0),
+        unit: row.unit_of_measure ?? '',
+      };
+    })
+    .filter((p) => !!p.invoiceId)
+    .sort((a, b) => (a.dateIso ?? '').localeCompare(b.dateIso ?? ''));
 }

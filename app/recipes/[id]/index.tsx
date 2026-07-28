@@ -10,7 +10,7 @@ import { Colors } from '../../../constants/Colors';
 import { useSupabase } from '../../../lib/supabase';
 import {
   fetchRecipe, resolveIngredientCost, computeRecipeCost, saveRecipeRollup, deleteRecipe,
-  isWeightUnit, toGrams,
+  isWeightUnit, toGrams, confidenceHint,
   Recipe, RecipeIngredient,
 } from '../../../lib/recipeCosting';
 import Spinner from '../../../components/ui/Spinner';
@@ -22,15 +22,20 @@ function confidenceMeta(confidence: number): { label: string; color: string } {
   return { label: 'Low', color: Colors.textTertiary };
 }
 
-// $ contribution of a single ingredient toward the dish total. Only
-// resolvable for weight-based units with a known cost-per-gram; everything
-// else shows a "needs price data" hint instead of guessing here (the AI
-// cost-share estimate is used for the dish-level rollup, not per row).
-function ingredientContribution(ing: RecipeIngredient): number | null {
-  if (ing.costPerGram == null || !isWeightUnit(ing.unit)) return null;
-  const grams = toGrams(ing.qty, ing.unit);
-  if (grams == null) return null;
-  return grams * ing.costPerGram;
+// $ contribution of a single ingredient toward the dish total. Prefers a
+// real weight-priced match from invoice history; falls back to the AI's
+// rough $/unit guess (same fallback computeRecipeCost uses for the dish
+// total) so a row only reads "needs price data" when there's truly nothing
+// to show yet — not on every unmatched ingredient by default.
+function ingredientContribution(ing: RecipeIngredient): { value: number; resolved: boolean } | null {
+  if (ing.costPerGram != null && isWeightUnit(ing.unit)) {
+    const grams = toGrams(ing.qty, ing.unit);
+    if (grams != null) return { value: grams * ing.costPerGram, resolved: true };
+  }
+  if (ing.aiEstUnitCost != null) {
+    return { value: ing.qty * ing.aiEstUnitCost, resolved: false };
+  }
+  return null;
 }
 
 export default function RecipeDetailScreen() {
@@ -182,6 +187,7 @@ export default function RecipeDetailScreen() {
             </View>
             <Text style={styles.costValue}>${cost.estimate.toFixed(2)}</Text>
             <Text style={styles.costRange}>${cost.low.toFixed(2)}–${cost.high.toFixed(2)} range</Text>
+            <Text style={styles.confidenceHint}>{confidenceHint(cost.confidence)}</Text>
 
             {(foodCostPct != null && marginPct != null) && (
               <View style={styles.pctRow}>
@@ -235,7 +241,12 @@ export default function RecipeDetailScreen() {
                     <Text style={styles.ingredientQty}>{ing.qty} {ing.unit}</Text>
                   </View>
                   {contribution != null ? (
-                    <Text style={styles.ingredientCost}>${contribution.toFixed(2)}</Text>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={contribution.resolved ? styles.ingredientCost : styles.ingredientCostEstimated}>
+                        ${contribution.value.toFixed(2)}
+                      </Text>
+                      {!contribution.resolved && <Text style={styles.ingredientHint}>estimated</Text>}
+                    </View>
                   ) : (
                     <View style={{ alignItems: 'flex-end' }}>
                       <Text style={styles.ingredientCostMissing}>—</Text>
@@ -288,6 +299,10 @@ const styles = StyleSheet.create({
   costLabel: { fontSize: 12, fontFamily: 'Manrope_700Bold', color: Colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.4 },
   costValue: { fontSize: 38, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, letterSpacing: -0.8, marginTop: 6 },
   costRange: { fontSize: 13, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary, marginTop: 2 },
+  confidenceHint: {
+    fontSize: 11.5, fontFamily: 'Manrope_500Medium', color: Colors.textTertiary,
+    textAlign: 'center', lineHeight: 16, marginTop: 8,
+  },
 
   badge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 },
   badgeText: { fontSize: 11.5, fontFamily: 'Manrope_700Bold' },
@@ -321,6 +336,7 @@ const styles = StyleSheet.create({
   ingredientName: { fontSize: 14.5, fontFamily: 'Manrope_600SemiBold', color: Colors.textPrimary },
   ingredientQty: { fontSize: 12.5, fontFamily: 'Manrope_500Medium', color: Colors.textSecondary, marginTop: 1 },
   ingredientCost: { fontSize: 14.5, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
+  ingredientCostEstimated: { fontSize: 14.5, fontFamily: 'Manrope_700Bold', color: Colors.textSecondary },
   ingredientCostMissing: { fontSize: 14.5, fontFamily: 'Manrope_700Bold', color: Colors.textTertiary },
   ingredientHint: { fontSize: 10.5, fontFamily: 'Manrope_600SemiBold', color: Colors.textTertiary, marginTop: 1 },
 

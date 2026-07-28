@@ -6,11 +6,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue, useAnimatedStyle, useAnimatedScrollHandler,
-  interpolate, Extrapolation, FadeInUp,
+  interpolate, interpolateColor, Extrapolation, FadeInUp,
   type SharedValue,
 } from 'react-native-reanimated';
 import { Colors } from '../../constants/Colors';
-import { ScanPreview, PriceAlertPreview, VerifyPreview } from '../../components/onboarding/PreviewCards';
+import { ScanPreview, PriceAlertPreview, VerifyPreview, RecipeCostPreview } from '../../components/onboarding/PreviewCards';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -19,7 +19,7 @@ const SLIDES = [
     id: 'scan',
     eyebrow: 'SCAN',
     title: 'Snap a photo,\nskip the data entry',
-    subtitle: 'Point your camera at any invoice — line items, prices, and totals come out the other side automatically.',
+    subtitle: 'Point your camera at any invoice and Sift reads every line item, price, and total — entered for you, no typing.',
     accent: Colors.primary,
     accentTint: Colors.primaryLight,
     Preview: ScanPreview,
@@ -39,8 +39,17 @@ const SLIDES = [
     title: 'Know what actually\nshowed up on the truck',
     subtitle: 'Check delivered items against what you were billed for, and flag what’s missing in one tap.',
     accent: Colors.vendorGolden,
-    accentTint: '#EEF2FF',
+    accentTint: Colors.vendorGoldenLight,
     Preview: VerifyPreview,
+  },
+  {
+    id: 'recipes',
+    eyebrow: 'RECIPE COSTING',
+    title: 'See what every dish\nactually costs to make',
+    subtitle: 'Sift prices each recipe straight from your invoice history, so your margins update the moment an ingredient does.',
+    accent: Colors.vendorHarbor,
+    accentTint: Colors.vendorHarborLight,
+    Preview: RecipeCostPreview,
   },
 ] as const;
 
@@ -84,7 +93,13 @@ export default function WelcomeScreen() {
           <Text style={styles.brandText}>Sift</Text>
         </View>
         {activeIndex < LAST_INDEX && (
-          <TouchableOpacity onPress={goToSignIn} hitSlop={8} activeOpacity={0.7}>
+          <TouchableOpacity
+            onPress={goToSignIn}
+            hitSlop={8}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Skip onboarding"
+          >
             <Text style={styles.skipText}>Skip</Text>
           </TouchableOpacity>
         )}
@@ -106,16 +121,29 @@ export default function WelcomeScreen() {
       </Animated.ScrollView>
 
       <View style={styles.dotsRow}>
-        {SLIDES.map((_, i) => (
-          <Dot key={i} index={i} scrollX={scrollX} />
+        {SLIDES.map((slide, i) => (
+          <Dot key={i} index={i} scrollX={scrollX} accent={slide.accent} />
         ))}
       </View>
 
       <View style={styles.bottomArea}>
-        <TouchableOpacity style={styles.cta} onPress={handleNext} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={styles.cta}
+          onPress={handleNext}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={activeIndex === LAST_INDEX ? 'Get started' : 'Next slide'}
+        >
           <Text style={styles.ctaText}>{activeIndex === LAST_INDEX ? 'Get started' : 'Next'}</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={goToSignIn} hitSlop={8} activeOpacity={0.7} style={styles.signInLinkWrap}>
+        <TouchableOpacity
+          onPress={goToSignIn}
+          hitSlop={8}
+          activeOpacity={0.7}
+          style={styles.signInLinkWrap}
+          accessibilityRole="button"
+          accessibilityLabel="Already have an account? Sign in"
+        >
           <Text style={styles.signInLink}>
             Already have an account? <Text style={styles.signInLinkBold}>Sign in</Text>
           </Text>
@@ -178,11 +206,16 @@ function Slide({ slide, index, scrollX, active }: {
   );
 }
 
-function Dot({ index, scrollX }: { index: number; scrollX: SharedValue<number> }) {
+function Dot({ index, scrollX, accent }: { index: number; scrollX: SharedValue<number>; accent: string }) {
   const inputRange = [(index - 1) * SCREEN_W, index * SCREEN_W, (index + 1) * SCREEN_W];
   const style = useAnimatedStyle(() => ({
     width: interpolate(scrollX.value, inputRange, [7, 22, 7], Extrapolation.CLAMP),
-    opacity: interpolate(scrollX.value, inputRange, [0.35, 1, 0.35], Extrapolation.CLAMP),
+    opacity: interpolate(scrollX.value, inputRange, [0.4, 1, 0.4], Extrapolation.CLAMP),
+    backgroundColor: interpolateColor(
+      scrollX.value,
+      inputRange,
+      [Colors.textTertiary, accent, Colors.textTertiary]
+    ),
   }));
   return <Animated.View style={[styles.dot, style]} />;
 }
@@ -211,7 +244,7 @@ const styles = StyleSheet.create({
   eyebrowText: { fontSize: 11, fontFamily: 'Manrope_700Bold', letterSpacing: 0.8 },
   title: {
     fontSize: 28, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary,
-    letterSpacing: -0.6, lineHeight: 34, marginBottom: 12,
+    letterSpacing: -0.5, lineHeight: 34, marginBottom: 12,
   },
   subtitle: {
     fontSize: 15, fontFamily: 'Manrope_500Medium', color: Colors.textSecondary,

@@ -52,19 +52,32 @@ async function getOrgPlan(orgId: string): Promise<'free' | 'pro'> {
   }
 }
 
-// Count of this calendar month's extracted invoices for an org (status
-// scanned/saved) — the draft being processed now is still 'pending', so it
-// isn't counted until it succeeds.
-async function monthlyExtractionCount(supabase: any, orgId: string): Promise<number> {
-  const now = new Date();
-  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-  const { count } = await supabase
-    .from('invoices')
-    .select('id', { count: 'exact', head: true })
-    .eq('organization_id', orgId)
-    .in('status', ['scanned', 'saved'])
-    .gte('created_at', monthStart);
-  return count ?? 0;
+// Atomically reserves one extraction slot for the org's calendar-month cap via
+// the reserve_extraction_slot() RPC (see the extraction-quota migration) —
+// the increment and the cap check happen in a single conditional UPDATE, so
+// concurrent requests from the same free org can't all read the same
+// under-cap count and all slip through (the previous count-then-compare
+// approach was exactly that race). Returns { allowed, used }.
+async function reserveExtractionSlot(
+  supabase: any,
+  cap: number
+): Promise<{ allowed: boolean; used: number }> {
+  const { data, error } = await supabase.rpc('reserve_extraction_slot', { p_cap: cap });
+  if (error) throw new Error(`Could not check extraction quota: ${error.message}`);
+  const row = Array.isArray(data) ? data[0] : data;
+  return { allowed: !!row?.allowed, used: Number(row?.used ?? cap) };
+}
+
+// Best-effort give-back of a reserved slot when this extraction turns out not
+// to count — a detected duplicate or a failed extraction. Mirrors the old
+// behavior where the cap only ever counted invoices that reached
+// scanned/saved status.
+async function releaseExtractionSlot(supabase: any): Promise<void> {
+  try {
+    await supabase.rpc('release_extraction_slot');
+  } catch {
+    // Best-effort — worst case an org's meter is off by one until next month.
+  }
 }
 
 // Matches VENDOR_FALLBACK_PALETTE in lib/invoicePipeline.ts (the client's
@@ -415,6 +428,11 @@ async function detectPriceCreep(
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
+  // Declared outside the try so the catch-all below can release a slot this
+  // request reserved but didn't end up using.
+  let supabase: any;
+  let reservedSlot = false;
+
   try {
     const { invoiceId, skipDuplicateCheck } = await req.json();
     if (!invoiceId) throw new Error('invoiceId is required');
@@ -424,7 +442,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) throw new Error('Missing Authorization header');
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
 
@@ -442,8 +460,8 @@ Deno.serve(async (req) => {
     // paywall (rather than a generic error toast).
     const plan = await getOrgPlan(invoice.organization_id);
     if (plan !== 'pro') {
-      const used = await monthlyExtractionCount(supabase, invoice.organization_id);
-      if (used >= FREE_MONTHLY_EXTRACTION_CAP) {
+      const { allowed, used } = await reserveExtractionSlot(supabase, FREE_MONTHLY_EXTRACTION_CAP);
+      if (!allowed) {
         return new Response(
           JSON.stringify({
             error: 'You’ve used all your free extractions this month.',
@@ -454,6 +472,7 @@ Deno.serve(async (req) => {
           { status: 402, headers: { ...corsHeaders, 'content-type': 'application/json' } }
         );
       }
+      reservedSlot = true;
     }
 
     const images = await Promise.all(
@@ -477,6 +496,7 @@ Deno.serve(async (req) => {
         .overlaps('image_hashes', imageHashes)
         .limit(1);
       if (hashMatches && hashMatches.length > 0) {
+        if (reservedSlot) await releaseExtractionSlot(supabase);
         return duplicateResponse(hashMatches[0]);
       }
 
@@ -506,7 +526,10 @@ Deno.serve(async (req) => {
             Math.abs(Number(fp.total) - Number(c.total)) < 0.01;
           return numberMatch || dateTotalMatch;
         });
-        if (fpMatch) return duplicateResponse(fpMatch);
+        if (fpMatch) {
+          if (reservedSlot) await releaseExtractionSlot(supabase);
+          return duplicateResponse(fpMatch);
+        }
       }
     }
 
@@ -613,7 +636,16 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, 'content-type': 'application/json' } }
     );
   } catch (err) {
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
+    // This extraction didn't reach scanned/saved — give back its reserved cap
+    // slot so a failure (a bad photo, a transient Anthropic error) doesn't
+    // silently cost the org one of their free extractions.
+    if (reservedSlot && supabase) await releaseExtractionSlot(supabase);
+    // Log the full detail server-side (may include upstream Anthropic error
+    // bodies) but don't forward it verbatim to the client.
+    console.error('[extract-invoice] failed:', err);
+    const message = (err as Error).message ?? 'Extraction failed';
+    const safeMessage = message.startsWith('Anthropic API error') ? 'Extraction failed — please try again.' : message;
+    return new Response(JSON.stringify({ error: safeMessage }), {
       status: 400,
       headers: { ...corsHeaders, 'content-type': 'application/json' },
     });

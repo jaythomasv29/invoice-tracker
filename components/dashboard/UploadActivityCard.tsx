@@ -35,7 +35,7 @@ export default function UploadActivityCard({ entries, onPressInvoice }: UploadAc
             <View style={{ flex: 1, minWidth: 0 }}>
               <View style={styles.rowTop}>
                 <Text style={styles.vendorName} numberOfLines={1}>{e.vendorName}</Text>
-                <Text style={styles.amount}>${e.amount.toLocaleString()}</Text>
+                <Text style={styles.amount}>${Math.round(e.amount).toLocaleString()}</Text>
               </View>
               <Text style={styles.meta} numberOfLines={1}>
                 Dated {e.invoiceDateLabel} · Uploaded {e.uploadedLabel}

@@ -33,8 +33,10 @@ export const Colors = {
   // Vendor chart colors (from design)
   vendorCascade: '#5DB075',
   vendorGolden: '#5B7FD4',
+  vendorGoldenLight: '#EEF2FF',
   vendorPinnacle: '#E09030',
   vendorHarbor: '#4AABB8',
+  vendorHarborLight: '#E6F4F6',
 
   // Dark screen (scan)
   darkBg: '#1A1A2A',

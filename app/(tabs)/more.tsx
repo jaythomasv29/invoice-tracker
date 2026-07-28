@@ -15,6 +15,7 @@ import { exportInvoicesCsv } from '../../lib/csvExport';
 import { initialsFor } from '../../lib/initials';
 import { PRIVACY_POLICY_URL, openLegalUrl } from '../../constants/legal';
 import Toast from '../../components/ui/Toast';
+import { useTour } from '../../components/tour/TourProvider';
 
 export default function MoreScreen() {
   const router = useRouter();
@@ -25,6 +26,7 @@ export default function MoreScreen() {
   const { isPro } = useEntitlement();
   const { used, cap } = useExtractionUsage();
   const { showToast } = useStore();
+  const { start: startTour } = useTour();
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -130,6 +132,7 @@ export default function MoreScreen() {
           label: 'Privacy & data',
           onPress: () => openLegalUrl(PRIVACY_POLICY_URL, () => showToast('Privacy policy coming soon')),
         },
+        { label: 'Replay product tour', onPress: () => { router.push('/(tabs)'); startTour(); } },
       ],
     },
   ];

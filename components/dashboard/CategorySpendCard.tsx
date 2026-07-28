@@ -20,7 +20,7 @@ export default function CategorySpendCard({ categorySpend }: { categorySpend: Ca
           {categorySpend.map((c) => (
             <View key={c.category} style={styles.verifyLegendItem}>
               <View style={[styles.verifyLegendDot, { backgroundColor: c.color }]} />
-              <Text style={styles.verifyLegendText} numberOfLines={1}>{c.category} · ${c.amount.toLocaleString()}</Text>
+              <Text style={styles.verifyLegendText} numberOfLines={1}>{c.category} · ${Math.round(c.amount).toLocaleString()}</Text>
             </View>
           ))}
         </View>

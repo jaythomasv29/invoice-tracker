@@ -21,6 +21,12 @@ export default function ReviewScreen() {
   const supabase = useSupabase();
   const { organization } = useOrganization();
   const [isSaving, setIsSaving] = useState(false);
+  // Set right after a successful save, while `currentInvoice` has already
+  // gone null (saveCurrentInvoice clears it) but we're still holding on this
+  // screen for the brief confirmation beat before navigating home. Without
+  // this the screen fell through to its "no invoice" blank-render guard for
+  // that whole window instead of showing anything.
+  const [justSaved, setJustSaved] = useState(false);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const {
@@ -31,12 +37,24 @@ export default function ReviewScreen() {
   } = useStore();
 
   useEffect(() => {
-    if (!currentInvoice && !isSaving) {
+    if (!currentInvoice && !isSaving && !justSaved) {
       router.replace('/scan');
     }
-  }, [currentInvoice, isSaving, router]);
+  }, [currentInvoice, isSaving, justSaved, router]);
 
   if (!currentInvoice) {
+    if (justSaved) {
+      return (
+        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+          <View style={styles.savedWrap}>
+            <View style={styles.savedCheckCircle}>
+              <Text style={styles.savedCheckMark}>✓</Text>
+            </View>
+            <Text style={styles.savedText}>Invoice saved</Text>
+          </View>
+        </SafeAreaView>
+      );
+    }
     return null;
   }
 
@@ -55,6 +73,7 @@ export default function ReviewScreen() {
     setIsSaving(true);
     try {
       await saveCurrentInvoice(supabase);
+      setJustSaved(true);
       setTimeout(() => router.replace('/(tabs)'), 900);
     } catch (err: any) {
       setIsSaving(false);
@@ -172,6 +191,13 @@ export default function ReviewScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
+  savedWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
+  savedCheckCircle: {
+    width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.primaryLight,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  savedCheckMark: { fontSize: 30, fontFamily: 'Manrope_800ExtraBold', color: Colors.primaryDark },
+  savedText: { fontSize: 16, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 18, paddingTop: 12, paddingBottom: 14,

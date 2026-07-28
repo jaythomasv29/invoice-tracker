@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Modal, KeyboardAvoidingView, Platform,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Modal, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -12,10 +12,13 @@ import Spinner from '../../../components/ui/Spinner';
 import BackButton from '../../../components/ui/BackButton';
 import Toast from '../../../components/ui/Toast';
 import {
-  fetchRecipe, resolveIngredientCost, computeRecipeCost, updateIngredient,
+  fetchRecipe, resolveIngredientCost, computeRecipeCost, updateIngredient, deleteIngredient,
+  addIngredient, draftRecipe, confidenceHint,
   searchItems, createItem, saveRecipeRollup, isWeightUnit, toGrams,
   Recipe, RecipeIngredient, RecipeCost, ItemMatch,
 } from '../../../lib/recipeCosting';
+
+const UNIT_OPTIONS = ['g', 'oz', 'lb', 'ml', 'floz', 'cup', 'tbsp', 'tsp', 'each'];
 
 // Phase 1 only prices weight-based ingredients (g/oz/lb) — resolveCost /
 // computeRecipeCost fall back to the AI's cost-share estimate for anything
@@ -42,13 +45,20 @@ function confidenceTier(confidence: number): { label: string; color: string } {
 }
 
 function costIndicator(ing: RecipeIngredient): { text: string; tone: 'positive' | 'muted' | 'neutral' } {
-  if (!ing.itemId) return { text: 'Tap to match', tone: 'neutral' };
+  if (!ing.itemId) {
+    if (ing.aiEstUnitCost != null) {
+      return { text: `~$${(ing.qty * ing.aiEstUnitCost).toFixed(2)} estimated — tap to match`, tone: 'muted' };
+    }
+    return { text: 'Tap to match', tone: 'neutral' };
+  }
   if (ing.costPerGram === undefined) return { text: 'Checking price…', tone: 'muted' };
   if (!isWeightUnit(ing.unit)) return { text: 'Matched — needs price data', tone: 'muted' };
   if (ing.costPerGram == null) return { text: 'No price history', tone: 'muted' };
   const grams = toGrams(ing.qty, ing.unit);
   if (grams == null) return { text: 'No price history', tone: 'muted' };
-  return { text: `✓ $${(grams * ing.costPerGram).toFixed(2)}`, tone: 'positive' };
+  const n = ing.sampleSize ?? 0;
+  const sampleNote = n > 0 ? ` (${n} purchase${n === 1 ? '' : 's'})` : '';
+  return { text: `✓ $${(grams * ing.costPerGram).toFixed(2)}${sampleNote}`, tone: 'positive' };
 }
 
 function ghostLabel(ing: RecipeIngredient): string | null {
@@ -77,6 +87,14 @@ export default function RecipeReviewScreen() {
   const [matchLoading, setMatchLoading] = useState(false);
   const [creatingItem, setCreatingItem] = useState(false);
 
+  const [addOpen, setAddOpen] = useState(false);
+  const [addSaving, setAddSaving] = useState(false);
+  const [autoCosting, setAutoCosting] = useState(false);
+  const [autoCostProError, setAutoCostProError] = useState(false);
+
+  const [menuPriceInput, setMenuPriceInput] = useState('');
+  const [savingMenuPrice, setSavingMenuPrice] = useState(false);
+
   const qtyDebounce = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   useEffect(() => () => {
     Object.values(qtyDebounce.current).forEach(clearTimeout);
@@ -95,6 +113,7 @@ export default function RecipeReviewScreen() {
         if (cancelled) return;
         setRecipe(r);
         setIngredients(r.ingredients);
+        setMenuPriceInput(r.menuPrice != null ? String(r.menuPrice) : '');
         setLoading(false);
 
         const withItems = r.ingredients.filter(
@@ -129,6 +148,15 @@ export default function RecipeReviewScreen() {
     qtyDebounce.current[ingId] = setTimeout(() => {
       updateIngredient(supabase, ingId, { qty }).catch(() => showToast('Could not save quantity'));
     }, 500);
+  }, [supabase, showToast]);
+
+  const handleDeleteIngredient = useCallback((ingId: string) => {
+    setIngredients((prev) => prev.filter((ing) => ing.id !== ingId));
+    if (qtyDebounce.current[ingId]) {
+      clearTimeout(qtyDebounce.current[ingId]);
+      delete qtyDebounce.current[ingId];
+    }
+    deleteIngredient(supabase, ingId).catch(() => showToast('Could not remove ingredient'));
   }, [supabase, showToast]);
 
   const handleToggleConfirm = useCallback((ingId: string) => {
@@ -196,12 +224,92 @@ export default function RecipeReviewScreen() {
     }
   }, [supabase, orgId, showToast, handleSelectItem]);
 
+  const handleAddIngredient = useCallback(async (rawName: string, qty: number, unit: string) => {
+    if (!orgId || !id) return;
+    setAddSaving(true);
+    try {
+      const created = await addIngredient(supabase, orgId, id, { rawName, qty, unit }, ingredients.length);
+      setIngredients((prev) => [...prev, created]);
+      setAddOpen(false);
+    } catch (err: any) {
+      showToast(err?.message ?? 'Could not add ingredient');
+    } finally {
+      setAddSaving(false);
+    }
+  }, [supabase, orgId, id, ingredients.length, showToast]);
+
+  // draft-recipe fully replaces the ingredient list server-side, so this is
+  // safe to call whether the recipe is empty or already has ingredients.
+  const handleAutoCost = useCallback(async () => {
+    if (!id) return;
+    setAutoCosting(true);
+    setAutoCostProError(false);
+    try {
+      await draftRecipe(supabase, id);
+      const r = await fetchRecipe(supabase, id);
+      setRecipe(r);
+      setIngredients(r.ingredients);
+    } catch (err: any) {
+      const msg = err?.message ?? 'Could not auto-cost this dish';
+      if (/pro feature/i.test(msg)) setAutoCostProError(true);
+      showToast(msg);
+    } finally {
+      setAutoCosting(false);
+    }
+  }, [supabase, id, showToast]);
+
+  // Entry point for the always-visible header button — confirms first if it
+  // would discard ingredients the operator already has (manual or a prior
+  // draft). The empty-state buttons call handleAutoCost directly since
+  // there's nothing to lose.
+  const handleAutoCostPress = useCallback(() => {
+    if (autoCosting) return;
+    if (ingredients.length === 0) {
+      handleAutoCost();
+      return;
+    }
+    Alert.alert(
+      'Replace ingredients with AI draft?',
+      'Auto Cost will discard the current ingredient list and generate a new one to review.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Replace', style: 'destructive', onPress: handleAutoCost },
+      ]
+    );
+  }, [autoCosting, ingredients.length, handleAutoCost]);
+
+  const handleMenuPriceCommit = async () => {
+    if (!recipe || !id) return;
+    const trimmed = menuPriceInput.trim();
+    let value: number | null;
+    if (trimmed === '') {
+      value = null;
+    } else {
+      const parsed = Number(trimmed);
+      if (!Number.isFinite(parsed) || parsed < 0) return;
+      value = Math.round(parsed * 100) / 100;
+    }
+    if (value === recipe.menuPrice) return;
+    setSavingMenuPrice(true);
+    try {
+      await saveRecipeRollup(supabase, id, { menu_price: value });
+      setRecipe({ ...recipe, menuPrice: value });
+    } catch (err: any) {
+      showToast(err?.message ?? 'Could not save dish price');
+    } finally {
+      setSavingMenuPrice(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!id) return;
     setSaving(true);
     try {
       await saveRecipeRollup(supabase, id, { cost_estimate: cost.estimate, confidence: cost.confidence });
-      router.replace(`/recipes/${id}`);
+      // dismissTo (not replace) so this collapses the whole create/edit
+      // sub-stack back to the list in one step, instead of stacking a second
+      // detail screen on top of the one the list already pushed.
+      router.dismissTo('/recipes');
     } catch (err: any) {
       setSaving(false);
       showToast(err?.message ?? 'Could not save recipe cost');
@@ -235,6 +343,9 @@ export default function RecipeReviewScreen() {
     );
   }
 
+  const foodCostPct = recipe.menuPrice && recipe.menuPrice > 0 ? (cost.estimate / recipe.menuPrice) * 100 : null;
+  const marginPct = recipe.menuPrice && recipe.menuPrice > 0 ? ((recipe.menuPrice - cost.estimate) / recipe.menuPrice) * 100 : null;
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
@@ -245,28 +356,85 @@ export default function RecipeReviewScreen() {
             {ingredients.length} ingredient{ingredients.length === 1 ? '' : 's'}
           </Text>
         </View>
+        <TouchableOpacity
+          style={styles.headerAutoCostBtn}
+          onPress={handleAutoCostPress}
+          disabled={autoCosting}
+          activeOpacity={0.7}
+        >
+          {autoCosting ? (
+            <Spinner size={14} />
+          ) : (
+            <Text style={styles.headerAutoCostBtnText}>Auto Cost</Text>
+          )}
+        </TouchableOpacity>
       </View>
+
+      {autoCostProError && (
+        <TouchableOpacity
+          style={styles.headerProBanner}
+          onPress={() => router.push('/paywall')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.headerProBannerText}>Recipe costing is a Pro feature — see plans</Text>
+        </TouchableOpacity>
+      )}
 
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <CostHeaderCard cost={cost} />
+        <CostHeaderCard
+          cost={cost}
+          menuPriceInput={menuPriceInput}
+          onChangeMenuPrice={setMenuPriceInput}
+          onCommitMenuPrice={handleMenuPriceCommit}
+          savingMenuPrice={savingMenuPrice}
+          foodCostPct={foodCostPct}
+          marginPct={marginPct}
+        />
 
         <Text style={styles.sectionLabel}>Ingredients</Text>
         {ingredients.length === 0 ? (
-          <Text style={styles.emptySub}>No ingredients in this draft.</Text>
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptySub}>
+              Add the ingredients that make up this dish, or let AI draft a starting template you can adjust.
+            </Text>
+            {autoCosting ? (
+              <View style={styles.emptyLoading}><Spinner size={20} /></View>
+            ) : (
+              <>
+                <TouchableOpacity style={styles.emptyPrimaryBtn} onPress={() => setAddOpen(true)} activeOpacity={0.85}>
+                  <Text style={styles.emptyPrimaryBtnText}>+ Add ingredient</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.emptySecondaryBtn} onPress={handleAutoCost} activeOpacity={0.7}>
+                  <Text style={styles.emptySecondaryBtnText}>Auto Cost with AI</Text>
+                </TouchableOpacity>
+                {autoCostProError && (
+                  <TouchableOpacity onPress={() => router.push('/paywall')} activeOpacity={0.7}>
+                    <Text style={styles.emptyProLink}>See Pro plans</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+          </View>
         ) : (
-          ingredients.map((ing) => (
-            <IngredientCard
-              key={ing.id}
-              ingredient={ing}
-              onQtyChange={handleQtyChange}
-              onToggleConfirm={handleToggleConfirm}
-              onPressMatch={() => openMatchSheet(ing)}
-            />
-          ))
+          <>
+            {ingredients.map((ing) => (
+              <IngredientCard
+                key={ing.id}
+                ingredient={ing}
+                onQtyChange={handleQtyChange}
+                onToggleConfirm={handleToggleConfirm}
+                onPressMatch={() => openMatchSheet(ing)}
+                onDelete={() => handleDeleteIngredient(ing.id)}
+              />
+            ))}
+            <TouchableOpacity style={styles.addRow} onPress={() => setAddOpen(true)} activeOpacity={0.7}>
+              <Text style={styles.addRowText}>+ Add ingredient</Text>
+            </TouchableOpacity>
+          </>
         )}
       </ScrollView>
 
@@ -288,6 +456,13 @@ export default function RecipeReviewScreen() {
         </TouchableOpacity>
       </View>
 
+      <AddIngredientSheet
+        visible={addOpen}
+        saving={addSaving}
+        onSubmit={handleAddIngredient}
+        onClose={() => setAddOpen(false)}
+      />
+
       <ItemMatchSheet
         visible={matchIngredientId != null}
         query={matchQuery}
@@ -305,7 +480,17 @@ export default function RecipeReviewScreen() {
   );
 }
 
-function CostHeaderCard({ cost }: { cost: RecipeCost }) {
+function CostHeaderCard({
+  cost, menuPriceInput, onChangeMenuPrice, onCommitMenuPrice, savingMenuPrice, foodCostPct, marginPct,
+}: {
+  cost: RecipeCost;
+  menuPriceInput: string;
+  onChangeMenuPrice: (v: string) => void;
+  onCommitMenuPrice: () => void;
+  savingMenuPrice: boolean;
+  foodCostPct: number | null;
+  marginPct: number | null;
+}) {
   const tier = confidenceTier(cost.confidence);
   return (
     <View style={styles.costCard}>
@@ -321,17 +506,51 @@ function CostHeaderCard({ cost }: { cost: RecipeCost }) {
         />
       </View>
       <Text style={[styles.confidenceText, { color: tier.color }]}>{tier.label}</Text>
+      <Text style={styles.confidenceHint}>{confidenceHint(cost.confidence)}</Text>
+
+      {(foodCostPct != null && marginPct != null) && (
+        <View style={styles.pctRow}>
+          <View style={styles.pctTile}>
+            <Text style={styles.pctValue}>{foodCostPct.toFixed(0)}%</Text>
+            <Text style={styles.pctLabel}>Food cost</Text>
+          </View>
+          <View style={styles.pctTile}>
+            <Text style={styles.pctValue}>{marginPct.toFixed(0)}%</Text>
+            <Text style={styles.pctLabel}>Margin</Text>
+          </View>
+        </View>
+      )}
+
+      <View style={styles.menuPriceRow}>
+        <Text style={styles.menuPriceLabel}>Dish price</Text>
+        <View style={styles.menuPriceInputWrap}>
+          <Text style={styles.menuPriceDollar}>$</Text>
+          <TextInput
+            style={styles.menuPriceInput}
+            value={menuPriceInput}
+            onChangeText={onChangeMenuPrice}
+            onBlur={onCommitMenuPrice}
+            onSubmitEditing={onCommitMenuPrice}
+            placeholder="0.00"
+            placeholderTextColor={Colors.textTertiary}
+            keyboardType="decimal-pad"
+            returnKeyType="done"
+          />
+          {savingMenuPrice && <Spinner size={14} />}
+        </View>
+      </View>
     </View>
   );
 }
 
 function IngredientCard({
-  ingredient, onQtyChange, onToggleConfirm, onPressMatch,
+  ingredient, onQtyChange, onToggleConfirm, onPressMatch, onDelete,
 }: {
   ingredient: RecipeIngredient;
   onQtyChange: (id: string, qty: number) => void;
   onToggleConfirm: (id: string) => void;
   onPressMatch: () => void;
+  onDelete: () => void;
 }) {
   const [qtyText, setQtyText] = useState(formatQty(ingredient.qty));
   const editingRef = useRef(false);
@@ -376,15 +595,20 @@ function IngredientCard({
             {indicator.text}
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.confirmBtn, ingredient.confirmed && styles.confirmBtnActive]}
-          onPress={() => onToggleConfirm(ingredient.id)}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.confirmBtnText, ingredient.confirmed && styles.confirmBtnTextActive]}>
-            {ingredient.confirmed ? '✓ Confirmed' : 'Confirm'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.ingActions}>
+          <TouchableOpacity
+            style={[styles.confirmBtn, ingredient.confirmed && styles.confirmBtnActive]}
+            onPress={() => onToggleConfirm(ingredient.id)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.confirmBtnText, ingredient.confirmed && styles.confirmBtnTextActive]}>
+              {ingredient.confirmed ? '✓ Confirmed' : 'Confirm'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onDelete} activeOpacity={0.7} hitSlop={8}>
+            <Text style={styles.removeLink}>Remove</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.qtyRow}>
@@ -408,6 +632,84 @@ function IngredientCard({
 
       {ghost && <Text style={styles.ghostText}>{ghost}</Text>}
     </View>
+  );
+}
+
+function AddIngredientSheet({
+  visible, saving, onSubmit, onClose,
+}: {
+  visible: boolean;
+  saving: boolean;
+  onSubmit: (rawName: string, qty: number, unit: string) => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState('');
+  const [qtyText, setQtyText] = useState('');
+  const [unit, setUnit] = useState('g');
+
+  useEffect(() => {
+    if (visible) {
+      setName('');
+      setQtyText('');
+      setUnit('g');
+    }
+  }, [visible]);
+
+  const qty = parseFloat(qtyText);
+  const canAdd = name.trim().length > 0 && !Number.isNaN(qty) && qty > 0 && !saving;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.backdrop}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+        <View style={styles.sheetCard}>
+          <Text style={styles.sheetTitle}>Add ingredient</Text>
+          <TextInput
+            style={styles.sheetInput}
+            value={name}
+            onChangeText={setName}
+            placeholder="e.g. Boneless chicken thigh"
+            placeholderTextColor={Colors.textTertiary}
+            autoFocus
+          />
+          <TextInput
+            style={[styles.sheetInput, { marginTop: 10 }]}
+            value={qtyText}
+            onChangeText={setQtyText}
+            placeholder="Quantity"
+            placeholderTextColor={Colors.textTertiary}
+            keyboardType="decimal-pad"
+          />
+          <View style={styles.unitRow}>
+            {UNIT_OPTIONS.map((u) => (
+              <TouchableOpacity
+                key={u}
+                style={[styles.unitChip, unit === u && styles.unitChipActive]}
+                onPress={() => setUnit(u)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.unitChipText, unit === u && styles.unitChipTextActive]}>{u}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TouchableOpacity
+            style={[styles.addSubmitBtn, !canAdd && styles.addSubmitBtnDisabled]}
+            onPress={() => canAdd && onSubmit(name.trim(), qty, unit)}
+            disabled={!canAdd}
+            activeOpacity={0.85}
+          >
+            {saving ? (
+              <Spinner size={16} color="#fff" />
+            ) : (
+              <Text style={styles.addSubmitBtnText}>Add</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.sheetCancelBtn} onPress={onClose} activeOpacity={0.7}>
+            <Text style={styles.sheetCancelBtnText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
@@ -490,6 +792,18 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 17, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, letterSpacing: -0.2 },
   headerSub: { fontSize: 12, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary, marginTop: 1 },
+  headerAutoCostBtn: {
+    paddingHorizontal: 14, height: 36, borderRadius: 10,
+    backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  headerAutoCostBtnText: { fontSize: 13, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
+  headerProBanner: {
+    backgroundColor: Colors.primaryLight, paddingVertical: 10, paddingHorizontal: 18,
+  },
+  headerProBannerText: {
+    fontSize: 12.5, fontFamily: 'Manrope_700Bold', color: Colors.primaryDark, textAlign: 'center',
+  },
 
   scroll: { padding: 16, gap: 10, paddingBottom: 24 },
 
@@ -508,6 +822,32 @@ const styles = StyleSheet.create({
   },
   confidenceFill: { height: '100%', borderRadius: 3 },
   confidenceText: { fontSize: 12, fontFamily: 'Manrope_700Bold', marginTop: 7 },
+  confidenceHint: {
+    fontSize: 11.5, fontFamily: 'Manrope_500Medium', color: Colors.textTertiary,
+    textAlign: 'center', lineHeight: 16, marginTop: 4, paddingHorizontal: 8,
+  },
+
+  pctRow: { flexDirection: 'row', gap: 10, marginTop: 16, width: '100%' },
+  pctTile: {
+    flex: 1, alignItems: 'center', gap: 2, backgroundColor: Colors.background,
+    borderRadius: 12, paddingVertical: 10,
+  },
+  pctValue: { fontSize: 17, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary },
+  pctLabel: { fontSize: 11.5, fontFamily: 'Manrope_600SemiBold', color: Colors.textTertiary },
+
+  menuPriceRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginTop: 16, width: '100%',
+  },
+  menuPriceLabel: { fontSize: 13, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
+  menuPriceInputWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.background, borderRadius: 10,
+    borderWidth: 1, borderColor: Colors.border,
+    paddingHorizontal: 10, height: 38, minWidth: 90,
+  },
+  menuPriceDollar: { fontSize: 14, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary },
+  menuPriceInput: { flex: 1, fontSize: 14, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary, padding: 0 },
 
   sectionLabel: {
     fontSize: 11, fontFamily: 'Manrope_700Bold', letterSpacing: 0.5,
@@ -528,6 +868,7 @@ const styles = StyleSheet.create({
   ingIndicatorPositive: { color: Colors.primaryDark },
   ingIndicatorMuted: { color: Colors.textTertiary },
 
+  ingActions: { alignItems: 'flex-end', gap: 6, flexShrink: 0 },
   confirmBtn: {
     paddingHorizontal: 12, height: 32, borderRadius: 10,
     backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border,
@@ -536,6 +877,7 @@ const styles = StyleSheet.create({
   confirmBtnActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   confirmBtnText: { fontSize: 12, fontFamily: 'Manrope_700Bold', color: Colors.textSecondary },
   confirmBtnTextActive: { color: '#fff' },
+  removeLink: { fontSize: 11.5, fontFamily: 'Manrope_700Bold', color: Colors.danger },
 
   qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   stepBtn: {
@@ -568,6 +910,48 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 60, gap: 8, paddingHorizontal: 24 },
   emptyTitle: { fontSize: 16, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
   emptySub: { fontSize: 13, fontFamily: 'Manrope_500Medium', color: Colors.textSecondary, textAlign: 'center', lineHeight: 19 },
+
+  emptyCard: {
+    backgroundColor: Colors.surface, borderRadius: 16,
+    borderWidth: 1, borderColor: Colors.border, padding: 18, gap: 12, alignItems: 'stretch',
+  },
+  emptyLoading: { paddingVertical: 12, alignItems: 'center' },
+  emptyPrimaryBtn: {
+    backgroundColor: Colors.primary, borderRadius: 12, height: 48,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  emptyPrimaryBtnText: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: '#fff' },
+  emptySecondaryBtn: {
+    borderRadius: 12, height: 48, borderWidth: 1.5, borderColor: Colors.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  emptySecondaryBtnText: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
+  emptyProLink: {
+    fontSize: 13, fontFamily: 'Manrope_700Bold', color: Colors.primary,
+    textDecorationLine: 'underline', textAlign: 'center',
+  },
+
+  addRow: {
+    borderRadius: 14, borderWidth: 1.5, borderColor: Colors.border, borderStyle: 'dashed',
+    height: 48, alignItems: 'center', justifyContent: 'center', marginTop: 2,
+  },
+  addRowText: { fontSize: 14, fontFamily: 'Manrope_700Bold', color: Colors.textSecondary },
+
+  unitRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  unitChip: {
+    paddingHorizontal: 12, height: 34, borderRadius: 10,
+    backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  unitChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  unitChipText: { fontSize: 13, fontFamily: 'Manrope_700Bold', color: Colors.textSecondary },
+  unitChipTextActive: { color: '#fff' },
+  addSubmitBtn: {
+    marginTop: 14, height: 48, borderRadius: 12,
+    backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
+  },
+  addSubmitBtnDisabled: { opacity: 0.5 },
+  addSubmitBtnText: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: '#fff' },
 
   backdrop: {
     flex: 1, backgroundColor: 'rgba(10,10,16,0.5)',

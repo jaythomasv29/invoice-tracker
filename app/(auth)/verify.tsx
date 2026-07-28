@@ -136,8 +136,15 @@ export default function VerifyScreen() {
           contentContainerStyle={styles.container}
           keyboardShouldPersistTaps="handled"
         >
-          <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-            <Text style={styles.backText}>← Back</Text>
+          <TouchableOpacity
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/(auth)/sign-in'))}
+            style={styles.backBtn}
+            activeOpacity={0.7}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <View style={styles.backChevron} />
           </TouchableOpacity>
 
           <Text style={styles.headline}>Check your email</Text>
@@ -227,11 +234,25 @@ export default function VerifyScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   container: { flexGrow: 1, padding: 24, paddingTop: 20 },
-  back: { marginBottom: 32 },
-  backText: {
-    fontSize: 15,
-    fontFamily: "Manrope_600SemiBold",
-    color: Colors.primary,
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 32,
+  },
+  backChevron: {
+    width: 9,
+    height: 9,
+    borderTopWidth: 2,
+    borderLeftWidth: 2,
+    borderColor: Colors.textPrimary,
+    transform: [{ rotate: "-45deg" }],
+    marginLeft: 3,
   },
   headline: {
     fontSize: 28,

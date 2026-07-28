@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useOrganization } from '@clerk/clerk-expo';
 import { useSupabase } from '../lib/supabase';
+import { localDateFromTimestamp } from '../lib/invoicePipeline';
+import { useStore } from '../store/useStore';
+import { DEMO_MISSING_FLAGS } from '../lib/demoData';
 
 export interface MissingInvoiceFlag {
   vendorId: string;
@@ -42,24 +45,30 @@ function dayNumber(iso: string): number {
 export function useMissingInvoices(enabled = true) {
   const supabase = useSupabase();
   const { organization } = useOrganization();
+  const demoMode = useStore((s) => s.demoMode);
   const [flags, setFlags] = useState<MissingInvoiceFlag[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
+    if (demoMode) return; // demo flags returned below.
     if (!enabled || !organization?.id) return;
     setLoading(true);
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('invoices')
       .select('vendor_id, invoice_date, created_at, vendors(name)')
       .eq('organization_id', organization.id)
       .eq('status', 'saved')
       .not('vendor_id', 'is', null)
       .order('created_at', { ascending: true });
+    if (error) {
+      setLoading(false);
+      return;
+    }
 
     const byVendor = new Map<string, { name: string; days: number[] }>();
     for (const row of (data ?? []) as any[]) {
-      const dateStr: string | undefined = row.invoice_date ?? row.created_at?.slice(0, 10);
+      const dateStr: string | undefined = row.invoice_date ?? localDateFromTimestamp(row.created_at);
       if (!row.vendor_id || !dateStr) continue;
       const entry = byVendor.get(row.vendor_id) ?? { name: row.vendors?.name ?? 'A vendor', days: [] as number[] };
       entry.days.push(dayNumber(dateStr));
@@ -96,9 +105,10 @@ export function useMissingInvoices(enabled = true) {
     result.sort((a, b) => b.daysSince - a.daysSince);
     setFlags(result);
     setLoading(false);
-  }, [enabled, supabase, organization?.id]);
+  }, [enabled, supabase, organization?.id, demoMode]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  if (demoMode) return { flags: DEMO_MISSING_FLAGS, loading: false, refresh: async () => {} };
   return { flags, loading, refresh };
 }

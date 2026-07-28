@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+/*
+ * Apple design language on the web means the SYSTEM font stack, not a
+ * bundled "SF Pro" webfont — Apple's own web properties (apple.com) do this
+ * too, since SF Pro's license only covers use within Apple's own platforms/
+ * tools, not arbitrary web embedding. `-apple-system`/`BlinkMacSystemFont`
+ * render as San Francisco automatically on macOS/iOS/Safari; everywhere else
+ * falls back gracefully to the platform's own system UI font.
+ */
+:root {
+  --font-system: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* Brand tokens, matching constants/Colors.ts in the Sift app one level up
+     so the marketing site and the product feel like the same brand. */
+  --color-brand: #5DB075;
+  --color-brand-dark: #4A9660;
+  --color-brand-light: #E8F5ED;
+
+  --background: #FFFFFF;
+  --foreground: #1A1A2E;
+  --muted: #6B6B80;
+  --surface: #F4F4F8;
+  --border: #E8E8EE;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-brand: var(--color-brand);
+  --color-brand-dark: var(--color-brand-dark);
+  --color-brand-light: var(--color-brand-light);
+  --font-sans: var(--font-system);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0A0A0F;
+    --foreground: #F4F4F8;
+    --muted: #9696A8;
+    --surface: #16161D;
+    --border: #26262F;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-system);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}

@@ -117,7 +117,11 @@ export default function ScanScreen() {
     } catch (err: any) {
       // Server said the free cap is used up (e.g. a teammate extracted since we
       // loaded the meter) — send them to the paywall, not a dead-end toast.
+      // The draft invoice created above is abandoned either way (a retry after
+      // upgrading starts a fresh scan) — clean it up so it doesn't linger as an
+      // orphaned 'pending' row with uploaded images nothing ever revisits.
       if (err instanceof ExtractionLimitError) {
+        if (invoiceId) deleteInvoice(supabase, invoiceId).catch(() => {});
         router.push('/paywall');
         return;
       }
@@ -136,6 +140,10 @@ export default function ScanScreen() {
       }
       console.error('[scan] processImages failed:', err);
       showToast(err?.message ?? 'Could not process invoice');
+      // Any other failure (bad photo, transient network/API error) also
+      // abandons this draft — best-effort cleanup rather than leaving it
+      // stuck in 'pending' forever.
+      if (invoiceId) deleteInvoice(supabase, invoiceId).catch(() => {});
     } finally {
       setScanStage('idle');
     }
@@ -229,19 +237,34 @@ export default function ScanScreen() {
     if (!cameraRef.current || !cameraReady) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     flashOpacity.value = withSequence(withTiming(0.85, { duration: 60 }), withTiming(0, { duration: 220 }));
-    const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
-    if (!photo) return;
-    await processImages([photo.uri]);
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
+      if (!photo) return;
+      await processImages([photo.uri]);
+    } catch (err: any) {
+      console.error('[scan] capture failed:', err);
+      showToast(err?.message ?? 'Could not take photo');
+    }
   };
 
   const handleImport = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsMultipleSelection: true,
-      quality: 0.9,
-    });
-    if (!result.canceled && result.assets.length > 0) {
-      await processImages(result.assets.map((a) => a.uri));
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        showToast('Photo library access needed to import');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        quality: 0.9,
+      });
+      if (!result.canceled && result.assets.length > 0) {
+        await processImages(result.assets.map((a) => a.uri));
+      }
+    } catch (err: any) {
+      console.error('[scan] import failed:', err);
+      showToast(err?.message ?? 'Could not import photos');
     }
   };
 
@@ -259,7 +282,13 @@ export default function ScanScreen() {
     return (
       <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={styles.topBar}>
-          <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()} hitSlop={8}>
+          <TouchableOpacity
+            style={styles.closeBtn}
+            onPress={() => router.back()}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
             <CloseIcon />
           </TouchableOpacity>
           <Text style={styles.topTitle}>Scan invoice</Text>
@@ -289,7 +318,14 @@ export default function ScanScreen() {
     <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       {/* Top bar */}
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()} activeOpacity={0.7} hitSlop={8}>
+        <TouchableOpacity
+          style={styles.closeBtn}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
           <CloseIcon />
         </TouchableOpacity>
         <Text style={styles.topTitle}>Scan invoice</Text>
@@ -340,6 +376,8 @@ export default function ScanScreen() {
           onPress={() => { Haptics.selectionAsync(); setTorchOn((v) => !v); }}
           activeOpacity={0.7}
           style={styles.bottomSideBtn}
+          accessibilityRole="button"
+          accessibilityLabel={torchOn ? 'Turn flash off' : 'Turn flash on'}
         >
           <FlashIcon active={torchOn} />
         </TouchableOpacity>
@@ -349,6 +387,8 @@ export default function ScanScreen() {
           onPress={handleCapture}
           activeOpacity={0.85}
           disabled={processing || !cameraReady}
+          accessibilityRole="button"
+          accessibilityLabel="Take photo"
         >
           <View style={[styles.captureBtn, (!cameraReady || processing) && styles.captureBtnDisabled]} />
         </TouchableOpacity>

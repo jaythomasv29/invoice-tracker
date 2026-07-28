@@ -4,7 +4,7 @@
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { getStripe } from '../_shared/stripe.ts';
-import { getOrgId, getUserId, getOrganization, getUserPrimaryEmail, updateOrgMetadata } from '../_shared/clerkAuth.ts';
+import { getVerifiedOrgId, getUserId, getOrganization, getUserPrimaryEmail, updateOrgMetadata } from '../_shared/clerkAuth.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
     const { email: bodyEmail } = await req.json().catch(() => ({}));
 
     const authHeader = req.headers.get('Authorization');
-    const orgId = getOrgId(authHeader);
+    const orgId = await getVerifiedOrgId(authHeader);
     if (!orgId) {
       return new Response(JSON.stringify({ error: 'No organization in session' }), {
         status: 401,

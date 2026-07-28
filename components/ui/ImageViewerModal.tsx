@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet, Image, Modal, FlatList, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface ImageViewerModalProps {
   visible: boolean;
@@ -11,10 +12,17 @@ interface ImageViewerModalProps {
 // storage URLs fetched on demand from the invoice detail screen).
 export default function ImageViewerModal({ visible, uris, onClose }: ImageViewerModalProps) {
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={[styles.closeBtn, { top: insets.top + 12 }]}
+          onPress={onClose}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
           <Text style={styles.closeText}>✕</Text>
         </TouchableOpacity>
         <FlatList
@@ -39,7 +47,7 @@ export default function ImageViewerModal({ visible, uris, onClose }: ImageViewer
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(10,10,16,0.96)', alignItems: 'center', justifyContent: 'center' },
   closeBtn: {
-    position: 'absolute', top: 56, right: 20, zIndex: 1,
+    position: 'absolute', right: 20, zIndex: 1,
     width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center', justifyContent: 'center',
   },

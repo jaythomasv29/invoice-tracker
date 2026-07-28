@@ -20,7 +20,7 @@ export default function NewRecipeScreen() {
   const { organization } = useOrganization();
   const [name, setName] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<false | 'ai' | 'manual'>(false);
   const [error, setError] = useState('');
 
   const isProRequired = /pro feature/i.test(error);
@@ -41,7 +41,7 @@ export default function NewRecipeScreen() {
       return;
     }
     Haptics.selectionAsync();
-    setBusy(true);
+    setBusy('ai');
     setError('');
     try {
       const id = await createDraftDish(supabase, organization.id, trimmed);
@@ -57,13 +57,38 @@ export default function NewRecipeScreen() {
     }
   };
 
+  const handleManual = async () => {
+    const trimmed = name.trim();
+    if (!trimmed || busy) return;
+    if (!organization?.id) {
+      setError('No restaurant selected');
+      return;
+    }
+    Haptics.selectionAsync();
+    setBusy('manual');
+    setError('');
+    try {
+      const id = await createDraftDish(supabase, organization.id, trimmed);
+      if (photoUri) {
+        await uploadRecipePhoto(supabase, organization.id, id, photoUri);
+      }
+      router.replace(`/recipes/${id}/review`);
+    } catch (err: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setError(err?.message ?? 'Could not create dish');
+      setBusy(false);
+    }
+  };
+
   if (busy) {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.busyFill}>
           <Spinner size={28} />
-          <Text style={styles.busyText}>Drafting your recipe…</Text>
-          <Text style={styles.busySub}>This can take a few seconds while the AI reads your dish.</Text>
+          <Text style={styles.busyText}>Setting up your dish…</Text>
+          {busy === 'ai' && (
+            <Text style={styles.busySub}>This can take a few seconds while the AI reads your dish.</Text>
+          )}
         </View>
       </SafeAreaView>
     );
@@ -124,6 +149,17 @@ export default function NewRecipeScreen() {
           >
             <Text style={styles.ctaText}>Draft with AI</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.manualBtn}
+            onPress={handleManual}
+            disabled={!name.trim()}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.manualBtnText, !name.trim() && styles.manualBtnTextDisabled]}>
+              Or add ingredients myself
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -178,6 +214,10 @@ const styles = StyleSheet.create({
   },
   ctaDisabled: { opacity: 0.5 },
   ctaText: { fontSize: 16, fontFamily: 'Manrope_700Bold', color: '#fff' },
+
+  manualBtn: { alignItems: 'center', paddingVertical: 6 },
+  manualBtnText: { fontSize: 14, fontFamily: 'Manrope_700Bold', color: Colors.primary, textDecorationLine: 'underline' },
+  manualBtnTextDisabled: { opacity: 0.5 },
 
   busyFill: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 40 },
   busyText: { fontSize: 16, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },

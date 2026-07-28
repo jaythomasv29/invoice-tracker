@@ -56,6 +56,8 @@ export default function InvoiceDetailScreen() {
       const uris = await fetchInvoiceImageUrls(supabase, organization.id, id);
       setImageUris(uris);
       setImageViewerOpen(true);
+    } catch (err: any) {
+      showToast(err?.message ?? 'Could not load the original invoice');
     } finally {
       setImagesLoading(false);
     }

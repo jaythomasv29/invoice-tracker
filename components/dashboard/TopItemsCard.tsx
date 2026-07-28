@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, withDelay, Easing,
   type SharedValue,
@@ -15,6 +15,7 @@ function formatAmount(amount: number): string {
 
 interface TopItemsCardProps {
   topItems: TopItem[];
+  onPressItem?: (name: string) => void;
 }
 
 // One Pareto row. The share bar fills in from the left on mount / whenever the
@@ -22,15 +23,16 @@ interface TopItemsCardProps {
 // pattern) — the "vital few" leading items are the vivid brand green, the long
 // tail a muted green, so the 80/20 split is legible from color alone.
 function ItemRow({
-  item, index, targetPct, isVitalFew, fill,
+  item, index, targetPct, isVitalFew, fill, onPress,
 }: {
   item: TopItem; index: number; targetPct: number; isVitalFew: boolean; fill: SharedValue<number>;
+  onPress?: () => void;
 }) {
   const barStyle = useAnimatedStyle(() => ({
     width: `${fill.value * targetPct}%`,
   }));
   return (
-    <View style={styles.row}>
+    <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={onPress ? 0.7 : 1} disabled={!onPress}>
       <Text style={[styles.rank, isVitalFew && styles.rankVital]}>{index + 1}</Text>
       <View style={styles.rowMain}>
         <View style={styles.rowTop}>
@@ -48,11 +50,11 @@ function ItemRow({
         </View>
       </View>
       <Text style={styles.pct}>{item.pct}%</Text>
-    </View>
+    </TouchableOpacity>
   );
 }
 
-export default function TopItemsCard({ topItems }: TopItemsCardProps) {
+export default function TopItemsCard({ topItems, onPressItem }: TopItemsCardProps) {
   const fill = useSharedValue(0);
 
   const dataKey = topItems.map((t) => t.name).join('|');
@@ -95,6 +97,7 @@ export default function TopItemsCard({ topItems }: TopItemsCardProps) {
             targetPct={Math.min(100, Math.max(2, (item.pct / topPct) * 100))}
             isVitalFew={i < vitalFewCount}
             fill={fill}
+            onPress={onPressItem ? () => onPressItem(item.name) : undefined}
           />
         ))}
       </View>

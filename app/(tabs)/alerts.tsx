@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useOrganization } from '@clerk/clerk-expo';
 import { Colors } from '../../constants/Colors';
@@ -17,10 +17,18 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 export default function AlertsScreen() {
+  const router = useRouter();
   const supabase = useSupabase();
   const { organization } = useOrganization();
   const { isPro } = useEntitlement();
   const { priceAlerts, markAlertRead, fetchPriceAlerts } = useStore();
+
+  const openHistory = (a: PriceAlert) => {
+    router.push({
+      pathname: '/item-history',
+      params: { itemName: a.itemName, ...(a.vendorId ? { vendorId: a.vendorId } : {}) },
+    });
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -59,6 +67,7 @@ export default function AlertsScreen() {
                 Haptics.selectionAsync();
                 LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                 markAlertRead(supabase, a.id);
+                openHistory(a);
               }} />
             ))}
           </>
@@ -68,7 +77,10 @@ export default function AlertsScreen() {
           <>
             <Text style={styles.sectionLabel}>Earlier</Text>
             {read.map((a) => (
-              <AlertRow key={a.id} alert={a} dimmed />
+              <AlertRow key={a.id} alert={a} dimmed onPress={() => {
+                Haptics.selectionAsync();
+                openHistory(a);
+              }} />
             ))}
           </>
         )}
@@ -126,7 +138,7 @@ function AlertRow({ alert: a, onPress, dimmed }: { alert: PriceAlert; onPress?: 
         <View style={styles.alertMeta}>
           <View style={[styles.alertPctBadge, { backgroundColor: isUp ? Colors.warningLight : Colors.primaryLight }]}>
             <Text style={[styles.alertPctText, { color: isUp ? Colors.warning : Colors.primary }]}>
-              {isUp ? '+' : ''}{a.pctChange}%
+              {isUp ? '+' : ''}{Math.round(a.pctChange)}%
             </Text>
           </View>
           <Text style={styles.alertDetail}>
