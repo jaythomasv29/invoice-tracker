@@ -30,15 +30,16 @@ const MODEL_SONNET = 'claude-sonnet-5';
 // Keep the model-id convention in sync with MODEL_SONNET above.
 const MODEL_HAIKU = 'claude-haiku-4-5-20251001';
 
-// Free orgs may extract this many invoices per calendar month. Keep in sync
-// with FREE_MONTHLY_EXTRACTION_CAP in lib/entitlements.ts (RN bundle).
-const FREE_MONTHLY_EXTRACTION_CAP = 10;
+// Monthly invoice cap per tier. Every tier is capped now (Pro is not unlimited).
+// Keep in sync with PLAN_INVOICE_CAPS in lib/entitlements.ts (RN bundle).
+type Plan = 'free' | 'plus' | 'pro';
+const PLAN_INVOICE_CAPS: Record<Plan, number> = { free: 10, plus: 300, pro: 500 };
 
 // Reads the org's plan from Clerk publicMetadata. Authoritative (can't be
 // spoofed by the client) and always fresh. Fails safe to 'free' if the secret
 // isn't configured or the lookup fails — extraction still works up to the free
-// cap, it just won't recognize Pro until CLERK_SECRET_KEY is set.
-async function getOrgPlan(orgId: string): Promise<'free' | 'pro'> {
+// cap, it just won't recognize a paid tier until CLERK_SECRET_KEY is set.
+async function getOrgPlan(orgId: string): Promise<Plan> {
   if (!CLERK_SECRET_KEY) return 'free';
   try {
     const res = await fetch(`https://api.clerk.com/v1/organizations/${orgId}`, {
@@ -46,7 +47,8 @@ async function getOrgPlan(orgId: string): Promise<'free' | 'pro'> {
     });
     if (!res.ok) return 'free';
     const org = await res.json();
-    return org?.public_metadata?.plan === 'pro' ? 'pro' : 'free';
+    const p = org?.public_metadata?.plan;
+    return p === 'pro' ? 'pro' : p === 'plus' ? 'plus' : 'free';
   } catch {
     return 'free';
   }
@@ -454,20 +456,23 @@ Deno.serve(async (req) => {
     if (fetchErr || !invoice) throw new Error(`Invoice not found: ${fetchErr?.message}`);
     if (!invoice.image_urls?.length) throw new Error('Invoice has no images to extract from');
 
-    // Plan gate — enforced here, before any Claude spend. Free orgs get
-    // FREE_MONTHLY_EXTRACTION_CAP extractions per calendar month; Pro is
-    // unlimited. Over the cap, return 402 with a code the client maps to the
-    // paywall (rather than a generic error toast).
+    // Plan gate — enforced here, before any Claude spend. Every tier has a
+    // monthly cap (Free 10 / Plus 300 / Pro 500). Over the cap, return 402 with
+    // a code the client maps to the paywall (rather than a generic error toast).
     const plan = await getOrgPlan(invoice.organization_id);
-    if (plan !== 'pro') {
-      const { allowed, used } = await reserveExtractionSlot(supabase, FREE_MONTHLY_EXTRACTION_CAP);
+    const cap = PLAN_INVOICE_CAPS[plan];
+    {
+      const { allowed, used } = await reserveExtractionSlot(supabase, cap);
       if (!allowed) {
         return new Response(
           JSON.stringify({
-            error: 'You’ve used all your free extractions this month.',
+            error:
+              plan === 'free'
+                ? 'You’ve used all your free extractions this month.'
+                : 'You’ve reached your plan’s monthly extraction limit.',
             code: 'FREE_LIMIT_REACHED',
             used,
-            cap: FREE_MONTHLY_EXTRACTION_CAP,
+            cap,
           }),
           { status: 402, headers: { ...corsHeaders, 'content-type': 'application/json' } }
         );

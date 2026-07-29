@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatDate, fallbackVendorColor, categoryColor, categoryLabel, localDateFromTimestamp } from '../lib/invoicePipeline';
 import { buildDemoState } from '../lib/demoData';
+import type { Plan } from '../lib/entitlements';
 
 export type VerificationStatus = 'pending' | 'received' | 'missing';
 export type LineItemType = 'charge' | 'credit';
@@ -175,6 +176,13 @@ interface AppState {
   startDemo: () => void;
   endDemo: () => void;
 
+  // QA-only override of the effective plan tier, for verifying gating at each
+  // subscription level without a real purchase. Read by useEntitlement /
+  // useExtractionUsage; surfaced through a __DEV__-gated switcher in the More
+  // screen. Client-side only — the server still enforces the org's real plan.
+  debugPlan: Plan | null;
+  setDebugPlan: (plan: Plan | null) => void;
+
   // Actions
   setScanStage: (stage: 'idle' | 'processing' | 'done') => void;
   setSpendView: (view: SpendPeriod) => void;
@@ -322,6 +330,9 @@ export const useStore = create<AppState>((set, get) => ({
   vendors: [],
   toast: null,
   demoMode: false,
+  debugPlan: null,
+
+  setDebugPlan: (plan) => set({ debugPlan: plan }),
 
   startDemo: () => {
     const { dashboard, priceAlerts } = buildDemoState(new Date());

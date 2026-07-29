@@ -65,8 +65,8 @@ export default function HomeScreen() {
   const router = useRouter();
   const supabase = useSupabase();
   const { organization } = useOrganization();
-  const { isPro } = useEntitlement();
-  const { flags: missingInvoices } = useMissingInvoices(isPro);
+  const { isPaid } = useEntitlement();
+  const { flags: missingInvoices } = useMissingInvoices(isPaid);
   const restaurantName = organization?.name ?? "";
   const userInitials = initialsFor(restaurantName);
   const {
@@ -116,7 +116,7 @@ export default function HomeScreen() {
         // Price alerts are a Pro feature — free orgs skip the fetch entirely.
         Promise.all([
           fetchDashboardSummary(supabase, organization.id),
-          isPro
+          isPaid
             ? fetchPriceAlerts(supabase, organization.id)
             : Promise.resolve(),
         ]).finally(() => setIsLoadingSummary(false));
@@ -124,7 +124,7 @@ export default function HomeScreen() {
     }, [
       organization?.id,
       supabase,
-      isPro,
+      isPaid,
       fetchDashboardSummary,
       fetchPriceAlerts,
     ]),
@@ -152,7 +152,7 @@ export default function HomeScreen() {
             accessibilityLabel="Price alerts"
           >
             <BellIcon />
-            {isPro && priceAlerts.filter((a) => !a.read).length > 0 && (
+            {isPaid && priceAlerts.filter((a) => !a.read).length > 0 && (
               <View style={styles.alertDot} />
             )}
           </TouchableOpacity>
@@ -175,8 +175,8 @@ export default function HomeScreen() {
         {/* Flagship feature — kept at the top for easy access. Pro → the
             feature; free → paywall (conversion). */}
         <RecipeCostingCard
-          isPro={isPro}
-          onPress={() => router.push(isPro ? "/recipes" : "/paywall")}
+          isPaid={isPaid}
+          onPress={() => router.push(isPaid ? "/recipes" : "/paywall")}
         />
 
         {/* Daily upload-streak habit widget — shown to all tiers to drive the
@@ -188,7 +188,7 @@ export default function HomeScreen() {
         {/* Spend tracking + price-creep are the Pro differentiators. Free orgs
             see an upsell here instead; vendor storage + recent uploads below
             stay available to everyone. */}
-        {isPro ? (
+        {isPaid ? (
           <>
             <MissingInvoiceCard
               flags={missingInvoices}
@@ -264,7 +264,7 @@ export default function HomeScreen() {
           />
         )}
 
-        {isPro && topAlert && (
+        {isPaid && topAlert && (
           <PriceAlertBanner
             alert={topAlert}
             onPress={() => router.push("/(tabs)/alerts")}

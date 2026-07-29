@@ -14,7 +14,7 @@ export default function TermsOfServicePage() {
     <main className="mx-auto max-w-2xl px-5 py-16 sm:py-24">
       <h1 className="text-3xl font-semibold tracking-tight text-foreground">Terms of Service</h1>
       <p className="mt-1 mb-10 text-sm text-muted">
-        Last updated: [FILL IN DATE BEFORE PUBLISHING]
+        Last updated: July 28, 2026
       </p>
 
       <div className="space-y-8 text-[15px] leading-relaxed text-foreground/80">
@@ -90,8 +90,8 @@ export default function TermsOfServicePage() {
         <Section title="Contact">
           <p>
             Questions? Email{" "}
-            <a className="text-brand-dark underline" href="mailto:[FILL IN CONTACT EMAIL]">
-              [FILL IN CONTACT EMAIL]
+            <a className="text-brand-dark underline" href="mailto:support@siftcosts.com">
+              support@siftcosts.com
             </a>
             .
           </p>
@@ -99,7 +99,7 @@ export default function TermsOfServicePage() {
       </div>
 
       <Link href="/" className="mt-16 inline-block text-sm text-muted hover:text-foreground">
-        ← Back to sift.app
+        ← Back to siftcosts.com
       </Link>
     </main>
   );

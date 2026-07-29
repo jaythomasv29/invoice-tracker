@@ -20,7 +20,7 @@ export default function AlertsScreen() {
   const router = useRouter();
   const supabase = useSupabase();
   const { organization } = useOrganization();
-  const { isPro } = useEntitlement();
+  const { isPaid } = useEntitlement();
   const { priceAlerts, markAlertRead, fetchPriceAlerts } = useStore();
 
   const openHistory = (a: PriceAlert) => {
@@ -33,8 +33,8 @@ export default function AlertsScreen() {
   useFocusEffect(
     useCallback(() => {
       // Price-creep detection is Pro-only — don't fetch for free orgs.
-      if (isPro && organization?.id) fetchPriceAlerts(supabase, organization.id);
-    }, [isPro, organization?.id, supabase, fetchPriceAlerts])
+      if (isPaid && organization?.id) fetchPriceAlerts(supabase, organization.id);
+    }, [isPaid, organization?.id, supabase, fetchPriceAlerts])
   );
 
   const unread = priceAlerts.filter((a) => !a.read);
@@ -43,7 +43,7 @@ export default function AlertsScreen() {
   // Free orgs get the feature pitch instead of the alert list — but teased with
   // their real count of price increases (detection runs for everyone; only the
   // details are Pro-gated).
-  if (!isPro) {
+  if (!isPaid) {
     return <FreeAlertsUpsell />;
   }
 

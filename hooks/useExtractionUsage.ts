@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useOrganization } from '@clerk/clerk-expo';
 import { useSupabase } from '../lib/supabase';
-import { FREE_MONTHLY_EXTRACTION_CAP } from '../lib/entitlements';
+import { useEntitlement } from './useEntitlement';
 import { useStore } from '../store/useStore';
 import { DEMO_EXTRACTION_USAGE } from '../lib/demoData';
 
-// This calendar month's extraction count for the org, for the free-tier credit
-// meter ("X of 10 left this month"). Counts invoices that reached extraction
+// This calendar month's extraction count for the org, against the current tier's
+// monthly cap ("X of N left this month"). Counts invoices that reached extraction
 // (status scanned/saved) since the 1st — the same definition the edge function
-// enforces server-side. Pro orgs can ignore `remaining`.
+// enforces server-side. Every tier is capped now (Free 10, Plus 300, Pro 500).
 export function useExtractionUsage() {
   const supabase = useSupabase();
   const { organization } = useOrganization();
+  const { invoiceCap } = useEntitlement();
   const demoMode = useStore((s) => s.demoMode);
   const [used, setUsed] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,7 +42,7 @@ export function useExtractionUsage() {
   if (demoMode) {
     return { ...DEMO_EXTRACTION_USAGE, loading: false, refresh: async () => {} };
   }
-  const cap = FREE_MONTHLY_EXTRACTION_CAP;
+  const cap = invoiceCap;
   const remaining = used == null ? cap : Math.max(0, cap - used);
   return { used: used ?? 0, cap, remaining, loading, refresh };
 }

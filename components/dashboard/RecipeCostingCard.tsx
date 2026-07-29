@@ -14,7 +14,7 @@ function PlateIcon() {
   );
 }
 
-export default function RecipeCostingCard({ isPro, onPress }: { isPro: boolean; onPress: () => void }) {
+export default function RecipeCostingCard({ isPaid, onPress }: { isPaid: boolean; onPress: () => void }) {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
       <View style={styles.iconWrap}>
@@ -23,7 +23,7 @@ export default function RecipeCostingCard({ isPro, onPress }: { isPro: boolean; 
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={styles.titleRow}>
           <Text style={styles.title}>Recipe costing</Text>
-          {!isPro && (
+          {!isPaid && (
             <View style={styles.proPill}>
               <Text style={styles.proPillText}>PRO</Text>
             </View>

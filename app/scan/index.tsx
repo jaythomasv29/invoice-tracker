@@ -19,7 +19,6 @@ import { useStore } from '../../store/useStore';
 import { useSupabase } from '../../lib/supabase';
 import { createDraftInvoice, uploadInvoiceImages, extractInvoice, deleteInvoice, formatDate } from '../../lib/invoicePipeline';
 import { ExtractionLimitError, DuplicateInvoiceError } from '../../lib/entitlements';
-import { useEntitlement } from '../../hooks/useEntitlement';
 import { useExtractionUsage } from '../../hooks/useExtractionUsage';
 import Toast from '../../components/ui/Toast';
 
@@ -31,7 +30,6 @@ export default function ScanScreen() {
   const supabase = useSupabase();
   const network = useNetworkState();
   const cameraRef = useRef<CameraView>(null);
-  const { isPro } = useEntitlement();
   const { remaining, refresh: refreshUsage } = useExtractionUsage();
   const {
     scanStage, setScanStage,
@@ -85,10 +83,11 @@ export default function ScanScreen() {
       showToast('No restaurant selected');
       return;
     }
-    // Client-side pre-check: free orgs already over the monthly cap go straight
-    // to the paywall, so we don't waste an upload. The edge function enforces
-    // the same limit server-side, so this is UX, not the security boundary.
-    if (!isPro && remaining <= 0) {
+    // Client-side pre-check: orgs already over their tier's monthly cap go
+    // straight to the paywall, so we don't waste an upload. The edge function
+    // enforces the same limit server-side, so this is UX, not the security
+    // boundary. `remaining` is tier-aware (Free 10 / Plus 300 / Pro 500).
+    if (remaining <= 0) {
       router.push('/paywall');
       return;
     }

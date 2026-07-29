@@ -17,6 +17,7 @@ import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { useAuth, useOrganization, useSession } from "@clerk/clerk-expo";
 import { Colors } from "../../constants/Colors";
+import { useRevenueCatSync } from "../../hooks/useRevenueCatSync";
 import { TourProvider } from "../../components/tour/TourProvider";
 import { TourTarget } from "../../components/tour/TourTarget";
 import SpotlightOverlay from "../../components/tour/SpotlightOverlay";
@@ -244,6 +245,9 @@ export default function TabLayout() {
   const { isLoaded: sessionLoaded, session } = useSession();
   const { isLoaded: orgLoaded, organization } = useOrganization();
   const tabBarStyle = useTabBarStyle();
+
+  // Bind RevenueCat's identity to the active org for the whole authenticated session.
+  useRevenueCatSync();
 
   useEffect(() => {
     if (!isLoaded || !sessionLoaded) return;

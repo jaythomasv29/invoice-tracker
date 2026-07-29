@@ -63,7 +63,7 @@ export default function RecipesTabScreen() {
   const router = useRouter();
   const supabase = useSupabase();
   const { organization } = useOrganization();
-  const { isPro } = useEntitlement();
+  const { isPaid } = useEntitlement();
   const demoMode = useStore((s) => s.demoMode);
   const [recipes, setRecipes] = useState<RecipeListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,13 +83,13 @@ export default function RecipesTabScreen() {
   useFocusEffect(
     useCallback(() => {
       if (demoMode) { setRecipes(buildDemoRecipes()); setLoading(false); return; }
-      if (!isPro || !organization?.id) return;
+      if (!isPaid || !organization?.id) return;
       setLoading(true);
       fetchRecipes(supabase, organization.id)
         .then(setRecipes)
         .catch(() => setRecipes([]))
         .finally(() => setLoading(false));
-    }, [isPro, organization?.id, supabase, demoMode])
+    }, [isPaid, organization?.id, supabase, demoMode])
   );
 
   const goToNew = () => {
@@ -98,7 +98,7 @@ export default function RecipesTabScreen() {
   };
 
   // Free orgs get the pitch instead of an empty list.
-  if (!isPro) {
+  if (!isPaid) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>

@@ -48,7 +48,7 @@ export default function VendorDetailScreen() {
   const { organization } = useOrganization();
   const supabase = useSupabase();
   const { vendors } = useStore();
-  const { isPro } = useEntitlement();
+  const { isPaid } = useEntitlement();
 
   const vendor = vendors.find((v) => v.id === id);
   const [vendorInvoices, setVendorInvoices] = useState<Invoice[]>([]);
@@ -109,7 +109,7 @@ export default function VendorDetailScreen() {
           </View>
         )}
 
-        {isPro && !loading && vendorInvoices.length > 0 && (() => {
+        {isPaid && !loading && vendorInvoices.length > 0 && (() => {
           const orderCount = vendorInvoices.length;
           const avgOrderSize = vendorInvoices.reduce((sum, inv) => sum + inv.total, 0) / orderCount;
           const cadence = cadenceLabel(vendorInvoices);

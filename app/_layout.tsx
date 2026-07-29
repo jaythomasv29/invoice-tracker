@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ClerkProvider, useAuth } from '@clerk/clerk-expo';
 import * as Sentry from '@sentry/react-native';
 import { clerkTokenCache } from '../lib/clerkTokenCache';
+import { configurePurchases } from '../lib/purchases';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import LoadingScreen from '../components/LoadingScreen';
 
@@ -46,6 +47,13 @@ export default function RootLayout() {
     // stays up while Clerk hydrates the session, so there's never a blank frame.
     if (fontsLoaded) SplashScreen.hideAsync();
   }, [fontsLoaded]);
+
+  useEffect(() => {
+    // Initialize RevenueCat once, as early as possible. No-ops off iOS or until
+    // EXPO_PUBLIC_REVENUECAT_IOS_KEY is set. The per-org identity is bound later
+    // (see useRevenueCatSync in the tabs layout), once an org is active.
+    configurePurchases();
+  }, []);
 
   return (
     <ErrorBoundary>

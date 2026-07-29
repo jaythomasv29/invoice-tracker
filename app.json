@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Sift",
-    "slug": "sift",
+    "slug": "siftcosts",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -58,6 +58,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9da2f589-f571-4edd-951b-19c7b4be4f1b"
+      }
+    },
+    "owner": "james.vongampai"
   }
 }

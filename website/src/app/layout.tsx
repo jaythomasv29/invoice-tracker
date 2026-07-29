@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "Sift — Invoice intelligence for restaurants",
   description:
     "Scan any invoice and Sift turns it into tracked spend, price-creep alerts, and live recipe costs — priced from your own paperwork.",
-  metadataBase: new URL("https://sift.app"),
+  metadataBase: new URL("https://siftcosts.com"),
   openGraph: {
     title: "Sift — Invoice intelligence for restaurants",
     description:

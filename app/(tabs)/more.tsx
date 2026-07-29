@@ -9,7 +9,7 @@ import { useStore } from '../../store/useStore';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { useExtractionUsage } from '../../hooks/useExtractionUsage';
 import { useSupabase } from '../../lib/supabase';
-import { openBillingPortal } from '../../lib/billing';
+import { manageSubscription, restorePurchases } from '../../lib/purchases';
 import { fetchAllInvoices } from '../../lib/invoicePipeline';
 import { exportInvoicesCsv } from '../../lib/csvExport';
 import { initialsFor } from '../../lib/initials';
@@ -23,9 +23,9 @@ export default function MoreScreen() {
   const { signOut } = useAuth();
   const { organization } = useOrganization();
   const { user } = useUser();
-  const { isPro } = useEntitlement();
+  const { plan, isPaid } = useEntitlement();
   const { used, cap } = useExtractionUsage();
-  const { showToast } = useStore();
+  const { showToast, debugPlan, setDebugPlan } = useStore();
   const { start: startTour } = useTour();
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -60,9 +60,20 @@ export default function MoreScreen() {
   };
   const handleManageSubscription = async () => {
     try {
-      await openBillingPortal(supabase);
+      // Opens the native App Store subscription-management sheet. Cancels/changes
+      // flow back through the revenuecat-webhook, which updates the plan flag.
+      await manageSubscription();
     } catch (err: any) {
-      showToast(err?.message ?? 'Could not open billing portal');
+      showToast(err?.message ?? 'Could not open subscription settings');
+    }
+  };
+
+  const handleRestore = async () => {
+    try {
+      const restoredPlan = await restorePurchases();
+      showToast(restoredPlan !== 'free' ? `Restored — you're on ${restoredPlan}` : 'No active subscription found');
+    } catch (err: any) {
+      showToast(err?.message ?? 'Could not restore purchases');
     }
   };
 
@@ -92,6 +103,8 @@ export default function MoreScreen() {
     );
   };
 
+  const planLabel = plan === 'pro' ? 'Pro' : plan === 'plus' ? 'Plus' : 'Free';
+
   type Row = { label: string; detail?: string; onPress?: () => void; accent?: boolean };
   const sections: { header: string; rows: Row[] }[] = [
     {
@@ -99,9 +112,9 @@ export default function MoreScreen() {
       rows: [
         {
           label: 'Recipe costing',
-          detail: isPro ? 'New' : 'Pro',
-          accent: !isPro,
-          onPress: () => router.push(isPro ? '/recipes' : '/paywall'),
+          detail: isPaid ? 'New' : 'Pro',
+          accent: !isPaid,
+          onPress: () => router.push(isPaid ? '/recipes' : '/paywall'),
         },
         { label: 'Export to CSV', detail: exporting ? 'Exporting…' : undefined, onPress: handleExport },
       ],
@@ -113,13 +126,15 @@ export default function MoreScreen() {
         { label: 'Email', detail: email || 'you@restaurant.com' },
         {
           label: 'Plan',
-          detail: isPro ? 'Pro' : 'Free',
-          accent: isPro,
+          detail: planLabel,
+          accent: isPaid,
           onPress: () => router.push('/paywall'),
         },
-        ...(isPro
+        { label: 'Extractions this month', detail: `${used} of ${cap} used` },
+        ...(isPaid
           ? [{ label: 'Manage subscription', onPress: handleManageSubscription } as Row]
-          : [{ label: 'Extractions this month', detail: `${used} of ${cap} used` } as Row]),
+          : []),
+        { label: 'Restore purchases', onPress: handleRestore },
         { label: 'Invite staff', onPress: () => showToast('Staff invite — coming soon') },
       ],
     },
@@ -135,6 +150,25 @@ export default function MoreScreen() {
         { label: 'Replay product tour', onPress: () => { router.push('/(tabs)'); startTour(); } },
       ],
     },
+    // Dev-only QA tier-switcher — overrides the effective plan client-side so
+    // gating can be verified at every level without a real purchase. Stripped
+    // from production builds. The server still enforces the org's real plan.
+    ...(__DEV__
+      ? [{
+          header: 'Developer · QA tier',
+          rows: ([
+            { key: null, label: 'Use real plan' },
+            { key: 'free', label: 'Force Free' },
+            { key: 'plus', label: 'Force Plus' },
+            { key: 'pro', label: 'Force Pro' },
+          ] as { key: 'free' | 'plus' | 'pro' | null; label: string }[]).map((opt) => ({
+            label: opt.label,
+            detail: debugPlan === opt.key ? '✓ active' : undefined,
+            accent: debugPlan === opt.key,
+            onPress: () => { setDebugPlan(opt.key); showToast(opt.key ? `Forcing ${opt.key}` : 'Using real plan'); },
+          })),
+        }]
+      : []),
   ];
 
   return (
