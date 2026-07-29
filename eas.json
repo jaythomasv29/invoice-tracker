@@ -9,7 +9,7 @@
       "distribution": "internal",
       "node": "22.13.0",
       "ios": {
-        "simulator": true
+        "simulator": false
       },
       "env": {
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_cmVsYXRpdmUta2l0ZS0xMC5jbGVyay5hY2NvdW50cy5kZXYk",

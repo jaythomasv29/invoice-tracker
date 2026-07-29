@@ -9,7 +9,7 @@
     "scheme": "sift",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.sift.app",
+      "bundleIdentifier": "com.siftcosts.app",
       "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
