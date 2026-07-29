@@ -53,7 +53,13 @@
       ],
       "expo-secure-store",
       "expo-web-browser",
-      "@sentry/react-native",
+      [
+        "@sentry/react-native",
+        {
+          "organization": "sift",
+          "project": "react-native"
+        }
+      ],
       "expo-sharing"
     ],
     "experiments": {
