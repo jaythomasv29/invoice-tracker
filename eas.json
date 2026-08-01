@@ -15,7 +15,7 @@
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_cmVsYXRpdmUta2l0ZS0xMC5jbGVyay5hY2NvdW50cy5kZXYk",
         "EXPO_PUBLIC_SUPABASE_URL": "https://mfabuswvobhatxacikmc.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_h0qaZrmGJbmiqGtvZNwZ8g_CW7ExImZ",
-        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "test_EwmtGZkhGfRwGVXCEXjnyyupROx",
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_jKmtZGArruRBxWHJxmUBkFHdhfC",
         "EXPO_PUBLIC_PRIVACY_POLICY_URL": "https://siftcosts.com/privacy",
         "EXPO_PUBLIC_TERMS_URL": "https://siftcosts.com/terms",
         "EXPO_PUBLIC_SENTRY_DSN": "https://1e31bb763a9969d676c866fd8e1247b6@o4511817489383424.ingest.us.sentry.io/4511817495740416",
@@ -32,10 +32,25 @@
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_cmVsYXRpdmUta2l0ZS0xMC5jbGVyay5hY2NvdW50cy5kZXYk",
         "EXPO_PUBLIC_SUPABASE_URL": "https://mfabuswvobhatxacikmc.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_h0qaZrmGJbmiqGtvZNwZ8g_CW7ExImZ",
-        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "test_EwmtGZkhGfRwGVXCEXjnyyupROx",
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_jKmtZGArruRBxWHJxmUBkFHdhfC",
         "EXPO_PUBLIC_PRIVACY_POLICY_URL": "https://siftcosts.com/privacy",
         "EXPO_PUBLIC_TERMS_URL": "https://siftcosts.com/terms",
         "EXPO_PUBLIC_SENTRY_DSN": "https://1e31bb763a9969d676c866fd8e1247b6@o4511817489383424.ingest.us.sentry.io/4511817495740416",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+      }
+    },
+    "simulator": {
+      "distribution": "internal",
+      "node": "22.13.0",
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_cmVsYXRpdmUta2l0ZS0xMC5jbGVyay5hY2NvdW50cy5kZXYk",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://mfabuswvobhatxacikmc.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_h0qaZrmGJbmiqGtvZNwZ8g_CW7ExImZ",
+        "EXPO_PUBLIC_PRIVACY_POLICY_URL": "https://siftcosts.com/privacy",
+        "EXPO_PUBLIC_TERMS_URL": "https://siftcosts.com/terms",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
@@ -46,7 +61,7 @@
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_cmVsYXRpdmUta2l0ZS0xMC5jbGVyay5hY2NvdW50cy5kZXYk",
         "EXPO_PUBLIC_SUPABASE_URL": "https://mfabuswvobhatxacikmc.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_h0qaZrmGJbmiqGtvZNwZ8g_CW7ExImZ",
-        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "test_EwmtGZkhGfRwGVXCEXjnyyupROx",
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_jKmtZGArruRBxWHJxmUBkFHdhfC",
         "EXPO_PUBLIC_PRIVACY_POLICY_URL": "https://siftcosts.com/privacy",
         "EXPO_PUBLIC_TERMS_URL": "https://siftcosts.com/terms",
         "EXPO_PUBLIC_SENTRY_DSN": "https://1e31bb763a9969d676c866fd8e1247b6@o4511817489383424.ingest.us.sentry.io/4511817495740416"
