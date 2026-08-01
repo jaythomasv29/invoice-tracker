@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform,
@@ -26,10 +26,49 @@ const copy = {
 
 export default function CreateOrganizationScreen() {
   const router = useRouter();
-  const { createOrganization, setActive, isLoaded } = useOrganizationList();
+  const { createOrganization, setActive, isLoaded, userMemberships } =
+    useOrganizationList({ userMemberships: true });
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const activatingRef = useRef(false);
+
+  // A returning member can be routed here with no *active* organization: Clerk
+  // does not auto-activate an existing membership on a fresh session, and the
+  // 'choose-organization' task lands everyone on this screen. Rather than force
+  // them to create a duplicate org (this screen can't select an existing one),
+  // activate the org they already belong to and send them straight into the app.
+  // This was the "sign in bounces me back to onboarding, not my dashboard" bug.
+  const hasMemberships = (userMemberships?.data?.length ?? 0) > 0;
+
+  useEffect(() => {
+    if (!isLoaded || activatingRef.current) return;
+    const existing = userMemberships?.data?.[0];
+    if (!existing) return;
+    activatingRef.current = true;
+    (async () => {
+      try {
+        await setActive({ organization: existing.organization.id });
+        router.replace('/(tabs)');
+      } catch {
+        activatingRef.current = false; // allow a retry on the next render
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, hasMemberships]);
+
+  // Don't flash the create-org form while membership state is still resolving,
+  // or while we're activating an existing org — a returning user should see
+  // only a brief loader before their dashboard.
+  if (!isLoaded || hasMemberships) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <View style={[styles.content, { alignItems: 'center', justifyContent: 'center' }]}>
+          <Spinner size={28} color={Colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const handleCreate = async () => {
     Haptics.selectionAsync();
