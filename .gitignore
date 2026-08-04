@@ -41,3 +41,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# local test/sample invoice images (26MB of PNGs — not needed in the repo)
+thai_kitchen_invoices/
