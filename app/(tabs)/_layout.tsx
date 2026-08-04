@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path, Circle } from "react-native-svg";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
-import { useAuth, useOrganization, useSession } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/clerk-expo";
 import { Colors } from "../../constants/Colors";
 import { useRevenueCatSync } from "../../hooks/useRevenueCatSync";
 import { TourProvider } from "../../components/tour/TourProvider";
@@ -241,28 +241,27 @@ function useTabBarStyle() {
 
 export default function TabLayout() {
   const router = useRouter();
-  const { isLoaded, isSignedIn } = useAuth();
-  const { isLoaded: sessionLoaded, session } = useSession();
-  const { isLoaded: orgLoaded, organization } = useOrganization();
+  // treatPendingAsSignedOut:false so a pending (choose-organization) session
+  // isn't misread as signed-out here. Route on orgId (active org from the
+  // session claims) — see app/index.tsx for the full rationale.
+  const { isLoaded, isSignedIn, orgId } = useAuth({ treatPendingAsSignedOut: false });
   const tabBarStyle = useTabBarStyle();
 
   // Bind RevenueCat's identity to the active org for the whole authenticated session.
   useRevenueCatSync();
 
   useEffect(() => {
-    if (!isLoaded || !sessionLoaded) return;
-    if (session?.currentTask) {
-      router.replace("/onboarding/organization");
-      return;
-    }
+    if (!isLoaded) return;
     if (!isSignedIn) {
-      router.replace("/(auth)");
+      router.replace("/(auth)"); // no session at all
       return;
     }
-    if (orgLoaded && !organization) {
-      router.replace("/onboarding/organization");
+    if (!orgId) {
+      router.replace("/onboarding/organization"); // pending choose-org / no active org
+      return;
     }
-  }, [isLoaded, sessionLoaded, session, isSignedIn, orgLoaded, organization]);
+    // else: signed in with an active org — stay in the tabs.
+  }, [isLoaded, isSignedIn, orgId]);
 
   return (
     <TourProvider>

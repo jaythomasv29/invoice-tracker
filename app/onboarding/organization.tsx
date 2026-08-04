@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useOrganizationList } from '@clerk/clerk-expo';
+import { useOrganizationList, useUser } from '@clerk/clerk-expo';
 import { Colors } from '../../constants/Colors';
 import Spinner from '../../components/ui/Spinner';
 
@@ -26,6 +26,7 @@ const copy = {
 
 export default function CreateOrganizationScreen() {
   const router = useRouter();
+  const { user, isLoaded: userLoaded } = useUser();
   const { createOrganization, setActive, isLoaded, userMemberships } =
     useOrganizationList({ userMemberships: true });
   const [name, setName] = useState('');
@@ -33,34 +34,42 @@ export default function CreateOrganizationScreen() {
   const [submitting, setSubmitting] = useState(false);
   const activatingRef = useRef(false);
 
-  // A returning member can be routed here with no *active* organization: Clerk
-  // does not auto-activate an existing membership on a fresh session, and the
+  // A returning member is routed here with no *active* organization: Clerk does
+  // not auto-activate an existing membership on a fresh session, and the
   // 'choose-organization' task lands everyone on this screen. Rather than force
-  // them to create a duplicate org (this screen can't select an existing one),
-  // activate the org they already belong to and send them straight into the app.
-  // This was the "sign in bounces me back to onboarding, not my dashboard" bug.
-  const hasMemberships = (userMemberships?.data?.length ?? 0) > 0;
+  // a duplicate org (this screen can't select an existing one), activate the
+  // one they already belong to and send them into the app. This is the "sign in
+  // bounces me back to onboarding, not my dashboard" bug.
+  //
+  // Detect membership from user.organizationMemberships FIRST: it's a plain,
+  // non-paginated array embedded in the user resource, populated the moment the
+  // user loads — even during the pending task. The paginated `userMemberships`
+  // list (below) can still read empty here, which is why activation never fired.
+  const existingOrgId =
+    user?.organizationMemberships?.[0]?.organization?.id ??
+    userMemberships?.data?.[0]?.organization?.id ??
+    null;
 
   useEffect(() => {
-    if (!isLoaded || activatingRef.current) return;
-    const existing = userMemberships?.data?.[0];
-    if (!existing) return;
+    if (!existingOrgId || activatingRef.current || !setActive) return;
     activatingRef.current = true;
     (async () => {
       try {
-        await setActive({ organization: existing.organization.id });
+        await setActive({ organization: existingOrgId });
         router.replace('/(tabs)');
-      } catch {
-        activatingRef.current = false; // allow a retry on the next render
+      } catch (e) {
+        // Don't strand the user on a spinner: log it and let a later render retry.
+        console.warn('[org-activate] failed to activate existing org', e);
+        activatingRef.current = false;
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded, hasMemberships]);
+  }, [existingOrgId, isLoaded]);
 
   // Don't flash the create-org form while membership state is still resolving,
   // or while we're activating an existing org — a returning user should see
   // only a brief loader before their dashboard.
-  if (!isLoaded || hasMemberships) {
+  if (!userLoaded || !isLoaded || existingOrgId) {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={[styles.content, { alignItems: 'center', justifyContent: 'center' }]}>

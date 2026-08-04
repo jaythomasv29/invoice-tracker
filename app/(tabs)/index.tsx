@@ -156,9 +156,15 @@ export default function HomeScreen() {
               <View style={styles.alertDot} />
             )}
           </TouchableOpacity>
-          <View style={styles.avatar}>
+          <TouchableOpacity
+            style={styles.avatar}
+            onPress={() => router.push("/(tabs)/more")}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Open profile"
+          >
             <Text style={styles.avatarText}>{userInitials}</Text>
-          </View>
+          </TouchableOpacity>
         </View>
       </View>
 

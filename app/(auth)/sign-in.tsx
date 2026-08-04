@@ -35,7 +35,7 @@ export default function SignInScreen() {
     // run yet), calling create() would throw 'session_exists' instead of
     // just taking the user in. Route them in directly rather than erroring.
     if (isSignedIn) {
-      router.replace('/');
+      router.replace('/(tabs)');
       return;
     }
 
@@ -54,7 +54,7 @@ export default function SignInScreen() {
       router.push({ pathname: '/(auth)/verify', params: { email: trimmed, mode: 'signUp' } });
     } catch (signUpErr: any) {
       if (signUpErr?.errors?.some((e: any) => e.code === 'session_exists')) {
-        router.replace('/');
+        router.replace('/(tabs)');
         return;
       }
       const alreadyExists = signUpErr?.errors?.some(
@@ -82,7 +82,7 @@ export default function SignInScreen() {
         router.push({ pathname: '/(auth)/verify', params: { email: trimmed, mode: 'signIn' } });
       } catch (signInErr: any) {
         if (signInErr?.errors?.some((e: any) => e.code === 'session_exists')) {
-          router.replace('/');
+          router.replace('/(tabs)');
           return;
         }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

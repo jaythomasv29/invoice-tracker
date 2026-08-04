@@ -50,7 +50,7 @@ export default function VerifyScreen() {
     // (auth)/_layout hasn't run yet) — attempting the code again would throw
     // 'session_exists' instead of just taking the user in.
     if (isSignedIn) {
-      router.replace("/");
+      router.replace("/(tabs)");
       return;
     }
     if (c.length < CODE_LENGTH) {
@@ -58,25 +58,22 @@ export default function VerifyScreen() {
       return;
     }
 
-    // Clerk Organizations being enabled means every fresh session gets a
-    // 'choose-organization' pending task before it's fully active — our own
-    // navigate callback (rather than Clerk's web-only taskUrls) sends it to
-    // the org-creation screen we already built; otherwise go straight in.
-    const navigateAfterActive = async ({ session }: { session: { currentTask?: { key: string } | null } }) => {
-      if (session.currentTask) {
-        router.replace("/onboarding/organization");
-      } else {
-        router.replace("/");
-      }
-    };
-
+    // Do NOT navigate imperatively here. Clerk Organizations makes every fresh
+    // session start with a 'choose-organization' task; the ONLY authority on
+    // routing is the reactive guard in (auth)/_layout (and app/index.tsx),
+    // keyed on useAuth({ treatPendingAsSignedOut:false }).orgId. Previously this
+    // handler ALSO fired router.replace, so the imperative call and the reactive
+    // guards raced on the same tick Clerk's state was mid-update — Expo Router
+    // wedged and dropped the user on /(auth). We just flip the session active
+    // and let the guard react. (This is the "reload fixes it" bug: a cold start
+    // has no competing imperative nav, so the guard runs cleanly.)
     setSubmitting(true);
     setError("");
     try {
       if (mode === "signIn") {
         const attempt = await signIn.attemptFirstFactor({ strategy: "email_code", code: c });
         if (attempt.status === "complete") {
-          await setActiveSignIn({ session: attempt.createdSessionId, navigate: navigateAfterActive });
+          await setActiveSignIn({ session: attempt.createdSessionId });
         } else {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           setError("Couldn't verify that code. Try again.");
@@ -84,7 +81,7 @@ export default function VerifyScreen() {
       } else {
         const attempt = await signUp.attemptEmailAddressVerification({ code: c });
         if (attempt.status === "complete") {
-          await setActiveSignUp({ session: attempt.createdSessionId, navigate: navigateAfterActive });
+          await setActiveSignUp({ session: attempt.createdSessionId });
         } else {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           setError("Couldn't verify that code. Try again.");
@@ -92,7 +89,7 @@ export default function VerifyScreen() {
       }
     } catch (err: any) {
       if (err?.errors?.some((e: any) => e.code === "session_exists")) {
-        router.replace("/");
+        router.replace("/(tabs)");
         return;
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
