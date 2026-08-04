@@ -1,0 +1,6 @@
+# Phase 7 — advance to the final tour step (scan handoff) and capture it.
+appId: com.siftcosts.app
+---
+- assertVisible: "Cost every dish"
+- tapOn: "Next"
+- takeScreenshot: tour-6-final

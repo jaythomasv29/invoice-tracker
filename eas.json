@@ -49,6 +49,7 @@
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_cmVsYXRpdmUta2l0ZS0xMC5jbGVyay5hY2NvdW50cy5kZXYk",
         "EXPO_PUBLIC_SUPABASE_URL": "https://mfabuswvobhatxacikmc.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_h0qaZrmGJbmiqGtvZNwZ8g_CW7ExImZ",
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_jKmtZGArruRBxWHJxmUBkFHdhfC",
         "EXPO_PUBLIC_PRIVACY_POLICY_URL": "https://siftcosts.com/privacy",
         "EXPO_PUBLIC_TERMS_URL": "https://siftcosts.com/terms",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"

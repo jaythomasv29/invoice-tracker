@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue, useAnimatedStyle, useAnimatedScrollHandler,
-  interpolate, interpolateColor, Extrapolation, FadeInUp,
+  interpolate, interpolateColor, Extrapolation,
   type SharedValue,
 } from 'react-native-reanimated';
 import { Colors } from '../../constants/Colors';
@@ -194,13 +194,15 @@ function Slide({ slide, index, scrollX, active }: {
         <Text style={styles.title}>{slide.title}</Text>
         <Text style={styles.subtitle}>{slide.subtitle}</Text>
 
-        <Animated.View
-          key={active ? `${slide.id}-in` : `${slide.id}-out`}
-          entering={FadeInUp.duration(480).delay(80)}
-          style={styles.previewWrap}
-        >
+        {/* Previews stay mounted for every slide (no key remount) so they're
+            preloaded, and each drives its own entrance off the `active` prop.
+            The old FadeInUp.delay(80) here caused the double-flash: Reanimated
+            paints the element at its final position during the delay, then
+            snaps back and animates — reading as "loads, then loads again."
+            The scroll-driven contentStyle already fades the slide in. */}
+        <View style={styles.previewWrap}>
           <Preview active={active} />
-        </Animated.View>
+        </View>
       </Animated.View>
     </View>
   );

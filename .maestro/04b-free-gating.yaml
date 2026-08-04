@@ -1,0 +1,8 @@
+# Phase 4 — Free-tier gating (org real plan = Free, demo off).
+# Home should show the Pro lock upsell instead of analytics; Recipes locked.
+appId: com.siftcosts.app
+---
+- tapOn: "Home"
+- takeScreenshot: free-1-home
+- tapOn: "Recipes"
+- takeScreenshot: free-2-recipes

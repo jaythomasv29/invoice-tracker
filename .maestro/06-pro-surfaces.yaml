@@ -1,0 +1,10 @@
+# Phase 4(Pro)/6 — confirm paid surfaces unlock (no ProLockCard).
+appId: com.siftcosts.app
+---
+- tapOn: "Home"
+- takeScreenshot: pro-1-home
+- tapOn: "Recipes"
+- takeScreenshot: pro-2-recipes
+- tapOn: "Home"
+- tapOn: "Price alerts"
+- takeScreenshot: pro-3-alerts

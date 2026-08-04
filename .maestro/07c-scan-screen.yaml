@@ -1,0 +1,6 @@
+# Complete the tour (ends demo) → scan screen. Capture scan UI + camera-permission behavior.
+appId: com.siftcosts.app
+---
+- assertVisible: "Now scan your first invoice"
+- tapOn: "Scan an invoice"
+- takeScreenshot: scan-01-open

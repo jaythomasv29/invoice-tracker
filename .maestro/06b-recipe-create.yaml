@@ -1,0 +1,6 @@
+# Phase 6 — recipe create flow. Recipes → Start a dish → inspect new-dish screen.
+appId: com.siftcosts.app
+---
+- tapOn: "Recipes"
+- tapOn: "Start a dish"
+- takeScreenshot: recipe-1-new

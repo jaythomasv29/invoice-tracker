@@ -1,0 +1,10 @@
+# Phase 5 — Paywall UI. ProLockCard is one element with a combined label; match by regex.
+appId: com.siftcosts.app
+---
+- tapOn:
+    text: ".*Unlock with Pro.*"
+- takeScreenshot: paywall-1-top
+- scroll
+- takeScreenshot: paywall-2-mid
+- scroll
+- takeScreenshot: paywall-3-bottom

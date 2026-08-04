@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Modal,
+  View, Text, TouchableOpacity, StyleSheet, Modal, Image, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -38,6 +38,11 @@ export default function ScanScreen() {
 
   const [cameraReady, setCameraReady] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
+  // Pages captured with the in-app camera, awaiting a single batch extraction.
+  // Each shutter press appends one; "Scan N pages" runs the pipeline once over
+  // all of them (same multi-image path the library import uses). Empty means
+  // no batch in progress — the UI shows the plain single-shot affordances.
+  const [capturedPages, setCapturedPages] = useState<string[]>([]);
   // Set when the edge function flags a likely duplicate (HTTP 409). Drives the
   // "possible duplicate" confirmation modal — a warn-and-override, not a block.
   // Carries the abandoned draft's id + images (needed to delete it or force it
@@ -72,12 +77,12 @@ export default function ScanScreen() {
     opacity: flashOpacity.value,
   }));
 
-  // Multi-page support today means "select several photos of one invoice
-  // from the library" (result.assets -> one invoice's pages). A true
-  // multi-shot camera batch flow (fire the shutter N times, then process
-  // once) is PRD 6.2 scope not built yet, so the live-shutter path always
-  // produces a single-page invoice — the removed "Batch" toggle used to
-  // imply otherwise without doing anything.
+  // Multi-page invoices are supported from both entry points: the library
+  // import passes every selected photo at once, and the camera batches pages
+  // via `capturedPages` (each shutter appends one, then "Scan N pages" calls
+  // this). Either way `uris` is the full page set for ONE invoice — they upload
+  // as {orgId}/{invoiceId}/{n}.jpg and the edge function sends them to Claude in
+  // a single request, returning one merged set of line items.
   const processImages = async (uris: string[]) => {
     if (!organization) {
       showToast('No restaurant selected');
@@ -232,18 +237,34 @@ export default function ScanScreen() {
     );
   };
 
+  // Shutter appends a page to the pending batch rather than processing
+  // immediately, so a multi-page invoice can be shot page-by-page. Nothing is
+  // uploaded or sent to the model until "Scan N pages" (handleProcessPages).
   const handleCapture = async () => {
-    if (!cameraRef.current || !cameraReady) return;
+    if (!cameraRef.current || !cameraReady || scanStage === 'processing') return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     flashOpacity.value = withSequence(withTiming(0.85, { duration: 60 }), withTiming(0, { duration: 220 }));
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
       if (!photo) return;
-      await processImages([photo.uri]);
+      setCapturedPages((prev) => [...prev, photo.uri]);
     } catch (err: any) {
       console.error('[scan] capture failed:', err);
       showToast(err?.message ?? 'Could not take photo');
     }
+  };
+
+  // Send every captured page through as one invoice. processImages navigates
+  // away to review on success (this screen unmounts, discarding the batch); on
+  // failure it stays put and the batch is preserved so the user can retry.
+  const handleProcessPages = async () => {
+    if (capturedPages.length === 0 || scanStage === 'processing') return;
+    await processImages(capturedPages);
+  };
+
+  const removePage = (index: number) => {
+    Haptics.selectionAsync();
+    setCapturedPages((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleImport = async () => {
@@ -348,7 +369,11 @@ export default function ScanScreen() {
         <View style={[styles.corner, styles.cornerBL]} />
         <View style={[styles.corner, styles.cornerBR]} />
 
-        <Text style={styles.alignHint}>Align invoice within frame</Text>
+        <Text style={styles.alignHint}>
+          {capturedPages.length > 0
+            ? `Page ${capturedPages.length + 1} — align and shoot, or tap Scan`
+            : 'Align invoice within frame'}
+        </Text>
 
         {/* Real connectivity banner — no manual toggle, reflects actual network state */}
         {isOffline && (
@@ -369,6 +394,53 @@ export default function ScanScreen() {
         )}
       </View>
 
+      {/* Captured-pages tray — thumbnails + the single-shot process CTA. Only
+          shown once at least one camera page is in the pending batch. */}
+      {capturedPages.length > 0 && (
+        <View style={styles.trayZone}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.trayContent}
+          >
+            {capturedPages.map((uri, i) => (
+              <View key={`${uri}-${i}`} style={styles.thumbWrap}>
+                <Image source={{ uri }} style={styles.thumb} />
+                <View style={styles.thumbBadge}>
+                  <Text style={styles.thumbBadgeText}>{i + 1}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.thumbRemove}
+                  onPress={() => removePage(i)}
+                  hitSlop={6}
+                  disabled={processing}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove page ${i + 1}`}
+                >
+                  <Svg width={11} height={11} viewBox="0 0 24 24" fill="none">
+                    <Path d="M5 5 19 19M19 5 5 19" stroke="#fff" strokeWidth={3.2} strokeLinecap="round" />
+                  </Svg>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+          <TouchableOpacity
+            style={[styles.scanAllBtn, processing && styles.scanAllBtnDisabled]}
+            onPress={handleProcessPages}
+            activeOpacity={0.85}
+            disabled={processing}
+            accessibilityRole="button"
+            accessibilityLabel={`Scan ${capturedPages.length} page${capturedPages.length > 1 ? 's' : ''}`}
+          >
+            <Text style={styles.scanAllText}>
+              {processing
+                ? 'Reading…'
+                : `Scan ${capturedPages.length} page${capturedPages.length > 1 ? 's' : ''}`}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Bottom controls */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
@@ -387,14 +459,32 @@ export default function ScanScreen() {
           activeOpacity={0.85}
           disabled={processing || !cameraReady}
           accessibilityRole="button"
-          accessibilityLabel="Take photo"
+          accessibilityLabel={capturedPages.length > 0 ? 'Add another page' : 'Take photo'}
         >
           <View style={[styles.captureBtn, (!cameraReady || processing) && styles.captureBtnDisabled]} />
+          {capturedPages.length > 0 && (
+            <View style={styles.captureCount}>
+              <Text style={styles.captureCountText}>{capturedPages.length}</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={handleImport} activeOpacity={0.7} style={styles.bottomSideBtn}>
-          <Text style={[styles.bottomSideBtnText, { textAlign: 'right' }]}>Import</Text>
-        </TouchableOpacity>
+        {capturedPages.length > 0 ? (
+          <TouchableOpacity
+            onPress={() => { Haptics.selectionAsync(); setCapturedPages([]); }}
+            activeOpacity={0.7}
+            style={styles.bottomSideBtn}
+            disabled={processing}
+            accessibilityRole="button"
+            accessibilityLabel="Clear captured pages"
+          >
+            <Text style={[styles.bottomSideBtnText, { textAlign: 'right' }]}>Clear</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={handleImport} activeOpacity={0.7} style={styles.bottomSideBtn}>
+            <Text style={[styles.bottomSideBtnText, { textAlign: 'right' }]}>Import</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {renderDuplicateModal()}
@@ -500,6 +590,39 @@ const styles = StyleSheet.create({
   },
   captureBtn: { width: 58, height: 58, borderRadius: 29, backgroundColor: Colors.primary },
   captureBtnDisabled: { backgroundColor: Colors.primary + '60' },
+  captureCount: {
+    position: 'absolute', top: -2, right: -2, minWidth: 22, height: 22, borderRadius: 11,
+    backgroundColor: Colors.textPrimary, alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 5, borderWidth: 2, borderColor: Colors.background,
+  },
+  captureCountText: { fontSize: 11, fontFamily: 'Manrope_800ExtraBold', color: '#fff' },
+
+  // Captured-pages batch tray
+  trayZone: { paddingTop: 2 },
+  trayContent: { gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 12 },
+  thumbWrap: { width: 54, height: 72, position: 'relative' },
+  thumb: {
+    width: 54, height: 72, borderRadius: 8,
+    borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface,
+  },
+  thumbBadge: {
+    position: 'absolute', bottom: 3, left: 3, minWidth: 16, height: 16, borderRadius: 8,
+    backgroundColor: 'rgba(17,17,27,0.82)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
+  },
+  thumbBadgeText: { fontSize: 10, fontFamily: 'Manrope_700Bold', color: '#fff' },
+  thumbRemove: {
+    position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: 10,
+    backgroundColor: Colors.danger, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.5, borderColor: Colors.background,
+  },
+  scanAllBtn: {
+    marginHorizontal: 16, marginBottom: 4, backgroundColor: Colors.primary,
+    borderRadius: 14, height: 50, alignItems: 'center', justifyContent: 'center',
+    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 10, elevation: 5,
+  },
+  scanAllBtnDisabled: { opacity: 0.6 },
+  scanAllText: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: '#fff' },
 
   permDeniedTitle: { fontSize: 22, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, textAlign: 'center' },
   permDeniedSub: { fontSize: 14, fontFamily: 'Manrope_500Medium', color: Colors.textSecondary, textAlign: 'center', lineHeight: 21 },

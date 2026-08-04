@@ -1,0 +1,9 @@
+# Phase 7 — settings confirm dialogs. Trigger but CANCEL destructive actions.
+appId: com.siftcosts.app
+---
+- tapOn: "Profile"
+- scrollUntilVisible:
+    element: "Sign out"
+    direction: DOWN
+- tapOn: "Sign out"
+- takeScreenshot: settings-1-signout-confirm

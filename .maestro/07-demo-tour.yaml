@@ -1,0 +1,16 @@
+# Phase 7 — First-run demo tour (6 spotlight steps). No launchApp: drive the
+# tour that's already on screen so we don't reset first-run state.
+# Tour steps (from TourTypes.ts): streak, spend, alerts, vendors (Home),
+# recipes (Recipes tab), scan (center button, final).
+appId: com.siftcosts.app
+---
+- assertVisible: "Build a daily habit"
+- takeScreenshot: tour-1-streak
+- tapOn: "Next"
+- takeScreenshot: tour-2
+- tapOn: "Next"
+- takeScreenshot: tour-3
+- tapOn: "Next"
+- takeScreenshot: tour-4
+- tapOn: "Next"
+- takeScreenshot: tour-5-recipes

@@ -1,0 +1,10 @@
+# Phase 4/3 — Free Alerts upsell + Invoices(vendors) empty state.
+appId: com.siftcosts.app
+---
+- tapOn: "OK"          # dismiss IAP-not-available alert
+- tapOn: "Close"       # close paywall
+- tapOn: "Home"
+- tapOn: "Price alerts"   # header bell
+- takeScreenshot: free-3-alerts
+- tapOn: "Invoices"    # Invoices tab (vendors.tsx)
+- takeScreenshot: free-4-invoices

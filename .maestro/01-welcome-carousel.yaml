@@ -1,0 +1,18 @@
+# Phase 1a — Welcome carousel → Sign-in screen (no account needed)
+# Selectors use accessibilityText (verified via `maestro hierarchy`):
+#   "Next slide" = the green Next/Get-started CTA
+#   "Skip onboarding" = Skip link
+appId: com.siftcosts.app
+---
+- launchApp:
+    clearState: true
+- assertVisible: "Snap a photo,\nskip the data entry"
+- takeScreenshot: m1-slide1
+- tapOn: "Next slide"
+- takeScreenshot: m1-slide2
+- tapOn: "Next slide"
+- takeScreenshot: m1-slide3
+- tapOn: "Next slide"
+- takeScreenshot: m1-slide4
+- tapOn: "Already have an account? Sign in"
+- takeScreenshot: m1-signin

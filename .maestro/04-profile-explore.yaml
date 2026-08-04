@@ -1,0 +1,12 @@
+# Close scan → Profile tab → scroll through settings (find QA tier switcher).
+appId: com.siftcosts.app
+---
+- tapOn: "Close"
+- tapOn: "Profile"
+- takeScreenshot: profile-1-top
+- scroll
+- takeScreenshot: profile-2
+- scroll
+- takeScreenshot: profile-3
+- scroll
+- takeScreenshot: profile-4-bottom
