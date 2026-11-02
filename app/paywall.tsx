@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useSupabase } from '../lib/supabase';
+import { syncSubscription } from '../lib/subscriptionSync';
+import { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useOrganization } from '@clerk/clerk-expo';
 import { Colors } from '../constants/Colors';
-import { PLAN_FEATURES, PLUS_PRICE_LABEL, PRO_PRICE_LABEL, PAYWALL_HEADLINE, PAYWALL_SUBHEAD } from '../constants/plans';
+import { PLAN_FEATURES, PAYWALL_HEADLINE, PAYWALL_SUBHEAD } from '../constants/plans';
 import { PLAN_INVOICE_CAPS } from '../lib/entitlements';
 import { useExtractionUsage } from '../hooks/useExtractionUsage';
 import { useEntitlement } from '../hooks/useEntitlement';
@@ -15,16 +17,18 @@ import {
   restorePurchases,
   purchasesReady,
   type TierPackages,
-  type PaidTier,
 } from '../lib/purchases';
 import { PRIVACY_POLICY_URL, TERMS_URL, openLegalUrl } from '../constants/legal';
 
 // Which tier is preselected. Pro is the flagship (highest margin); Plus is one
 // tap away and clearly priced. Flip this to 'plus' to default to the entry tier.
-const DEFAULT_TIER: PaidTier = 'pro';
+
 
 export default function PaywallScreen() {
   const router = useRouter();
+  const supabase = useSupabase();
+  const [offeringError, setOfferingError] = useState(false);
+  const [loadingPackages, setLoadingPackages] = useState(true);
   const { organization } = useOrganization();
   const { plan, isPaid } = useEntitlement();
   const { used, cap } = useExtractionUsage();
@@ -34,30 +38,21 @@ export default function PaywallScreen() {
   // (Apple 3.1.2 requires showing the real price). Null until loaded, or if the
   // RevenueCat project/key isn't set up yet.
   const [packages, setPackages] = useState<TierPackages>({ plus: null, pro: null });
-  const [tier, setTier] = useState<PaidTier>(DEFAULT_TIER);
 
-  useEffect(() => {
-    let cancelled = false;
-    getTierPackages()
-      .then((p) => { if (!cancelled) setPackages(p); })
-      .catch(() => { /* leave null — falls back to placeholder labels */ });
-    return () => { cancelled = true; };
-  }, []);
-
-  const selectedPkg = packages[tier];
-  // Real store prices when available; placeholder labels otherwise.
-  const plusDisplay = packages.plus ? `${packages.plus.product.priceString}/mo` : PLUS_PRICE_LABEL;
-  const proDisplay = packages.pro ? `${packages.pro.product.priceString}/mo` : PRO_PRICE_LABEL;
-  const ctaPriceLabel = tier === 'pro' ? proDisplay : plusDisplay;
-  const ctaTierLabel = tier === 'pro' ? 'Pro' : 'Plus';
-
-  // `isPaid` mirrored into a ref so the polling loop below can observe it
-  // updating across re-renders. The loop reads a ref (kept in sync via effect)
-  // rather than the `organization` captured in the handler's closure, since
-  // `organization?.reload()` may hand back a new resource object rather than
-  // mutating this one in place.
-  const isPaidRef = useRef(isPaid);
-  useEffect(() => { isPaidRef.current = isPaid; }, [isPaid]);
+  const loadPackages = async () => {
+    setLoadingPackages(true); setOfferingError(false);
+    try {
+      const loaded = await getTierPackages();
+      setPackages(loaded);
+      if (!loaded.pro) setOfferingError(true);
+    } catch { setOfferingError(true); }
+    finally { setLoadingPackages(false); }
+  };
+  useEffect(() => { void loadPackages(); }, []);
+  const selectedPkg = packages.pro;
+  const proDisplay = selectedPkg ? `${selectedPkg.product.priceString}/month` : 'Price unavailable';
+  const ctaPriceLabel = proDisplay;
+  const ctaTierLabel = 'Pro';
 
   const usagePct = cap > 0 ? Math.min(1, used / cap) : 0;
 
@@ -66,20 +61,15 @@ export default function PaywallScreen() {
   // `plan` flag, which the revenuecat-webhook writes a few seconds later. Poll
   // the org so the paywall flips to the "on a paid plan" state without a manual
   // reload, then auto-close back to wherever the user came from (often mid-scan).
-  const awaitEntitlementAndClose = async () => {
-    let confirmed = false;
-    for (let i = 0; i < 6 && !confirmed; i++) {
-      await organization?.reload?.();
-      await new Promise((r) => setTimeout(r, 400));
-      if (isPaidRef.current) { confirmed = true; break; }
-      await new Promise((r) => setTimeout(r, 1100));
-    }
-    if (confirmed) setTimeout(() => router.back(), 900);
-    return confirmed;
+  const awaitEntitlementAndClose = async (expectedPlan: string) => {
+    const confirmed = await syncSubscription(supabase);
+    await organization?.reload();
+    if (confirmed !== expectedPlan) throw new Error('Your purchase is pending verification. Please retry Restore purchases shortly.');
+    router.back();
   };
 
   const handleUpgrade = async () => {
-    if (busy) return;
+    if (busy || restoring || !organization?.id) return;
     // RevenueCat project/key not wired yet (migration in progress) or the
     // selected package isn't configured — don't dead-end the button.
     if (!purchasesReady() || !selectedPkg) {
@@ -88,11 +78,11 @@ export default function PaywallScreen() {
     }
     setBusy(true);
     try {
-      const { plan: purchasedPlan, cancelled } = await purchaseTier(selectedPkg);
+      const { plan: purchasedPlan, cancelled } = await purchaseTier(selectedPkg, organization!.id);
       if (cancelled) return; // user backed out of the native sheet — no error
       if (purchasedPlan !== 'free') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        await awaitEntitlementAndClose();
+        await awaitEntitlementAndClose(purchasedPlan);
       }
     } catch (e: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -103,14 +93,13 @@ export default function PaywallScreen() {
   };
 
   const handleRestore = async () => {
-    if (restoring) return;
+    if (restoring || busy || !organization?.id) return;
     setRestoring(true);
     try {
-      const restoredPlan = await restorePurchases();
+      const restoredPlan = await restorePurchases(organization.id);
       if (restoredPlan !== 'free') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        const confirmed = await awaitEntitlementAndClose();
-        if (!confirmed) Alert.alert('Purchases restored', `Your ${restoredPlan} subscription is active.`);
+        await awaitEntitlementAndClose(restoredPlan);
       } else {
         Alert.alert('Nothing to restore', 'No active subscription was found for your Apple ID.');
       }
@@ -146,12 +135,12 @@ export default function PaywallScreen() {
 
         {isPaid ? (
           <View style={styles.proBanner}>
-            <Text style={styles.proBannerText}>✓ You're on {planLabel}</Text>
+            <Text style={styles.proBannerText}>✓ You&apos;re on {planLabel}</Text>
           </View>
         ) : (
           <View style={styles.usageCard}>
             <Text style={styles.usageText}>
-              You've used <Text style={styles.usageStrong}>{used}</Text> of{' '}
+              You&apos;ve used <Text style={styles.usageStrong}>{used}</Text> of{' '}
               <Text style={styles.usageStrong}>{cap}</Text> free extractions this month.
             </Text>
             <View style={styles.meterTrack}>
@@ -165,9 +154,6 @@ export default function PaywallScreen() {
             <View style={styles.featureCol} />
             <View style={styles.planCol}>
               <Text style={styles.planHeaderText}>Free</Text>
-            </View>
-            <View style={styles.planCol}>
-              <Text style={styles.planHeaderText}>Plus</Text>
             </View>
             <View style={[styles.planCol, styles.proColHighlight, styles.proColHeader]}>
               <Text style={styles.planHeaderTextPro}>Pro</Text>
@@ -193,9 +179,6 @@ export default function PaywallScreen() {
               <View style={styles.planCol}>
                 <FeatureCell value={feature.free} />
               </View>
-              <View style={styles.planCol}>
-                <FeatureCell value={feature.plus} />
-              </View>
               <View style={[styles.planCol, styles.proColHighlight]}>
                 <FeatureCell value={feature.pro} pro />
               </View>
@@ -205,41 +188,35 @@ export default function PaywallScreen() {
 
         {isPaid ? (
           <View style={[styles.cta, styles.ctaDisabled]}>
-            <Text style={styles.ctaTextDisabled}>You're on {planLabel}</Text>
+            <Text style={styles.ctaTextDisabled}>You&apos;re on {planLabel}</Text>
           </View>
         ) : (
           <>
             {/* Plus / Pro tier selector — Pro (flagship) is the default. */}
             <View style={styles.plans}>
               <TierOption
-                label="Plus"
-                price={plusDisplay}
-                caption={`${PLAN_INVOICE_CAPS.plus} invoices / mo`}
-                selected={tier === 'plus'}
-                onPress={() => { Haptics.selectionAsync(); setTier('plus'); }}
-              />
-              <TierOption
                 label="Pro"
                 price={proDisplay}
                 caption={`${PLAN_INVOICE_CAPS.pro} invoices / mo`}
                 badge="Recommended"
-                selected={tier === 'pro'}
-                onPress={() => { Haptics.selectionAsync(); setTier('pro'); }}
+                selected
+                onPress={() => Haptics.selectionAsync()}
               />
             </View>
 
             <TouchableOpacity
-              style={[styles.cta, busy && styles.ctaBusy]}
+              style={[styles.cta, (busy || loadingPackages || !selectedPkg) && styles.ctaBusy]}
               onPress={handleUpgrade}
-              disabled={busy}
+              disabled={busy || restoring || loadingPackages || !selectedPkg}
               activeOpacity={0.85}
             >
-              <Text style={styles.ctaText}>{busy ? 'Processing…' : `Upgrade to ${ctaTierLabel} — ${ctaPriceLabel}`}</Text>
+              <Text style={styles.ctaText}>{busy ? 'Verifying purchase…' : loadingPackages ? 'Loading price…' : !selectedPkg ? 'Subscription unavailable' : `Upgrade to ${ctaTierLabel} — ${ctaPriceLabel}`}</Text>
             </TouchableOpacity>
 
+            {offeringError && <TouchableOpacity onPress={loadPackages} style={styles.restoreBtn} accessibilityRole="button"><Text style={styles.restoreText}>Could not load subscription. Tap to retry.</Text></TouchableOpacity>}
             <TouchableOpacity
               onPress={handleRestore}
-              disabled={restoring}
+              disabled={restoring || busy}
               activeOpacity={0.7}
               style={styles.restoreBtn}
             >

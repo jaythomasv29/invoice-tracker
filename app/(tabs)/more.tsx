@@ -1,3 +1,5 @@
+import { ensureAiConsent, withdrawAiConsent } from '../../lib/aiConsent';
+import { syncSubscription } from '../../lib/subscriptionSync';
 import { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -70,7 +72,10 @@ export default function MoreScreen() {
 
   const handleRestore = async () => {
     try {
-      const restoredPlan = await restorePurchases();
+      if (!organization?.id) return;
+      await restorePurchases(organization.id);
+      const restoredPlan = await syncSubscription(supabase);
+      await organization.reload();
       showToast(restoredPlan !== 'free' ? `Restored — you're on ${restoredPlan}` : 'No active subscription found');
     } catch (err: any) {
       showToast(err?.message ?? 'Could not restore purchases');
@@ -82,7 +87,7 @@ export default function MoreScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     Alert.alert(
       'Delete account',
-      'This permanently deletes your account and sign-in access. This can’t be undone. Your organization’s invoice data is not affected and stays with any remaining team members.',
+      'This permanently deletes your account. Restaurants where you are the only member, including invoice and recipe photos, will be erased. Shared restaurant records stay with the remaining members. Apple subscriptions are not cancelled by account deletion: cancel first in Manage subscription. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -91,7 +96,15 @@ export default function MoreScreen() {
           onPress: async () => {
             setDeleting(true);
             try {
-              await user?.delete();
+              const { data, error } = await supabase.functions.invoke('delete-account', { body: {} });
+              if (error) {
+                let detail = 'Could not complete deletion. Please retry.';
+                try { detail = (await error.context.json()).error ?? detail; } catch { /* network error */ }
+                throw new Error(detail);
+              }
+              if (!data?.deleted) throw new Error('Deletion is pending. Please retry.');
+              useStore.setState(useStore.getInitialState(), true);
+              await signOut();
               router.replace('/(auth)');
             } catch (err: any) {
               setDeleting(false);
@@ -135,14 +148,13 @@ export default function MoreScreen() {
           ? [{ label: 'Manage subscription', onPress: handleManageSubscription } as Row]
           : []),
         { label: 'Restore purchases', onPress: handleRestore },
-        { label: 'Invite staff', onPress: () => showToast('Staff invite — coming soon') },
       ],
     },
     {
       header: 'App',
       rows: [
-        { label: 'Notification settings', onPress: () => showToast('Notification settings — coming soon') },
-        { label: 'Alert sensitivity', detail: 'Custom per category', onPress: () => showToast('Alert settings — coming soon') },
+        { label: 'Allow AI processing', onPress: async () => { try { if (await ensureAiConsent(supabase)) showToast('AI processing allowed'); } catch (e) { showToast((e as Error).message); } } },
+        { label: 'Withdraw AI permission', onPress: () => Alert.alert('Withdraw AI permission?', 'New invoice scans and AI recipe drafts will pause. Saved records remain available.', [{ text: 'Keep permission', style: 'cancel' }, { text: 'Withdraw', onPress: async () => { try { await withdrawAiConsent(supabase); showToast('AI processing permission withdrawn'); } catch (e) { showToast((e as Error).message); } } }]) },
         {
           label: 'Privacy & data',
           onPress: () => openLegalUrl(PRIVACY_POLICY_URL, () => showToast('Privacy policy coming soon')),
@@ -159,8 +171,7 @@ export default function MoreScreen() {
           rows: ([
             { key: null, label: 'Use real plan' },
             { key: 'free', label: 'Force Free' },
-            { key: 'plus', label: 'Force Plus' },
-            { key: 'pro', label: 'Force Pro' },
+                        { key: 'pro', label: 'Force Pro' },
           ] as { key: 'free' | 'plus' | 'pro' | null; label: string }[]).map((opt) => ({
             label: opt.label,
             detail: debugPlan === opt.key ? '✓ active' : undefined,

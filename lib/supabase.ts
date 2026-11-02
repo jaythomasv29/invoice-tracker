@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@clerk/clerk-expo';
 import { createClient } from '@supabase/supabase-js';
 import 'react-native-url-polyfill/auto';
@@ -28,15 +28,20 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
  * getToken without the client itself needing to change identity.
  */
 export function useSupabase() {
-  const { getToken } = useAuth();
+  const { getToken, userId, orgId, sessionId } = useAuth();
   const getTokenRef = useRef(getToken);
-  getTokenRef.current = getToken;
+  useEffect(() => { getTokenRef.current = getToken; }, [getToken]);
 
   return useMemo(
-    () =>
-      createClient(supabaseUrl, supabaseAnonKey, {
-        accessToken: async () => (await getTokenRef.current()) ?? null,
-      }),
-    []
+    () => {
+      const identity = { userId, orgId, sessionId };
+      return createClient(supabaseUrl, supabaseAnonKey, {
+        accessToken: async () => {
+          if (!identity.userId || !identity.sessionId) return null;
+          return (await getTokenRef.current()) ?? null;
+        },
+      });
+    },
+    [userId, orgId, sessionId]
   );
 }

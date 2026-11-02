@@ -183,6 +183,8 @@ interface AppState {
   debugPlan: Plan | null;
   setDebugPlan: (plan: Plan | null) => void;
 
+  activeScope: string;
+
   // Actions
   setScanStage: (stage: 'idle' | 'processing' | 'done') => void;
   setSpendView: (view: SpendPeriod) => void;
@@ -309,6 +311,7 @@ function relativeUploadLabel(createdAtIso: string | null | undefined): string {
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useStore = create<AppState>((set, get) => ({
+  activeScope: '',
   currentInvoice: null,
   scanStage: 'idle',
   selectedDay: null,
@@ -445,30 +448,14 @@ export const useStore = create<AppState>((set, get) => ({
   })),
 
   saveCurrentInvoice: async (supabase) => {
-    const { currentInvoice } = get();
+    const { currentInvoice, activeScope } = get();
     if (!currentInvoice) return;
-
-    const { error: invoiceErr } = await supabase
-      .from('invoices')
-      .update({ status: 'saved', invoice_date: currentInvoice.dateIso })
-      .eq('id', currentInvoice.id);
-    if (invoiceErr) throw new Error(`Could not save invoice: ${invoiceErr.message}`);
-
-    const lineItemResults = await Promise.all(
-      currentInvoice.lineItems.map((it) => {
-        const reconciliation_status = it.verification;
-        return supabase
-          .from('invoice_line_items')
-          .update({
-            reconciliation_status,
-            confirmed: it.confirmed,
-            note: it.note ?? null,
-          })
-          .eq('id', it.id);
-      })
-    );
-    const lineItemErr = lineItemResults.find((r) => r.error)?.error;
-    if (lineItemErr) throw new Error(`Could not save all line items: ${lineItemErr.message}`);
+    const { error } = await supabase.rpc('save_invoice_review', {
+      p_invoice: currentInvoice.id, p_date: currentInvoice.dateIso,
+      p_lines: currentInvoice.lineItems.map(it => ({ id: it.id, verification: it.verification, confirmed: it.confirmed, note: it.note ?? null })),
+    });
+    if (error) throw new Error('Could not save invoice. Please try again.');
+    if (get().activeScope !== activeScope) return;
 
     set({ currentInvoice: null, scanStage: 'idle' });
     get().showToast('Invoice saved');
@@ -478,9 +465,10 @@ export const useStore = create<AppState>((set, get) => ({
   // chart — computed from the same saved-invoices fetch so wiring both up
   // doesn't mean two near-identical queries.
   fetchDashboardSummary: async (supabase, organizationId) => {
+    const scope = get().activeScope;
     // In demo mode the dashboard is seeded by startDemo(); never overwrite it
     // with a real query (this fires from every tab focus). Live read via get().
-    if (get().demoMode) return;
+    if (get().demoMode || get().activeScope !== scope) return;
     const { data: vendorRows, error: vendorErr } = await supabase
       .from('vendors')
       .select('id, name, color, contact_name, contact_phone, account_number')
@@ -743,7 +731,7 @@ export const useStore = create<AppState>((set, get) => ({
     // Re-check demo mode before committing: a fetch that started just before
     // the tour seeded (demoMode flipped true while this awaited Supabase) must
     // not clobber the fixture with real data.
-    if (get().demoMode) return;
+    if (get().demoMode || get().activeScope !== scope) return;
     set({
       vendors,
       weekTotal: Math.round(weekTotal * 100) / 100, weekPctChange, dayData,
@@ -755,7 +743,8 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   fetchPriceAlerts: async (supabase, organizationId) => {
-    if (get().demoMode) return; // seeded by startDemo(); see fetchDashboardSummary.
+    const scope = get().activeScope;
+    if (get().demoMode || get().activeScope !== scope) return; // seeded by startDemo(); see fetchDashboardSummary.
     const { data, error } = await supabase
       .from('price_alerts')
       .select('id, item_name, vendor_id, previous_price, new_price, unit, pct_change, read, detected_at, vendors(name)')
@@ -780,7 +769,7 @@ export const useStore = create<AppState>((set, get) => ({
       read: row.read ?? false,
     }));
 
-    if (get().demoMode) return; // don't clobber a seed that arrived mid-fetch.
+    if (get().demoMode || get().activeScope !== scope) return; // don't clobber a seed that arrived mid-fetch.
     set({ priceAlerts });
   },
 }));

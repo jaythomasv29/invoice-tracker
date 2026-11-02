@@ -89,7 +89,7 @@ export default function AlertsScreen() {
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>✓</Text>
             <Text style={styles.emptyTitle}>No alerts right now</Text>
-            <Text style={styles.emptySub}>We'll notify you when vendor prices move significantly.</Text>
+            <Text style={styles.emptySub}>Price changes will appear here after you save repeat purchases.</Text>
           </View>
         )}
       </ScrollView>

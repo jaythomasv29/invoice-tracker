@@ -1,3 +1,4 @@
+import { getOrganization } from '../_shared/clerkAuth.ts';
 // Invoice extraction pipeline — PRD section 6.3 / 9.
 //
 // Flow: the client uploads invoice photo(s) to Supabase Storage, creates a
@@ -16,13 +17,13 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { adminClient, beginAiJob, finishAiJob, readImage, requireAiConsent } from '../_shared/aiControls.ts';
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 // Server-side secret (never EXPO_PUBLIC_) used to read the org's plan flag off
 // Clerk. Set with: npx supabase secrets set CLERK_SECRET_KEY=sk_...
-const CLERK_SECRET_KEY = Deno.env.get('CLERK_SECRET_KEY');
 
 const MODEL_SONNET = 'claude-sonnet-5';
 // Cheap vision model used only for the duplicate-fingerprint pre-check (a few
@@ -40,46 +41,9 @@ const PLAN_INVOICE_CAPS: Record<Plan, number> = { free: 10, plus: 300, pro: 500 
 // isn't configured or the lookup fails — extraction still works up to the free
 // cap, it just won't recognize a paid tier until CLERK_SECRET_KEY is set.
 async function getOrgPlan(orgId: string): Promise<Plan> {
-  if (!CLERK_SECRET_KEY) return 'free';
-  try {
-    const res = await fetch(`https://api.clerk.com/v1/organizations/${orgId}`, {
-      headers: { Authorization: `Bearer ${CLERK_SECRET_KEY}` },
-    });
-    if (!res.ok) return 'free';
-    const org = await res.json();
-    const p = org?.public_metadata?.plan;
-    return p === 'pro' ? 'pro' : p === 'plus' ? 'plus' : 'free';
-  } catch {
-    return 'free';
-  }
-}
-
-// Atomically reserves one extraction slot for the org's calendar-month cap via
-// the reserve_extraction_slot() RPC (see the extraction-quota migration) —
-// the increment and the cap check happen in a single conditional UPDATE, so
-// concurrent requests from the same free org can't all read the same
-// under-cap count and all slip through (the previous count-then-compare
-// approach was exactly that race). Returns { allowed, used }.
-async function reserveExtractionSlot(
-  supabase: any,
-  cap: number
-): Promise<{ allowed: boolean; used: number }> {
-  const { data, error } = await supabase.rpc('reserve_extraction_slot', { p_cap: cap });
-  if (error) throw new Error(`Could not check extraction quota: ${error.message}`);
-  const row = Array.isArray(data) ? data[0] : data;
-  return { allowed: !!row?.allowed, used: Number(row?.used ?? cap) };
-}
-
-// Best-effort give-back of a reserved slot when this extraction turns out not
-// to count — a detected duplicate or a failed extraction. Mirrors the old
-// behavior where the cap only ever counted invoices that reached
-// scanned/saved status.
-async function releaseExtractionSlot(supabase: any): Promise<void> {
-  try {
-    await supabase.rpc('release_extraction_slot');
-  } catch {
-    // Best-effort — worst case an org's meter is off by one until next month.
-  }
+  const org = await getOrganization(orgId);
+  const plan = org?.public_metadata?.plan;
+  return plan === 'pro' ? 'pro' : plan === 'plus' ? 'plus' : 'free';
 }
 
 // Matches VENDOR_FALLBACK_PALETTE in lib/invoicePipeline.ts (the client's
@@ -199,25 +163,10 @@ async function storagePathToBase64(
   supabase: any,
   path: string
 ): Promise<{ data: string; mediaType: string; hash: string }> {
-  const { data: signed, error } = await supabase.storage
-    .from('invoice-images')
-    .createSignedUrl(path, 60);
-  if (error || !signed) throw new Error(`Could not sign invoice image URL: ${error?.message}`);
-
-  const res = await fetch(signed.signedUrl);
-  if (!res.ok) throw new Error(`Could not fetch invoice image: ${res.status}`);
-  const mediaType = res.headers.get('content-type') ?? 'image/jpeg';
-  const buf = await res.arrayBuffer();
-  const bytes = new Uint8Array(buf);
-
-  const hashBuf = await crypto.subtle.digest('SHA-256', buf);
-  const hash = Array.from(new Uint8Array(hashBuf))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return { data: btoa(binary), mediaType, hash };
+  const { data, mediaType, bytes } = await readImage(supabase, 'invoice-images', path);
+  const hashBuf = await crypto.subtle.digest('SHA-256', bytes);
+  const hash = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+  return { data, mediaType, hash };
 }
 
 async function extractWithModel(
@@ -226,6 +175,7 @@ async function extractWithModel(
 ): Promise<ExtractionResult> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
+    signal: AbortSignal.timeout(75000),
     headers: {
       'content-type': 'application/json',
       'x-api-key': ANTHROPIC_API_KEY,
@@ -307,6 +257,7 @@ async function fingerprintWithModel(
 ): Promise<FingerprintResult> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
+    signal: AbortSignal.timeout(75000),
     headers: {
       'content-type': 'application/json',
       'x-api-key': ANTHROPIC_API_KEY,
@@ -433,7 +384,7 @@ Deno.serve(async (req) => {
   // Declared outside the try so the catch-all below can release a slot this
   // request reserved but didn't end up using.
   let supabase: any;
-  let reservedSlot = false;
+  let jobId: string | undefined;
 
   try {
     const { invoiceId, skipDuplicateCheck } = await req.json();
@@ -450,10 +401,13 @@ Deno.serve(async (req) => {
 
     const { data: invoice, error: fetchErr } = await supabase
       .from('invoices')
-      .select('id, organization_id, image_urls')
+      .select('id, organization_id, image_urls, status')
       .eq('id', invoiceId)
       .single();
     if (fetchErr || !invoice) throw new Error(`Invoice not found: ${fetchErr?.message}`);
+    if (invoice.status !== 'pending') throw new Error('This invoice has already been processed. Open it from invoice history.');
+    if (invoice.image_urls?.length > 5) throw new Error('Import up to 5 pages per invoice.');
+    await requireAiConsent(supabase);
     if (!invoice.image_urls?.length) throw new Error('Invoice has no images to extract from');
 
     // Plan gate — enforced here, before any Claude spend. Every tier has a
@@ -462,7 +416,9 @@ Deno.serve(async (req) => {
     const plan = await getOrgPlan(invoice.organization_id);
     const cap = PLAN_INVOICE_CAPS[plan];
     {
-      const { allowed, used } = await reserveExtractionSlot(supabase, cap);
+      const reservation = await beginAiJob(invoice.organization_id, invoiceId, 'invoice', cap);
+      const { allowed, used } = reservation;
+      if (!allowed && reservation.code !== 'FREE_LIMIT_REACHED') throw new Error(reservation.code === 'AI_BUSY' ? 'This invoice is already processing. Please wait.' : 'Too many AI requests. Please try again later.');
       if (!allowed) {
         return new Response(
           JSON.stringify({
@@ -477,7 +433,7 @@ Deno.serve(async (req) => {
           { status: 402, headers: { ...corsHeaders, 'content-type': 'application/json' } }
         );
       }
-      reservedSlot = true;
+      jobId = reservation.id;
     }
 
     const images = await Promise.all(
@@ -501,7 +457,7 @@ Deno.serve(async (req) => {
         .overlaps('image_hashes', imageHashes)
         .limit(1);
       if (hashMatches && hashMatches.length > 0) {
-        if (reservedSlot) await releaseExtractionSlot(supabase);
+        await finishAiJob(jobId, false);
         return duplicateResponse(hashMatches[0]);
       }
 
@@ -532,7 +488,7 @@ Deno.serve(async (req) => {
           return numberMatch || dateTotalMatch;
         });
         if (fpMatch) {
-          if (reservedSlot) await releaseExtractionSlot(supabase);
+          await finishAiJob(jobId, false);
           return duplicateResponse(fpMatch);
         }
       }
@@ -574,36 +530,15 @@ Deno.serve(async (req) => {
         .rpc('create_vendor_with_palette_color', {
           p_organization_id: invoice.organization_id,
           p_name: result.vendor.name,
-          p_contact_name: result.vendor.contact_name,
-          p_contact_phone: result.vendor.contact_phone,
-          p_account_number: result.vendor.account_number,
+          p_contact_name: result.vendor.contact_name ?? null,
+          p_contact_phone: result.vendor.contact_phone ?? null,
+          p_account_number: result.vendor.account_number ?? null,
           p_palette: VENDOR_COLOR_PALETTE,
         })
         .single();
       if (vendorErr) throw new Error(`Could not create vendor: ${vendorErr.message}`);
       vendorId = (newVendor as any).id;
     }
-
-    const { data: updatedInvoice, error: updateErr } = await supabase
-      .from('invoices')
-      .update({
-        vendor_id: vendorId,
-        invoice_number: result.invoice_number,
-        invoice_date: result.invoice_date,
-        subtotal: result.subtotal,
-        tax: result.tax,
-        total: result.total,
-        raw_ai_response: result,
-        status: 'scanned',
-        extraction_model: 'sonnet_5',
-        // Persist the image hashes so future scans can dedup (layer 1) against
-        // this invoice for free.
-        image_hashes: imageHashes,
-      })
-      .eq('id', invoiceId)
-      .select('*, vendors(name)')
-      .single();
-    if (updateErr || !updatedInvoice) throw new Error(`Could not update invoice: ${updateErr?.message}`);
 
     const lineItemRows = result.line_items.map((li) => ({
       organization_id: invoice.organization_id,
@@ -621,11 +556,17 @@ Deno.serve(async (req) => {
       reconciliation_status: 'pending',
     }));
 
-    const { data: insertedLineItems, error: lineItemsErr } = await supabase
-      .from('invoice_line_items')
-      .insert(lineItemRows)
-      .select();
-    if (lineItemsErr) throw new Error(`Could not save line items: ${lineItemsErr.message}`);
+    const { error: commitErr } = await adminClient().rpc('complete_invoice_extraction', {
+      p_job: jobId, p_vendor: vendorId,
+      p_patch: { invoice_number: result.invoice_number, invoice_date: result.invoice_date,
+        subtotal: result.subtotal, tax: result.tax, total: result.total,
+        raw_ai_response: result, image_hashes: imageHashes },
+      p_lines: lineItemRows,
+    });
+    if (commitErr) throw new Error('Could not save invoice. Please try again.');
+    jobId = undefined; // commit includes quota completion in the same transaction
+    const { data: updatedInvoice } = await supabase.from('invoices').select('*, vendors(name)').eq('id', invoiceId).single();
+    const { data: insertedLineItems } = await supabase.from('invoice_line_items').select('*').eq('invoice_id', invoiceId);
 
     // Always detect price creep so free orgs can see the *count* as an upgrade
     // teaser ("3 price increases this month"); the alert *details* stay
@@ -633,7 +574,7 @@ Deno.serve(async (req) => {
     // for everyone is fine — and it means a converting user immediately sees the
     // alerts that were already waiting for them.
     if (vendorId) {
-      await detectPriceCreep(supabase, invoice.organization_id, vendorId, invoiceId, insertedLineItems ?? []);
+      try { await detectPriceCreep(supabase, invoice.organization_id, vendorId, invoiceId, insertedLineItems ?? []); } catch { console.error('Price alert refresh failed'); }
     }
 
     return new Response(
@@ -644,10 +585,10 @@ Deno.serve(async (req) => {
     // This extraction didn't reach scanned/saved — give back its reserved cap
     // slot so a failure (a bad photo, a transient Anthropic error) doesn't
     // silently cost the org one of their free extractions.
-    if (reservedSlot && supabase) await releaseExtractionSlot(supabase);
+    await finishAiJob(jobId, false);
     // Log the full detail server-side (may include upstream Anthropic error
     // bodies) but don't forward it verbatim to the client.
-    console.error('[extract-invoice] failed:', err);
+    console.error('[extract-invoice] failed');
     const message = (err as Error).message ?? 'Extraction failed';
     const safeMessage = message.startsWith('Anthropic API error') ? 'Extraction failed — please try again.' : message;
     return new Response(JSON.stringify({ error: safeMessage }), {

@@ -57,7 +57,7 @@ export default function AIInsightCard({ priceAlerts, onPress }: AIInsightCardPro
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>Unlock AI price insights</Text>
           <Text style={styles.emptyBody}>
-            Scan a few more invoices from the same vendors — once we see a repeat item, we'll automatically flag when its price creeps up.
+            Scan a few more invoices from the same vendors — once we see a repeat item, we&apos;ll automatically flag when its price creeps up.
           </Text>
         </View>
       )}

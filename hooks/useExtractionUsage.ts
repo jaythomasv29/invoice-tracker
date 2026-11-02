@@ -23,17 +23,17 @@ export function useExtractionUsage() {
     setLoading(true);
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-    const { count, error } = await supabase
-      .from('invoices')
-      .select('id', { count: 'exact', head: true })
+    const { data, error } = await supabase
+      .from('extraction_usage')
+      .select('used')
       .eq('organization_id', organization.id)
-      .in('status', ['scanned', 'saved'])
-      .gte('created_at', monthStart);
+      .eq('month_start', monthStart.slice(0, 10))
+      .maybeSingle();
     // On a failed query, leave the last known `used` in place rather than
     // falling back to 0 — showing "0 used" on a query error tells a
     // free-tier user they have a full quota when they may actually be at
     // (or over) the cap, inviting a confusing paywall bounce mid-scan.
-    if (!error) setUsed(count ?? 0);
+    if (!error) setUsed(data?.used ?? 0);
     setLoading(false);
   }, [supabase, organization?.id, demoMode]);
 

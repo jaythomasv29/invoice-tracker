@@ -1,0 +1,12 @@
+.git/
+node_modules/
+ios/
+android/
+.expo/
+dist/
+website/
+.env
+.env.*
+!.env.example
+thai_kitchen_invoices/
+.maestro/

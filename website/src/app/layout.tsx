@@ -4,19 +4,19 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Sift — Invoice intelligence for restaurants",
   description:
-    "Scan any invoice and Sift turns it into tracked spend, price-creep alerts, and live recipe costs — priced from your own paperwork.",
+    "Scan supplier invoice photos and Sift turns it into tracked spend, price-creep alerts, and live recipe costs — priced from your own paperwork.",
   metadataBase: new URL("https://siftcosts.com"),
   openGraph: {
     title: "Sift — Invoice intelligence for restaurants",
     description:
-      "Scan any invoice and Sift turns it into tracked spend, price-creep alerts, and live recipe costs.",
+      "Scan supplier invoice photos and Sift turns it into tracked spend, price-creep alerts, and live recipe costs.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "Sift — Invoice intelligence for restaurants",
     description:
-      "Scan any invoice and Sift turns it into tracked spend, price-creep alerts, and live recipe costs.",
+      "Scan supplier invoice photos and Sift turns it into tracked spend, price-creep alerts, and live recipe costs.",
   },
 };
 

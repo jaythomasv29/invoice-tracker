@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useOrganization } from '@clerk/clerk-expo';
 import { Colors } from '../../constants/Colors';
-import { Invoice, LineItem } from '../../store/useStore';
+import { useStore, type Invoice, type LineItem } from '../../store/useStore';
 import { useSupabase } from '../../lib/supabase';
 import { fetchInvoiceById, fetchInvoiceImageUrls, updateLineItem, setLineItemVoided, deleteInvoice } from '../../lib/invoicePipeline';
 import Spinner from '../../components/ui/Spinner';
@@ -13,7 +13,6 @@ import BackButton from '../../components/ui/BackButton';
 import LineItemDisplay from '../../components/ui/LineItemDisplay';
 import EditLineItemModal from '../../components/ui/EditLineItemModal';
 import Toast from '../../components/ui/Toast';
-import { useStore } from '../../store/useStore';
 
 export default function InvoiceDetailScreen() {
   const router = useRouter();

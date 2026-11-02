@@ -80,7 +80,7 @@ export default function ItemHistoryScreen() {
       ) : points.length === 0 ? (
         <View style={styles.centerFill}>
           <Text style={styles.emptyTitle}>No purchase history yet</Text>
-          <Text style={styles.emptySub}>This item hasn't shown up on a saved invoice.</Text>
+          <Text style={styles.emptySub}>This item has not appeared on a saved invoice.</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>

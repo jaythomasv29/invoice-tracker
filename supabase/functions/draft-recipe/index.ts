@@ -12,6 +12,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { adminClient, beginAiJob, finishAiJob, readImage, requireAiConsent } from '../_shared/aiControls.ts';
 import { getOrganization } from '../_shared/clerkAuth.ts';
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!;
@@ -80,15 +81,7 @@ Call record_recipe_draft with the complete template.`;
 }
 
 async function storagePathToBase64(supabase: any, path: string): Promise<{ data: string; mediaType: string }> {
-  const { data: signed, error } = await supabase.storage.from('recipe-images').createSignedUrl(path, 60);
-  if (error || !signed) throw new Error(`Could not sign recipe image URL: ${error?.message}`);
-  const res = await fetch(signed.signedUrl);
-  if (!res.ok) throw new Error(`Could not fetch recipe image: ${res.status}`);
-  const mediaType = res.headers.get('content-type') ?? 'image/jpeg';
-  const bytes = new Uint8Array(await res.arrayBuffer());
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return { data: btoa(binary), mediaType };
+  return await readImage(supabase, 'recipe-images', path);
 }
 
 interface RecipeDraft {
@@ -107,6 +100,7 @@ interface RecipeDraft {
 async function draftWithModel(dishName: string, images: { data: string; mediaType: string }[]): Promise<RecipeDraft> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
+    signal: AbortSignal.timeout(75000),
     headers: {
       'content-type': 'application/json',
       'x-api-key': ANTHROPIC_API_KEY,
@@ -144,6 +138,7 @@ async function draftWithModel(dishName: string, images: { data: string; mediaTyp
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
+  let jobId: string | undefined;
   try {
     const { recipeId } = await req.json();
     if (!recipeId) throw new Error('recipeId is required');
@@ -166,7 +161,7 @@ Deno.serve(async (req) => {
     let isPro = false;
     try {
       const org = await getOrganization(recipe.organization_id);
-      isPro = org?.public_metadata?.plan === 'pro';
+      isPro = ['plus', 'pro'].includes(org?.public_metadata?.plan);
     } catch {
       isPro = false;
     }
@@ -177,32 +172,15 @@ Deno.serve(async (req) => {
       );
     }
 
+    await requireAiConsent(supabase);
+    const reservation = await beginAiJob(recipe.organization_id, recipeId, 'recipe', 50);
+    if (!reservation.allowed) throw new Error(reservation.code === 'AI_BUSY' ? 'This recipe is already processing.' : 'Recipe AI limit reached. Please try again later.');
+    jobId = reservation.id;
     const images = recipe.source_photo_path
       ? [await storagePathToBase64(supabase, recipe.source_photo_path)]
       : [];
 
     const draft = await draftWithModel(recipe.name ?? '', images);
-
-    const { data: updatedRecipe, error: updateErr } = await supabase
-      .from('recipes')
-      .update({
-        name: recipe.name || draft.normalized_name,
-        ai_draft_raw: draft,
-        draft_model: 'sonnet_5',
-      })
-      .eq('id', recipeId)
-      .select()
-      .single();
-    if (updateErr) throw new Error(`Could not save draft: ${updateErr.message}`);
-
-    // A (re-)draft fully replaces the ingredient list — clear whatever's
-    // there (manual entries or a prior draft) before inserting the new one,
-    // so this is safe to call again on a recipe that already has ingredients.
-    const { error: clearErr } = await supabase
-      .from('recipe_ingredients')
-      .delete()
-      .eq('recipe_id', recipeId);
-    if (clearErr) throw new Error(`Could not clear existing ingredients: ${clearErr.message}`);
 
     // Phase 1: every drafted ingredient is a plain item (no prep expansion yet).
     const ingredientRows = draft.ingredients.map((ing, i) => ({
@@ -220,18 +198,21 @@ Deno.serve(async (req) => {
       position: i,
     }));
 
-    const { data: insertedIngredients, error: ingErr } = await supabase
-      .from('recipe_ingredients')
-      .insert(ingredientRows)
-      .select();
-    if (ingErr) throw new Error(`Could not save ingredients: ${ingErr.message}`);
+    const { error: commitErr } = await adminClient().rpc('complete_recipe_draft', {
+      p_job: jobId, p_name: recipe.name || draft.normalized_name, p_draft: draft, p_ingredients: ingredientRows,
+    });
+    if (commitErr) throw new Error('Could not save recipe draft. Please try again.');
+    jobId = undefined;
+    const { data: updatedRecipe } = await supabase.from('recipes').select('*').eq('id', recipeId).single();
+    const { data: insertedIngredients } = await supabase.from('recipe_ingredients').select('*').eq('recipe_id', recipeId);
 
     return new Response(
       JSON.stringify({ recipe: updatedRecipe, ingredients: insertedIngredients }),
       { headers: { ...corsHeaders, 'content-type': 'application/json' } }
     );
   } catch (err) {
-    console.error('[draft-recipe] failed:', err);
+    await finishAiJob(jobId, false);
+    console.error('[draft-recipe] failed');
     const message = (err as Error).message ?? 'Could not draft recipe';
     const safeMessage = message.startsWith('Anthropic API error') ? 'Could not draft recipe — please try again.' : message;
     return new Response(JSON.stringify({ error: safeMessage }), {

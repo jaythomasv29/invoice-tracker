@@ -1,3 +1,4 @@
+import { SessionScope } from '../components/SessionScope';
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -20,6 +21,15 @@ Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
   enabled: !!process.env.EXPO_PUBLIC_SENTRY_DSN,
   sendDefaultPii: false,
+  beforeBreadcrumb: () => null,
+  beforeSend(event) {
+    delete event.user;
+    delete event.request;
+    delete event.extra;
+    delete event.message;
+    for (const exception of event.exception?.values ?? []) exception.value = 'Application error (message redacted)';
+    return event;
+  },
 });
 
 SplashScreen.preventAutoHideAsync();
@@ -58,7 +68,7 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={clerkTokenCache}>
-        {fontsLoaded ? <AppContent /> : <LoadingScreen />}
+        {fontsLoaded ? <SessionScope><AppContent /></SessionScope> : <LoadingScreen />}
       </ClerkProvider>
     </ErrorBoundary>
   );

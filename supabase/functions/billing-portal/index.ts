@@ -6,6 +6,7 @@ import { getStripe } from '../_shared/stripe.ts';
 import { getVerifiedOrgId, getOrganization } from '../_shared/clerkAuth.ts';
 
 Deno.serve(async (req) => {
+  if (Deno.env.get('LEGACY_STRIPE_BILLING_ENABLED') !== 'true') return new Response('Legacy billing is disabled. Use Apple subscriptions.', { status: 410 });
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {

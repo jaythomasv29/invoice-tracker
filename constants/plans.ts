@@ -42,6 +42,6 @@ export const PLAN_FEATURES: PlanFeature[] = [
   { label: 'AI recipe costing — true cost per dish', free: false, plus: true, pro: true, differentiator: true },
 ];
 
-export const PAYWALL_HEADLINE = 'Know your true costs. Catch every overcharge.';
+export const PAYWALL_HEADLINE = 'Know your food costs. Spot supplier price changes.';
 export const PAYWALL_SUBHEAD =
-  'Plus and Pro watch every invoice for quiet price hikes, track where your money goes across every vendor, and price out what each dish actually costs you — Pro just fits more invoices each month.';
+  'Pro tracks supplier price changes, shows spending across vendors, and helps cost dishes from your invoices. Includes 500 invoice scans and up to 50 AI recipe drafts per calendar month.';

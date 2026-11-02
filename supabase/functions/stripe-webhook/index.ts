@@ -48,6 +48,7 @@ function eventStampMetadata(event: { id: string; created: number }) {
 }
 
 Deno.serve(async (req) => {
+  if (Deno.env.get('LEGACY_STRIPE_BILLING_ENABLED') !== 'true') return new Response('Legacy billing is disabled. Use Apple subscriptions.', { status: 410 });
   const sig = req.headers.get('stripe-signature');
   if (!sig || !WEBHOOK_SECRET) {
     return new Response('Missing signature or webhook secret', { status: 400 });

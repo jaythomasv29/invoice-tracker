@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { Text, StyleSheet, Animated } from 'react-native';
 import { useStore } from '../../store/useStore';
 import { Colors } from '../../constants/Colors';
 
@@ -20,7 +20,7 @@ export default function Toast() {
         Animated.timing(translateY, { toValue: 10, duration: 150, useNativeDriver: true }),
       ]).start();
     }
-  }, [toast]);
+  }, [toast, opacity, translateY]);
 
   if (!toast) return null;
 

@@ -26,13 +26,15 @@
         "expo-camera",
         {
           "cameraPermission": "Sift needs camera access to scan your invoices.",
-          "microphonePermission": "Sift's camera is used only to photograph invoices — audio is never recorded or accessed."
+          "microphonePermission": false,
+          "recordAudioAndroid": false
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Sift needs photo library access to import invoices."
+          "photosPermission": "Sift needs photo library access to import invoices.",
+          "microphonePermission": false
         }
       ],
       [
@@ -63,14 +65,15 @@
       "expo-sharing"
     ],
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": true,
+      "reactCompiler": false
     },
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "9da2f589-f571-4edd-951b-19c7b4be4f1b"
+        "projectId": "90a6fb52-c47f-4a1f-af47-f07488c2767a"
       }
     },
-    "owner": "james.vongampai"
+    "owner": "jvongampai"
   }
 }

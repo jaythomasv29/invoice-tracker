@@ -34,6 +34,13 @@ export type PaidTier = 'plus' | 'pro';
 const RC_IOS_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY;
 
 let configured = false;
+let identifiedOrg: string | null = null;
+let identityQueue: Promise<unknown> = Promise.resolve();
+function serializeIdentity<T>(operation: () => Promise<T>): Promise<T> {
+  const next = identityQueue.then(operation, operation);
+  identityQueue = next.catch(() => {});
+  return next;
+}
 
 // Call once at startup (app/_layout.tsx), before any other Purchases call.
 // Idempotent — safe if a fast refresh re-runs it.
@@ -60,19 +67,20 @@ export function configurePurchases(): void {
 // See the org-vs-Apple-ID caveat in IAP_MIGRATION_PLAN.md — restore is per
 // Apple ID, which is acceptable for the current owner-only model.
 export async function identifyOrg(orgId: string): Promise<CustomerInfo | null> {
-  if (!configured) return null;
-  const { customerInfo } = await Purchases.logIn(orgId);
-  return customerInfo;
+  return serializeIdentity(async () => {
+    if (!configured) throw new Error('Purchases are unavailable on this build.');
+    identifiedOrg = null;
+    const { customerInfo } = await Purchases.logIn(orgId);
+    identifiedOrg = orgId;
+    return customerInfo;
+  });
 }
-
 export async function signOutPurchases(): Promise<void> {
-  if (!configured) return;
-  // Anonymous purchases can't be logged out; ignore that specific error.
-  try {
+  return serializeIdentity(async () => {
+    identifiedOrg = null;
+    if (!configured || await Purchases.isAnonymous()) return;
     await Purchases.logOut();
-  } catch {
-    // no-op — was already anonymous
-  }
+  });
 }
 
 // Resolves the effective plan from RevenueCat entitlements. `pro` wins over
@@ -122,9 +130,14 @@ export interface PurchaseResult {
 // success RevenueCat reports the entitlement immediately; the *server* gate
 // (extract-invoice reads the Clerk plan flag) catches up once the
 // revenuecat-webhook lands — the paywall's poll-Clerk-org loop bridges that gap.
-export async function purchaseTier(pkg: PurchasesPackage): Promise<PurchaseResult> {
+export async function purchaseTier(pkg: PurchasesPackage, orgId: string): Promise<PurchaseResult> {
   if (!configured) throw new Error('Purchases not configured');
+  return serializeIdentity(async () => {
   try {
+    const { customerInfo: identified } = await Purchases.logIn(orgId);
+    identifiedOrg = orgId;
+    if (!identified) throw new Error('Could not verify restaurant identity.');
+    if (identifiedOrg !== orgId) throw new Error('Restaurant changed. Please retry.');
     const { customerInfo } = await Purchases.purchasePackage(pkg);
     return { plan: planFromCustomerInfo(customerInfo), cancelled: false };
   } catch (e: any) {
@@ -134,14 +147,19 @@ export async function purchaseTier(pkg: PurchasesPackage): Promise<PurchaseResul
     }
     throw e;
   }
+  });
 }
 
 // Apple requires a Restore Purchases action. Re-syncs entitlements for the
 // signed-in Apple ID and returns the resulting plan.
-export async function restorePurchases(): Promise<Plan> {
+export async function restorePurchases(orgId: string): Promise<Plan> {
   if (!configured) throw new Error('Purchases not configured');
-  const info = await Purchases.restorePurchases();
-  return planFromCustomerInfo(info);
+  return serializeIdentity(async () => {
+    await Purchases.logIn(orgId);
+    identifiedOrg = orgId;
+    const info = await Purchases.restorePurchases();
+    return planFromCustomerInfo(info);
+  });
 }
 
 // Opens the native App Store subscription-management sheet (replaces the Stripe

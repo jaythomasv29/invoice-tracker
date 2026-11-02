@@ -116,7 +116,7 @@ function AnimatedTabIcon({
       damping: 12,
       stiffness: 260,
     });
-  }, [focused]);
+  }, [focused, iconScale]);
 
   const iconStyle = useAnimatedStyle(() => ({
     transform: [{ scale: iconScale.value }],
@@ -261,7 +261,7 @@ export default function TabLayout() {
       return;
     }
     // else: signed in with an active org — stay in the tabs.
-  }, [isLoaded, isSignedIn, orgId]);
+  }, [isLoaded, isSignedIn, orgId, router]);
 
   return (
     <TourProvider>

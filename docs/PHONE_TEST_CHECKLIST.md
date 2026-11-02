@@ -1,0 +1,18 @@
+# Sift standalone iPhone beta checklist
+
+Install the newest Sift build from TestFlight using the invited Apple account. This beta uses live authentication; earlier development accounts/data are separate. Internet is required. No computer, local server or Expo Go is required.
+
+1. Quit Expo/Metro and turn the computer off. Open Sift from the phone home screen.
+2. Create/sign into an account using the emailed code; create the restaurant when prompted. Report any missing email, loop or blank screen.
+3. Open Privacy, Terms and Support. Confirm links load on the phone.
+4. Scan a fictional or approved invoice. Decline the AI permission once and confirm scanning stops. Retry and accept; check the vendor, date, quantities, prices and total against the original.
+5. Review and save. Force-quit Sift, reopen and confirm the saved invoice and photo load. Confirm the scan allowance updates.
+6. Test photo-library import and a multi-page invoice. Cancel a scan and retry after a network interruption; check for duplicates.
+7. Open Pro. Confirm Apple supplies the localized price and monthly billing terms. Purchase through the TestFlight sandbox, then confirm Pro features unlock. Restore purchases after signing out/in. TestFlight uses sandbox purchases; review Apple's purchase sheet before confirming.
+8. Create and review a recipe cost, including manual corrections and AI permission withdrawal in Settings.
+9. Sign out; confirm restaurant data disappears. Sign back in and confirm the correct restaurant data returns.
+10. Use a disposable account to test Delete account. Confirm the warning, deletion result, sign-out and inability to reopen deleted restaurant data. Deleting an account does not cancel an Apple subscription; manage it in iPhone Settings.
+
+Before the purchase test, tell the launch operator the test account email so its restaurant can be explicitly allowed for sandbox entitlements. Do not send passwords, email codes or keys.
+
+Report the build number, iOS version, step, expected result and actual result. A screenshot or recording helps for visual failures. Public release requires extraction/review accuracy, purchase/restore, deletion and these phone checks to pass.

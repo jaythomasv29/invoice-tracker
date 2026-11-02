@@ -55,26 +55,30 @@ export async function getVerifiedOrgId(authHeader: string | null): Promise<strin
   return (data as string | null) ?? null;
 }
 
-export async function getOrganization(orgId: string): Promise<any> {
-  const res = await fetch(`${CLERK_API}/organizations/${orgId}`, {
-    headers: { Authorization: `Bearer ${clerkKey()}` },
-  });
-  if (!res.ok) throw new Error(`Clerk getOrganization failed: ${res.status}`);
-  return res.json();
+// Production and explicitly retained internal-test instances have distinct org IDs.
+// A missing org in one instance never authorizes it in another; RLS verifies the
+// caller's signed issuer before any resource ID reaches these helpers.
+export class ClerkNotFoundError extends Error {}
+export async function clerkRequest(path: string, method = 'GET', body?: unknown): Promise<any> {
+  const keys = [...new Set([Deno.env.get('CLERK_SECRET_KEY'), Deno.env.get('CLERK_TEST_SECRET_KEY')].filter(Boolean))];
+  if (!keys.length) throw new Error('Authentication service is not configured');
+  for (const key of keys) {
+    const response = await fetch(`${CLERK_API}${path}`, {
+      method, headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(15000),
+    });
+    if (response.status === 404) continue;
+    if (!response.ok) throw new Error('Authentication service is unavailable. Please retry.');
+    return response.status === 204 ? null : response.json();
+  }
+  if (method === 'DELETE') return null;
+  throw new ClerkNotFoundError('Account or restaurant was not found.');
 }
-
-// Merges the given metadata into the org (Clerk deep-merges top-level keys, so
-// this preserves other keys you don't pass).
-export async function updateOrgMetadata(
-  orgId: string,
-  body: { public_metadata?: Record<string, unknown>; private_metadata?: Record<string, unknown> },
-): Promise<void> {
-  const res = await fetch(`${CLERK_API}/organizations/${orgId}/metadata`, {
-    method: 'PATCH',
-    headers: { Authorization: `Bearer ${clerkKey()}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Clerk updateOrgMetadata failed: ${res.status} ${await res.text()}`);
+export async function getOrganization(orgId: string): Promise<any> {
+  return clerkRequest(`/organizations/${encodeURIComponent(orgId)}`);
+}
+export async function updateOrgMetadata(orgId: string, body: { public_metadata?: Record<string, unknown>; private_metadata?: Record<string, unknown> }): Promise<void> {
+  await clerkRequest(`/organizations/${encodeURIComponent(orgId)}/metadata`, 'PATCH', body);
 }
 
 export async function setOrgPlan(orgId: string, plan: 'free' | 'pro'): Promise<void> {
@@ -85,6 +89,7 @@ export async function setOrgPlan(orgId: string, plan: 'free' | 'pro'): Promise<v
 export async function getUserPrimaryEmail(userId: string): Promise<string | null> {
   const res = await fetch(`${CLERK_API}/users/${userId}`, {
     headers: { Authorization: `Bearer ${clerkKey()}` },
+    signal: AbortSignal.timeout(15000),
   });
   if (!res.ok) return null;
   const u = await res.json();

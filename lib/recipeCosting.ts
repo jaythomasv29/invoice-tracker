@@ -1,3 +1,5 @@
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { ensureAiConsent } from './aiConsent';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Client data + cost-model layer for AI Recipe Costing (Phase 1: dishes only,
@@ -230,7 +232,8 @@ export async function uploadRecipePhoto(
   localUri: string,
 ): Promise<string> {
   const path = `${organizationId}/${recipeId}/0.jpg`;
-  const arrayBuffer = await fetch(localUri).then((r) => r.arrayBuffer());
+  const image = await manipulateAsync(localUri, [{ resize: { width: 2000 } }], { compress: 0.85, format: SaveFormat.JPEG });
+  const arrayBuffer = await fetch(image.uri).then((r) => r.arrayBuffer());
   const { error } = await supabase.storage
     .from('recipe-images')
     .upload(path, arrayBuffer, { contentType: 'image/jpeg', upsert: true });
@@ -241,6 +244,7 @@ export async function uploadRecipePhoto(
 
 // Invokes the AI draft edge function (Pro-gated server-side).
 export async function draftRecipe(supabase: SupabaseClient, recipeId: string): Promise<void> {
+  if (!(await ensureAiConsent(supabase))) throw new Error('AI processing was not allowed.');
   const { data, error } = await supabase.functions.invoke('draft-recipe', { body: { recipeId } });
   if (error) {
     const context = (error as { context?: Response }).context;

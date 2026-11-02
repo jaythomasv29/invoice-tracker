@@ -20,7 +20,7 @@ export default function AuthLayout() {
     // root index.tsx never runs. THAT was the post-verify bounce: setActive made
     // the session active, this guard fired replace('/'), and '/' meant "welcome".
     router.replace(orgId ? '/(tabs)' : '/onboarding/organization');
-  }, [isLoaded, isSignedIn, orgId]);
+  }, [isLoaded, isSignedIn, orgId, router]);
 
   return <Stack screenOptions={{ headerShown: false }} />;
 }

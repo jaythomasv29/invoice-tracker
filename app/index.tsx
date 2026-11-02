@@ -24,7 +24,7 @@ export default function Index() {
       return;
     }
     router.replace('/(tabs)'); // signed in with an active org
-  }, [isLoaded, isSignedIn, orgId]);
+  }, [isLoaded, isSignedIn, orgId, router]);
 
   return null;
 }

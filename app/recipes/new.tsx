@@ -1,3 +1,4 @@
+import { ensureAiConsent } from '../../lib/aiConsent';
 import { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Image,
@@ -44,6 +45,7 @@ export default function NewRecipeScreen() {
     setBusy('ai');
     setError('');
     try {
+      if (!(await ensureAiConsent(supabase))) { setBusy(false); return; }
       const id = await createDraftDish(supabase, organization.id, trimmed);
       if (photoUri) {
         await uploadRecipePhoto(supabase, organization.id, id, photoUri);

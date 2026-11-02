@@ -140,7 +140,7 @@ export default function RecipesTabScreen() {
           <View style={styles.infoBanner}>
             <Text style={styles.infoBannerLabel}>HOW COSTING WORKS</Text>
             <Text style={styles.infoBannerBody}>
-              AI drafts each dish's ingredients, you confirm the quantities, and Sift prices the plate from your invoice history. Cost and margin sharpen as you match more ingredients and upload more invoices.
+              AI drafts each dish&apos;s ingredients, you confirm the quantities, and Sift prices the plate from your invoice history. Cost and margin sharpen as you match more ingredients and upload more invoices.
             </Text>
           </View>
 

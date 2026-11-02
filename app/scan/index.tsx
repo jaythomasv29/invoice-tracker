@@ -1,3 +1,4 @@
+import { ensureAiConsent } from '../../lib/aiConsent';
 import { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal, Image, ScrollView,
@@ -17,7 +18,7 @@ import Animated, {
 import { Colors } from '../../constants/Colors';
 import { useStore } from '../../store/useStore';
 import { useSupabase } from '../../lib/supabase';
-import { createDraftInvoice, uploadInvoiceImages, extractInvoice, deleteInvoice, formatDate } from '../../lib/invoicePipeline';
+import { createDraftInvoice, uploadInvoiceImages, extractInvoice, fetchInvoiceById, deleteInvoice, formatDate } from '../../lib/invoicePipeline';
 import { ExtractionLimitError, DuplicateInvoiceError } from '../../lib/entitlements';
 import { useExtractionUsage } from '../../hooks/useExtractionUsage';
 import Toast from '../../components/ui/Toast';
@@ -96,6 +97,7 @@ export default function ScanScreen() {
       router.push('/paywall');
       return;
     }
+    if (uris.length > 5) { showToast('Import up to 5 pages per invoice.'); return; }
     setScanStage('processing');
     // Hoisted so the catch block can reference the draft invoice / images when
     // the server flags a duplicate (to delete it or force it through later).
@@ -106,9 +108,10 @@ export default function ScanScreen() {
       // other formats — Claude's vision API only accepts jpeg/png/gif/webp,
       // so every image is re-encoded to a guaranteed-real JPEG regardless of
       // source format before it ever gets uploaded.
+      if (!(await ensureAiConsent(supabase))) return;
       jpegUris = await Promise.all(
         uris.map(async (uri) => {
-          const result = await manipulateAsync(uri, [], { compress: 0.85, format: SaveFormat.JPEG });
+          const result = await manipulateAsync(uri, [{ resize: { width: 2000 } }], { compress: 0.85, format: SaveFormat.JPEG });
           return result.uri;
         })
       );
@@ -142,12 +145,20 @@ export default function ScanScreen() {
         });
         return;
       }
-      console.error('[scan] processImages failed:', err);
-      showToast(err?.message ?? 'Could not process invoice');
-      // Any other failure (bad photo, transient network/API error) also
-      // abandons this draft — best-effort cleanup rather than leaving it
-      // stuck in 'pending' forever.
-      if (invoiceId) deleteInvoice(supabase, invoiceId).catch(() => {});
+      // A lost response may follow a successful server commit. Recover it and
+      // never delete an invoice merely because the network outcome is unknown.
+      if (invoiceId) {
+        try {
+          const { data } = await supabase.from('invoices').select('status').eq('id', invoiceId).single();
+          if (data?.status === 'scanned') {
+            const recovered = await fetchInvoiceById(supabase, organization.id, invoiceId);
+            setCurrentInvoice({ ...recovered, imageUris: jpegUris });
+            router.replace('/scan/review');
+            return;
+          }
+        } catch { /* retain draft for server recovery/cleanup */ }
+      }
+      showToast(err?.message ?? 'Could not process invoice. Please try again.');
     } finally {
       setScanStage('idle');
     }
