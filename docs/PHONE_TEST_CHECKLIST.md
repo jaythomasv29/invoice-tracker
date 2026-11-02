@@ -19,3 +19,12 @@ Optional safe fixture: save [the fictional test invoice](fixtures/sift-test-invo
 Use chimpchamp92@gmail.com for this beta. After creating the production restaurant, tell the launch operator you have signed in so that specific restaurant can be allowed for sandbox entitlements before the purchase test. Do not send passwords, email codes or keys.
 
 Report the build number, iOS version, step, expected result and actual result. A screenshot or recording helps for visual failures. Public release requires extraction/review accuracy, purchase/restore, deletion and these phone checks to pass.
+
+## Build 5 regression checks
+
+- While processing, try Close, swiping back, camera/import/flash controls and page removal. The processing modal should prevent those actions until the request finishes or fails. OS app switching/force-quit remains possible.
+- Verify actual stage titles (prepare/upload/check/read/review), elapsed time and the longer-running hint. No exact ETA or artificial completion percentage is promised.
+- Check Home's Daily/Weekly/Monthly totals, invoice/vendor counts and vendor amounts. Use the arrows to view an old invoice's period. Spending uses invoice date; upload activity and the current month's scan allowance use upload/processing timing independently.
+- If a completed scan was interrupted before review, reopen it from Needs review and save it. Unsaved scans do not enter spending totals.
+- Reimport the same invoice. Exact/strong duplicates should offer the existing invoice and no override; uncertain header matches can be explicitly added as a different invoice. Confirm duplicate attempts don't inflate successful scan usage or spending.
+- Pro price issue remains open. After installing the update, try Pro and report the exact error text/support reference if no price loads. Do not mark purchase/restore passed until both complete on the phone.
