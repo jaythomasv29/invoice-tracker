@@ -31,7 +31,7 @@ Report the build number, iOS version, step, expected result and actual result. A
 
 ## Beta over-the-air updates
 
-- Install the OTA-enabled TestFlight build (build 5 and older cannot receive updates).
+- Install TestFlight version 1.0.0 (6), the OTA-enabled build (build 5 and older cannot receive updates).
 - With the computer off, open Sift with internet, allow the background download, then force-quit and reopen it to apply a compatible beta update. TestFlight's build number stays unchanged.
 - Confirm sign-in, restaurant, saved invoices, scanner and Pro behavior still work after the update; no account reset or reinstallation should be necessary.
 - A successful publish/runtime match is infrastructure verification only. Actual phone receipt and behavior must be confirmed separately.
