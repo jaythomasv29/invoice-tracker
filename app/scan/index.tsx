@@ -92,7 +92,7 @@ export default function ScanScreen() {
     // Client-side pre-check: orgs already over their tier's monthly cap go
     // straight to the paywall, so we don't waste an upload. The edge function
     // enforces the same limit server-side, so this is UX, not the security
-    // boundary. `remaining` is tier-aware (Free 10 / Plus 300 / Pro 500).
+    // boundary. `remaining` is tier-aware (Free 10 / Plus 300 / Pro 150).
     if (remaining <= 0) {
       router.push('/paywall');
       return;

@@ -1,5 +1,7 @@
 # Sift: App Store launch assessment and plan
 
+> Execution update: the assessment below is the original baseline, not the current deployment status. See [release status](docs/RELEASE_STATUS.md), [phone tests](docs/PHONE_TEST_CHECKLIST.md) and [pricing decision](docs/PRICING_DECISION.md). The selected launch scope is Free + Pro, $19.99/month with 150 Pro scans and 25 AI recipe draft attempts; production services and privacy/billing/deletion controls have since been configured and tested. Physical-phone, StoreKit and final App Store gates remain.
+
 Assessment date: November 1, 2026 (America/Los_Angeles). Repository: `InvoiceIntelligenceApp`, HEAD `d1783ed`.
 
 ## Launch decision

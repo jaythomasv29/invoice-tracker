@@ -21,7 +21,7 @@ export type Plan = 'free' | 'plus' | 'pro';
 export const PLAN_INVOICE_CAPS: Record<Plan, number> = {
   free: 10,
   plus: 300,
-  pro: 500,
+  pro: 150,
 };
 
 export function invoiceCapForPlan(plan: Plan): number {

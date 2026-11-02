@@ -3,7 +3,7 @@
 Status: draft; public submission requires phone, StoreKit and deletion tests plus final screenshots and privacy review.
 
 Name: Sift: Invoice & Food Costs
-Subtitle: Scan invoices. Track food costs.
+Subtitle: Scan invoices. Track costs.
 Primary category: Business
 Language: English (US)
 Initial availability: United States
@@ -21,7 +21,7 @@ Turn restaurant invoices into organized purchasing records with Sift. Photograph
 • Follow ingredient prices and purchasing trends.
 • Build recipes and calculate ingredient costs with Pro.
 
-Free includes up to 10 invoice scans per calendar month. Pro includes up to 500 invoice scans and 50 AI recipe draft attempts per calendar month. Review the current subscription price and terms in the app before purchasing.
+Free includes up to 10 invoice scans per calendar month. Pro includes up to 150 invoice scans and 25 AI recipe draft attempts per calendar month. Review the current subscription price and terms in the app before purchasing.
 
 AI processing requires your permission. Extracted details and recipe suggestions can contain errors; always check the source invoice and ingredient costs. Internet access is required.
 

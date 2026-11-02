@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
     }
 
     await requireAiConsent(supabase);
-    const reservation = await beginAiJob(recipe.organization_id, recipeId, 'recipe', 50);
+    const reservation = await beginAiJob(recipe.organization_id, recipeId, 'recipe', 25);
     if (!reservation.allowed) throw new Error(reservation.code === 'AI_BUSY' ? 'This recipe is already processing.' : 'Recipe AI limit reached. Please try again later.');
     jobId = reservation.id;
     const images = recipe.source_photo_path

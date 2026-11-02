@@ -10,7 +10,7 @@ import { PLAN_INVOICE_CAPS } from '../lib/entitlements';
 // Placeholder labels shown only until RevenueCat returns the real store-localized
 // prices (Apple requires displaying the actual price). Monthly only for launch.
 export const PLUS_PRICE_LABEL = '$8.99/mo';
-export const PRO_PRICE_LABEL = '$24.99/mo';
+export const PRO_PRICE_LABEL = '$19.99/mo';
 
 export interface PlanFeature {
   label: string;
@@ -44,4 +44,4 @@ export const PLAN_FEATURES: PlanFeature[] = [
 
 export const PAYWALL_HEADLINE = 'Know your food costs. Spot supplier price changes.';
 export const PAYWALL_SUBHEAD =
-  'Pro tracks supplier price changes, shows spending across vendors, and helps cost dishes from your invoices. Includes 500 invoice scans and up to 50 AI recipe drafts per calendar month.';
+  'Pro tracks supplier price changes, shows spending across vendors, and helps cost dishes from your invoices. Includes 150 invoice scans and up to 25 AI recipe drafts per calendar month.';

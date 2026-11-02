@@ -34,7 +34,7 @@ const MODEL_HAIKU = 'claude-haiku-4-5-20251001';
 // Monthly invoice cap per tier. Every tier is capped now (Pro is not unlimited).
 // Keep in sync with PLAN_INVOICE_CAPS in lib/entitlements.ts (RN bundle).
 type Plan = 'free' | 'plus' | 'pro';
-const PLAN_INVOICE_CAPS: Record<Plan, number> = { free: 10, plus: 300, pro: 500 };
+const PLAN_INVOICE_CAPS: Record<Plan, number> = { free: 10, plus: 300, pro: 150 };
 
 // Reads the org's plan from Clerk publicMetadata. Authoritative (can't be
 // spoofed by the client) and always fresh. Fails safe to 'free' if the secret
@@ -411,7 +411,7 @@ Deno.serve(async (req) => {
     if (!invoice.image_urls?.length) throw new Error('Invoice has no images to extract from');
 
     // Plan gate — enforced here, before any Claude spend. Every tier has a
-    // monthly cap (Free 10 / Plus 300 / Pro 500). Over the cap, return 402 with
+    // monthly cap (Free 10 / Plus 300 / Pro 150). Over the cap, return 402 with
     // a code the client maps to the paywall (rather than a generic error toast).
     const plan = await getOrgPlan(invoice.organization_id);
     const cap = PLAN_INVOICE_CAPS[plan];
