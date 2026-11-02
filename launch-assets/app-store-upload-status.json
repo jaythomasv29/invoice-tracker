@@ -1,0 +1,73 @@
+{
+  "appId": "6797084602",
+  "localization": "en-US",
+  "screenshots": [
+    {
+      "file": "screenshots/app-store/01-overview.png",
+      "id": "69800019-5234-87ba-8013-08cdea975033",
+      "sha256": "28d533af2dc2a73b9e63256a06bc5a2a9f71e3fe4ae810c447181974b6beffc9",
+      "state": "COMPLETE"
+    },
+    {
+      "file": "screenshots/app-store/02-invoices.png",
+      "id": "62800019-5234-87ba-800f-338757ee58a6",
+      "sha256": "52323a8103c023dcbc8cb323ee7345edae9ad93e8c26f555a62e4a262e8ac516",
+      "state": "COMPLETE"
+    },
+    {
+      "file": "screenshots/app-store/03-review.png",
+      "id": "c4800019-5234-87ba-8006-54c8128a1860",
+      "sha256": "67579e44559b8b6392ebdf1f5730c7f3c22b027c33dafcbbcd0cc3061b73130f",
+      "state": "COMPLETE"
+    },
+    {
+      "file": "screenshots/app-store/04-recipes.png",
+      "id": "99800019-5234-87ba-8022-5143e2e30525",
+      "sha256": "9aa5543d2876f0c2395299e9bc18057384b3e7e4482a800d686c58bf4bd611ca",
+      "state": "COMPLETE"
+    },
+    {
+      "file": "screenshots/app-store/05-alerts.png",
+      "id": "ff800019-5234-87ba-803e-2365b30c4ce3",
+      "sha256": "ebe6f3417842dca4963e84f7b7ef0ece3039ae22cda00b7f486401b35c47802d",
+      "state": "COMPLETE"
+    },
+    {
+      "file": "screenshots/app-store/06-suppliers.png",
+      "id": "ffc00019-5234-87ba-8036-f883f5722ea8",
+      "sha256": "a03ba51c6f3eb1ed89ecb314587d79c0c246afd89d59949294f607d9500ecf13",
+      "state": "COMPLETE"
+    }
+  ],
+  "creative": [
+    {
+      "file": "creative/product-page-header-3840x1646.png",
+      "id": "ec400019-5234-87ba-8021-55e8a7ae589c",
+      "sha256": "faa4a20caa967224fcb3255bfede24243e6047bea5a203153d212de7027bcb9b",
+      "state": "PREPARE_FOR_SUBMISSION",
+      "placement": "32800019-5234-87ba-8f32-d4030de233c1",
+      "orderingRequest": "9d2b4ee6-d131-445c-b21a-22af20b37f79"
+    },
+    {
+      "file": "creative/search-results-3840x2560.png",
+      "id": "5b800019-5234-87ba-801d-dc3578e63d0c",
+      "sha256": "d3050e919f0ec9d1a72b87b148996771905ea2de24da759f492bd0b96f21c228",
+      "state": "PREPARE_FOR_SUBMISSION",
+      "placement": "3bc00019-5234-87ba-8f29-a759a6dfe891",
+      "previousAssetId": "c0000019-5234-87ba-800e-646cb74f1355",
+      "previousPlacement": "3f400019-5234-87ba-8f00-96fb3c89aab6",
+      "orderingRequest": "d85b3f05-93a6-4ced-8043-cc03b66718a9"
+    }
+  ],
+  "previews": [
+    {
+      "file": "previews/sift-app-preview-886x1920.mp4",
+      "id": "c6800019-5234-87ba-8115-babf94f938f4",
+      "sha256": "336f557ffbbb855bfe96a35cebf8dd3cb105ee9c03e1b0f19cb8d8f17f702064",
+      "state": "COMPLETE"
+    }
+  ],
+  "screenshotSet": "9219b51e-3f03-4fda-bfb8-96882d524448",
+  "verifiedAt": "2026-11-02T08:26:00.454Z",
+  "browserAssignmentStatus": "Verified in App Store Connect: 1 of 1 Header Asset and 1 of 1 Search Results Asset"
+}

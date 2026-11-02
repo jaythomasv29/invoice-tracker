@@ -35,3 +35,12 @@ Report the build number, iOS version, step, expected result and actual result. A
 - With the computer off, open Sift with internet, allow the background download, then force-quit and reopen it to apply a compatible beta update. TestFlight's build number stays unchanged.
 - Confirm sign-in, restaurant, saved invoices, scanner and Pro behavior still work after the update; no account reset or reinstallation should be necessary.
 - A successful publish/runtime match is infrastructure verification only. Actual phone receipt and behavior must be confirmed separately.
+
+
+## Build 7 modern interface and icon
+
+- Install 1.0.0 (7) from TestFlight and check the new green receipt-S icon.
+- Open with internet, allow the beta interface update to download, then force-quit/reopen. Check Home says Kitchen overview and shows the dark-green Total spending card.
+- With the computer off, verify sign-in, restaurant and saved invoices persist. Check day/week/month arrows, old invoice periods, top suppliers and invoice search.
+- Verify recipe averages exclude missing menu prices and retain meaningful cost shares over 100%. Ingredient margin is an estimate, not total restaurant profit.
+- Test invoice review with optional notes, scanner processing controls, duplicate protection and Pro price/purchase/restore. Report the exact visible error if Pro is unavailable; those checks are still open.

@@ -41,3 +41,12 @@ eas env:exec production 'APP_ENV=production SENTRY_DISABLE_AUTO_UPLOAD=true eas 
 Verify the published update runtime matches the installed build's runtime and record its update group ID/message. Force-quit Sift, reopen with internet and allow the download, then force-quit/reopen again. The TestFlight build number stays unchanged. Publish routine JavaScript/layout/assets changes this way; native libraries, permissions, icons, splash configuration and Expo SDK upgrades need another binary. EAS Update has separate usage allowances.
 
 To recover from a bad beta update, use `eas update:roll-back-to-embedded --help` and target the beta branch/runtime, or republish a verified previous compatible update. Never alter production mappings as part of beta recovery. Device confirmation is required before declaring an OTA update tested.
+
+
+### Current native branding baseline (build 7)
+
+Build 7 includes the new app icon/splash and uses runtime `062bedef39aff97c339accbe22183fe3470f622f`. Install it once through TestFlight; subsequent compatible UI updates use beta OTA. The native icon cannot change through OTA.
+
+Changes to `.easignore` affect Expo's fingerprint (`easBuild` source), even when they only exclude marketing files. Compare the update runtime to the actual installed IPA; never assume JavaScript-only intent guarantees a matching fingerprint. Build 6 retains its compatible modern-UI update independently of the newer build 7 runtime.
+
+Launch media sources, gallery and upload IDs are in `launch-assets/`. API uploads remain draft until explicit review submission; verify browser presentation before release.

@@ -5,14 +5,14 @@ import ClosingCTA from "@/components/ClosingCTA";
 import Footer from "@/components/Footer";
 import WaitlistForm from "@/components/WaitlistForm";
 import PhoneFrame from "@/components/PhoneFrame";
-import { VerifyVisual } from "@/components/FeatureVisuals";
+
 
 // Brand green is the primary accent; each feature carries a restrained,
 // meaning-bearing tint (price alerts orange, verification red) drawn from the
 // Sift app's own semantic palette (constants/Colors.ts).
-const BRAND = "#5DB075";
-const ALERT = "#E07A30";
-const VERIFY = "#D94F3A";
+const BRAND = "#17624B";
+const ALERT = "#A65524";
+const VERIFY = "#BD4938";
 
 export default function Home() {
   return (
@@ -27,19 +27,19 @@ export default function Home() {
         </section>
 
         <FeatureSection
-          eyebrow="Scan"
+          eyebrow="Scan & review"
           accent={BRAND}
           title={<>Snap a photo,<br />skip the data entry.</>}
-          subtitle="Point your camera at any invoice — line items, prices, and totals come out the other side automatically, in seconds."
+          subtitle="Photograph or import an invoice. AI drafts the line items, prices, and totals for you to review before saving."
           visual={<PhoneFrame src="/screens/invoice.png" alt="A scanned Cascade Foodservice invoice with extracted line items, categories, and totals" maxWidthClass="max-w-[280px]" />}
         />
 
         <FeatureSection
-          eyebrow="Price alerts"
+          eyebrow="Pro · Price alerts"
           accent={ALERT}
           reverse
           title={<>Catch price hikes<br />the moment they happen.</>}
-          subtitle="Every new invoice is checked against your price history, so a quiet increase never slips past you."
+          subtitle="Compare new invoice prices with your purchasing history and review the supplier changes that need attention."
           visual={<PhoneFrame src="/screens/alerts.png" alt="Sift's price alerts list showing a 20% increase on chicken thigh" maxWidthClass="max-w-[280px]" />}
         />
 
@@ -48,16 +48,16 @@ export default function Home() {
           accent={VERIFY}
           title={<>Know what actually<br />showed up on the truck.</>}
           subtitle="Check delivered items against what you were billed for, and flag what's missing in one tap."
-          visual={<VerifyVisual />}
+          visual={<PhoneFrame src="/screens/invoice.png" alt="Invoice review with item-level missing delivery and note controls" maxWidthClass="max-w-[280px]" />}
         />
 
         <FeatureSection
           flagship
-          eyebrow="Recipe costing"
+          eyebrow="Pro · Recipe costing"
           accent={BRAND}
           title={<>See what every dish<br />actually costs to make.</>}
-          subtitle="Sift prices each recipe straight from your invoice history, so your margins update the moment an ingredient does. It's the capability competitors charge far more for — and it ties every other insight back to your menu."
-          visual={<PhoneFrame src="/screens/recipe.png" alt="Pad Thai's true plate cost, $3.12, broken down by ingredient" maxWidthClass="max-w-[340px]" />}
+          subtitle="Confirm ingredients and quantities, then match prices from your invoices to estimate each dish’s ingredient cost and ingredient margin. Estimates become more useful as you add and match data."
+          visual={<PhoneFrame src="/screens/recipe.png" alt="Sift recipe list showing sample ingredient costs, estimated margins and confidence labels" maxWidthClass="max-w-[340px]" />}
         />
 
         <ClosingCTA />

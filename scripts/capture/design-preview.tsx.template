@@ -1,0 +1,49 @@
+// Development-only capture bootstrap. Uses a disposable DEVELOPMENT Clerk user;
+// it cannot bypass authentication or run in a release/OTA build.
+import { useEffect, useRef, useState } from 'react';
+import { View, Text, Image } from 'react-native';
+import { useLocalSearchParams, useRouter, Redirect } from 'expo-router';
+import { useAuth, useClerk, useSignIn } from '@clerk/clerk-expo';
+import { useStore } from '../store/useStore';
+import { markTourSeen } from '../lib/tourFlag';
+import { buildDemoInvoices } from '../lib/demoData';
+import { Colors } from '../constants/Colors';
+
+export default function DesignPreview() {
+  const { ticket, org, screen } = useLocalSearchParams<{ticket:string; org:string; screen?:string}>();
+  const { signIn, setActive, isLoaded } = useSignIn();
+  const { isSignedIn, orgId } = useAuth({treatPendingAsSignedOut:false});
+  const router = useRouter();
+  const clerk = useClerk();
+  const started = useRef<string | null>(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    if (!__DEV__ || !isLoaded || !ticket || !org) return;
+    if (isSignedIn && orgId === org) {
+      if (started.current === `ready:${ticket}:${screen}`) return;
+      started.current = `ready:${ticket}:${screen}`;
+      useStore.getState().startDemo();
+      if (screen === 'review') {
+        useStore.getState().setCurrentInvoice({...buildDemoInvoices()[2], status:'scanned', imageUris:[Image.resolveAssetSource(require('../launch-assets/brand/demo-invoice.png')).uri]});
+        router.replace('/scan/review');
+      } else router.replace('/(tabs)');
+      return;
+    }
+    if (isSignedIn) { void clerk.setActive({organization:org}).catch(() => setError(true)); return; }
+    if (!signIn || started.current === ticket) return;
+    started.current = ticket;
+    setError(false);
+    void (async () => {
+      try {
+        await markTourSeen();
+        const result = await signIn.create({strategy:'ticket', ticket});
+        if (result.status !== 'complete') throw new Error('Incomplete development session');
+        await setActive({session:result.createdSessionId, organization:org});
+        // SessionScope remounts after activation; the signed-in branch above
+        // seeds only after that tenant reset has completed.
+      } catch (e) { console.warn('Capture sign-in codes:', (e as {errors?:{code:string}[]}).errors?.map(x => x.code) ?? ['incomplete']); setError(true); }
+    })();
+  }, [ticket, org, isLoaded, signIn, setActive, router, isSignedIn, orgId, clerk, screen]);
+  if (!__DEV__) return <Redirect href="/" />;
+  return <View style={{flex:1,alignItems:'center',justifyContent:'center',backgroundColor:Colors.background}}><Text>{error ? 'Development capture sign-in failed.' : 'Preparing fictional restaurant…'}</Text></View>;
+}

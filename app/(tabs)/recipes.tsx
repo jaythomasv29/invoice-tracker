@@ -12,6 +12,7 @@ import { useSupabase } from '../../lib/supabase';
 import { fetchRecipes, RecipeListItem } from '../../lib/recipeCosting';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { useStore } from '../../store/useStore';
+import { averageIngredientCostShare } from '../../lib/recipeMetrics';
 import { buildDemoRecipes } from '../../lib/demoData';
 import { TourTarget } from '../../components/tour/TourTarget';
 import { useTour } from '../../components/tour/TourProvider';
@@ -92,8 +93,7 @@ export default function RecipesTabScreen() {
     }, [isPaid, organization?.id, supabase, demoMode])
   );
 
-  const foodCostShares = recipes.map(r => foodCostPct(r.costEstimate, r.menuPrice)).filter((x): x is number => x != null);
-  const averageFoodCost = foodCostShares.length ? foodCostShares.reduce((a,b) => a+b, 0) / foodCostShares.length : null;
+  const {average: averageFoodCost} = averageIngredientCostShare(recipes);
 
   const goToNew = () => {
     Haptics.selectionAsync();

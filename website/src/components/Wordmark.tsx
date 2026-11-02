@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { CSSProperties } from "react";
 
 /**
@@ -11,15 +12,11 @@ export default function Wordmark({
   size?: number;
   className?: string;
 }) {
-  const dot = Math.round(size * 0.42);
+  const iconSize = Math.round(size * 1.4);
   const style: CSSProperties = { fontSize: size, letterSpacing: "-0.02em" };
   return (
     <span className={`inline-flex items-center gap-2 font-bold ${className}`} style={style}>
-      <span
-        aria-hidden
-        className="inline-block rounded-full bg-brand"
-        style={{ width: dot, height: dot }}
-      />
+      <Image src="/sift-icon.png" alt="" width={iconSize} height={iconSize} className="rounded-[24%]" />
       <span>Sift</span>
     </span>
   );

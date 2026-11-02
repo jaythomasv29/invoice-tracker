@@ -44,7 +44,7 @@ export default function PhoneFrame({
       {/* Metal bezel — dark titanium diagonal gradient with brighter facets
           where light catches the curved, polished edge. */}
       <div
-        className="relative aspect-[1290/2796] overflow-hidden rounded-[3.1rem] p-[15px]"
+        className="relative aspect-[1320/2868] overflow-hidden rounded-[3.1rem] p-[15px]"
         style={{
           background:
             "linear-gradient(160deg, #55555b 0%, #313136 10%, #1b1b1f 22%, #3d3d43 38%, #232327 52%, #48484e 64%, #1c1c20 80%, #37373d 92%, #55555b 100%)",
@@ -76,14 +76,7 @@ export default function PhoneFrame({
           />
         </div>
 
-        {/* Dynamic Island — kept to just the pill, since the composited
-            screenshots are real device captures: their status bar icons
-            already sit flush beside it, and a decorative second cutout
-            would overlap that real content. */}
-        <div
-          className="absolute left-1/2 top-[21px] h-[22px] w-[78px] -translate-x-1/2 rounded-full bg-black"
-          style={{ boxShadow: "inset 0 0 2px rgba(255,255,255,0.15)" }}
-        />
+
       </div>
     </div>
   );

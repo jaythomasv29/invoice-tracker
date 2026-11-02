@@ -1,4 +1,4 @@
-# Sift release work — November 1, 2026
+# Sift release work — November 2, 2026
 
 Work branch: `launch/app-store-readiness`. Public release is not yet approved or verified.
 
@@ -74,3 +74,18 @@ Build 6 FINISHED; EAS submission a68a84c4-2279-4347-8ed8-182734908f2f FINISHED. 
 Clean npm ci succeeded with the builder's Node/npm; full typecheck/lint/13 tests pass. Current audit is 44 (3 high, 39 moderate, 2 low, 0 critical): adding expo-updates propagates the pre-existing glob advisory through its Node build utility (utils/src/vcs.ts), with no additional high/critical findings. Public security disposition remains outstanding; no incompatible forced downgrade applied.
 
 Apple build 63112634-718c-4b21-9b68-393c2b221ed1 (1.0.0 build 6) is VALID and IN_BETA_TESTING, with auto-notification enabled. Internal Team (Expo) group includes build 6; build-specific OTA/phone regression instructions saved. OTA export also checked: live authentication, exact development key absent and checked server secrets absent. Configuration, live manifest delivery, runtime match and signed binary verification are complete. Owner must install 1.0.0 (6) from TestFlight; actual phone OTA receipt/behavior, Pro purchase/restore and prior launch gates remain unverified. This setup used one additional Expo cloud iOS build; future compatible beta JS/assets updates use EAS Update's separate allowance.
+
+
+## November 2 — interface, branding and launch media
+
+- Modern forest/ivory interface implemented: Kitchen overview, day/week/month spending, invoice/vendor/average metrics, top supplier amounts, invoice library search, clearer recipe cost shares, progressive invoice notes and accessible touch targets. Existing scan and duplicate safeguards remain.
+- Full app typecheck/lint and all 15 regression tests pass, including recipe shares above 100% and missing menu-price handling. Native UI captures were reviewed on iOS 18.6 in Expo Go; this does not replace physical TestFlight or StoreKit checks.
+- New receipt-S icon and matching splash are embedded in native build 7, EAS `fc695648-0d64-446a-831a-fe6076653e24`, submission `76e2d8dc-9fbb-4619-9448-f9f97c9e469f`. Apple build `f55259dd-a40b-44a4-8cb8-a5532b3d7df6` is VALID / IN_BETA_TESTING. Draft App Store version is attached to build 7; no public review was submitted.
+- IPA verification confirms bundle ID, live authentication, beta OTA channel, correct packaged fingerprint and absence of checked server secrets/capture bootstrap.
+- Build 6 modern-UI OTA group `7ccaed14-0bb1-41a2-bb4b-c20174a42009` matches its native runtime `c679d8b41e86371737a4b1a2779d24876d7d74db`. Owner confirmed the modern interface arrived on the physical phone by OTA. Build 7 uses runtime `062bedef39aff97c339accbe22183fe3470f622f`.
+- `launch-assets/` contains six App Store screenshots with actual app captures, editable SVGs, header/search artwork, opaque 1024 icon, 22-second native-screen preview and source recording. All content is fictional sample data. Apple processed all six screenshots and preview COMPLETE. Header/search images and ACTIVE draft placements are accepted by the API; browser editor verified 1 of 1 Header Asset and 1 of 1 Search Results Asset.
+- siftcosts.com production refreshed with the new design, real app captures, icon/social artwork and accurate feature labels. Production deployment READY, public pages/assets HTTP 200; website build/lint and visual check passed.
+- Pro pricing/purchase/restore on the physical phone, reviewer access, real-invoice accuracy/cost sampling and remaining privacy/release gates remain outstanding.
+
+- Build 7 compatible OTA group `d6d04159-11a9-4e8d-9a14-73a889d82541`, update `01a19b5c-30c4-7c75-b7e9-e7d56d8fe8aa`, includes the final recipe average edge-case fix. Actual beta manifests verified for both native runtimes. Build 7 physical-phone checks remain pending.
+- Disposable development capture organization/user deleted after media capture; capture server and local website preview stopped. No production restaurant data was used for the public assets.

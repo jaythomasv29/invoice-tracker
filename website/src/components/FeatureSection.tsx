@@ -38,7 +38,7 @@ export default function FeatureSection({
         transition={{ duration: 0.7, ease: easeOut }}
       >
         <span
-          className="inline-block rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.14em]"
+          className="feature-eyebrow inline-block rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.14em]"
           style={{ color: accent, background: `color-mix(in srgb, ${accent} 12%, transparent)` }}
         >
           {eyebrow}

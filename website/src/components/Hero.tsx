@@ -36,8 +36,8 @@ export default function Hero() {
           transition={{ duration: 0.8, ease: easeOut, delay: 0.15 }}
           className="mx-auto mt-6 max-w-2xl text-balance text-lg leading-relaxed text-muted sm:text-xl"
         >
-          Snap a photo of any supplier invoice. Sift turns it into tracked spend,
-          price-creep alerts, and live recipe costs — priced from your own paperwork.
+          Scan supplier invoices, review your spending, and see your kitchen clearly.
+          Pro adds price-change insights and recipe costing from your invoice history.
         </motion.p>
 
         <motion.div
@@ -58,8 +58,7 @@ export default function Hero() {
         </motion.div>
       </div>
 
-      {/* Real app screenshot, front and center — the actual dashboard, not a
-          mockup. A floating stat card echoes Sift's price-alert USP and
+      {/* Real app screenshot, front and center — the actual dashboard with sample data. A floating stat card echoes Sift's price-alert USP and
           overlaps the phone the way a lock-screen widget would. */}
       <div className="relative mx-auto mt-16 w-full max-w-[300px] px-6">
         <motion.div
@@ -67,7 +66,8 @@ export default function Hero() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.8, ease: easeOut, delay: 0.35 }}
         >
-          <PhoneFrame src="/screens/home.png" alt="Sift dashboard showing this month's spend and vendor breakdown" priority />
+          <PhoneFrame src="/screens/home.png" alt="Sift dashboard showing historical invoice spending and a vendor breakdown using fictional sample data" priority />
+          <p className="mt-5 text-xs text-muted">Actual app screens · fictional sample data</p>
         </motion.div>
 
         <motion.div
