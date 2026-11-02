@@ -74,6 +74,14 @@
         "projectId": "90a6fb52-c47f-4a1f-af47-f07488c2767a"
       }
     },
-    "owner": "jvongampai"
+    "owner": "jvongampai",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/90a6fb52-c47f-4a1f-af47-f07488c2767a",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    }
   }
 }

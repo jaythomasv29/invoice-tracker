@@ -28,3 +28,10 @@ Report the build number, iOS version, step, expected result and actual result. A
 - If a completed scan was interrupted before review, reopen it from Needs review and save it. Unsaved scans do not enter spending totals.
 - Reimport the same invoice. Exact/strong duplicates should offer the existing invoice and no override; uncertain header matches can be explicitly added as a different invoice. Confirm duplicate attempts don't inflate successful scan usage or spending.
 - Pro price issue remains open. After installing the update, try Pro and report the exact error text/support reference if no price loads. Do not mark purchase/restore passed until both complete on the phone.
+
+## Beta over-the-air updates
+
+- Install the OTA-enabled TestFlight build (build 5 and older cannot receive updates).
+- With the computer off, open Sift with internet, allow the background download, then force-quit and reopen it to apply a compatible beta update. TestFlight's build number stays unchanged.
+- Confirm sign-in, restaurant, saved invoices, scanner and Pro behavior still work after the update; no account reset or reinstallation should be necessary.
+- A successful publish/runtime match is infrastructure verification only. Actual phone receipt and behavior must be confirmed separately.

@@ -62,3 +62,7 @@ Further Apple draft checks found no app territory availability record and an emp
 Build 5 FINISHED and upload ef86c834-7dda-4fe8-9a64-81b2b73481fa FINISHED without error; Apple processing. IPA 1.0.0 (5), iOS 26.5 SDK, JS bundle 7,390,508 bytes; spending card, progress RPC and purchase error reference verified in the bundle. Checked server secrets absent.
 
 Build 5 Apple processing COMPLETE (no errors/warnings); VALID and IN_BETA_TESTING. Build-specific regression instructions saved and internal Team (Expo) access verified. Owner should update to 1.0.0 (5) and test scanner lock/progress, historical home metrics, Needs review, duplicates and Pro price/error reference. Price/purchase/restore remain unverified on the phone.
+
+## Standalone beta OTA setup
+
+Owner authorized configuring EAS Update to avoid a cloud build for every routine UI/JavaScript change. Installed SDK-compatible expo-updates; configured ON_LOAD/background download, fingerprint runtime compatibility, TestFlight channel beta and a separate production channel. Both channel-to-branch mappings created; no production update published. Publishing uses the live production environment to match TestFlight authentication/backend. One enabling TestFlight binary is required; build 5 cannot receive OTA. Source configuration/compatibility test passes; update publish and enabling build verification underway. No public release or subscription success implied.

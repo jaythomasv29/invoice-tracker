@@ -70,7 +70,8 @@
         "buildConfiguration": "Release"
       },
       "distribution": "store",
-      "environment": "production"
+      "environment": "production",
+      "channel": "production"
     },
     "testflight": {
       "extends": "production",
@@ -80,7 +81,8 @@
       "env": {
         "APP_ENV": "production",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
-      }
+      },
+      "channel": "beta"
     }
   },
   "submit": {
