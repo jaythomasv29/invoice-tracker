@@ -77,3 +77,15 @@ do $$ begin
  if exists(select 1 from invoices where id='22222222-2222-4222-8222-222222222222') then raise exception 'tenant leak'; end if;
 end $$;
 rollback;
+
+-- Failed model attempts cannot evade the monthly cost budget.
+begin;
+insert into public.ai_jobs(organization_id,resource_id,kind,status,month_start)
+select 'org_monthly_budget_test',gen_random_uuid(),'invoice','failed',date_trunc('month',now() at time zone 'UTC')::date
+from generate_series(1,20);
+do $$ declare r jsonb; begin
+ r:=public.begin_ai_job('org_monthly_budget_test',gen_random_uuid(),'invoice',10);
+ if r->>'code'<>'AI_RATE_LIMIT' or (r->>'allowed')::boolean then raise exception 'monthly attempt budget not enforced'; end if;
+ if exists(select 1 from public.extraction_usage where organization_id='org_monthly_budget_test') then raise exception 'denial changed successful usage'; end if;
+end $$;
+rollback;

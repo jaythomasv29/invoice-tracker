@@ -2,7 +2,7 @@
 
 Status: draft; public submission requires phone, StoreKit and deletion tests plus final screenshots and privacy review.
 
-Name: Sift: Invoice & Food Costs
+Name: Sift: Invoice & Recipe Costing
 Subtitle: Scan invoices. Track costs.
 Primary category: Business
 Language: English (US)
