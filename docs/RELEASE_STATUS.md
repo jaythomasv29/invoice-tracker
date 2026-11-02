@@ -48,3 +48,5 @@ App Store Connect English metadata, Business category, privacy/support links and
 Final Expo Doctor remains 18/18 after the clean-install repair. Current npm audit: 43 total findings (3 high, 38 moderate, 2 low, 0 critical), including tooling and optional web-wallet dependency paths; public release still requires a documented security disposition.
 
 RevenueCat webhook checks passed on the hosted endpoint: unauthorized denied (401), wrong app denied (400), authenticated TEST accepted (200). A fictional $60 invoice fixture is included under docs/fixtures for phone QA.
+
+Phone QA checkpoint: owner reports successful production sign-in and restaurant creation on build 4. Confirmed the production owner/admin membership; enabled sandbox entitlements for that specific restaurant and retained the three existing internal development restaurants. Verified the hosted configuration digest and RevenueCat customer access (currently Free, no entitlement records). Next: computer-off scan/save/reopen and sandbox purchase/restore.
