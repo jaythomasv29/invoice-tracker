@@ -59,7 +59,7 @@ export default function SpendCard({
                 {periodPctChange >= 0 ? '↑' : '↓'}
               </Text>
               <Text style={[styles.spendChangePct, periodPctChange > 0 && styles.spendChangeUp]}>
-                {Math.abs(periodPctChange)}%
+                {Math.abs(periodPctChange).toFixed(1)}%
               </Text>
               <Text style={styles.spendChangeLabel}> {compare}</Text>
             </View>

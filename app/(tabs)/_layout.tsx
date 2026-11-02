@@ -23,7 +23,7 @@ import { TourTarget } from "../../components/tour/TourTarget";
 import SpotlightOverlay from "../../components/tour/SpotlightOverlay";
 import DemoBanner from "../../components/tour/DemoBanner";
 
-const SCAN_SIZE = 46; // diameter of the inline green scan circle
+const SCAN_SIZE = 48; // diameter of the inline green scan circle
 const ICON_SIZE = 24; // standardized icon box for every tab
 const STROKE = 2; // standardized stroke weight
 
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
     // Soft drop shadow all around (it's floating, so the shadow isn't just on top).
     shadowColor: "#1A1A2E",
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.14,
+    shadowOpacity: 0.06,
     shadowRadius: 18,
     elevation: 12,
   },
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     borderRadius: 26,
     overflow: "hidden",
-    backgroundColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "rgba(255,255,255,0.96)",
   },
   // Faint white wash over the blur so icons/labels keep contrast and it reads
   // as a light glass surface rather than a plain blur.
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,255,255,0.96)",
   },
   // Bright hairline edge — the "lit rim" that sells the glass look.
   glassEdge: {
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.12,
     shadowRadius: 8,
     elevation: 6,
   },

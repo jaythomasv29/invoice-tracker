@@ -40,7 +40,7 @@ function confidenceMeta(confidence: number): { label: string; color: string } {
 function marginLabel(costEstimate: number | null, menuPrice: number | null): string | null {
   if (costEstimate == null || menuPrice == null || menuPrice <= 0) return null;
   const margin = ((menuPrice - costEstimate) / menuPrice) * 100;
-  return `${Math.round(margin)}% margin`;
+  return `${Math.round(margin)}% ingredient margin`;
 }
 
 // Ingredient cost's share of the menu price, clamped to a real 0-100 bar —
@@ -92,6 +92,9 @@ export default function RecipesTabScreen() {
     }, [isPaid, organization?.id, supabase, demoMode])
   );
 
+  const foodCostShares = recipes.map(r => foodCostPct(r.costEstimate, r.menuPrice)).filter((x): x is number => x != null);
+  const averageFoodCost = foodCostShares.length ? foodCostShares.reduce((a,b) => a+b, 0) / foodCostShares.length : null;
+
   const goToNew = () => {
     Haptics.selectionAsync();
     router.push('/recipes/new');
@@ -137,10 +140,14 @@ export default function RecipesTabScreen() {
             scrollOffset.current = e.nativeEvent.contentOffset.y;
           }}
         >
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryStat}><Text style={styles.summaryNumber}>{recipes.length}</Text><Text style={styles.summaryLabel}>Recipes in your menu</Text></View>
+            <View style={styles.summaryStat}><Text style={styles.summaryNumber}>{averageFoodCost == null ? '—' : `${Math.round(averageFoodCost)}%`}</Text><Text style={styles.summaryLabel}>Avg. ingredient cost share</Text></View>
+          </View>
           <View style={styles.infoBanner}>
-            <Text style={styles.infoBannerLabel}>HOW COSTING WORKS</Text>
+            <Text style={styles.infoBannerLabel}>FROM YOUR INVOICES TO YOUR MENU</Text>
             <Text style={styles.infoBannerBody}>
-              AI drafts each dish&apos;s ingredients, you confirm the quantities, and Sift prices the plate from your invoice history. Cost and margin sharpen as you match more ingredients and upload more invoices.
+              Confirm the AI-drafted ingredients and quantities. Match invoice prices to refine each dish’s ingredient cost.
             </Text>
           </View>
 
@@ -156,7 +163,7 @@ export default function RecipesTabScreen() {
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: Colors.primary }]} />
-                <Text style={styles.legendText}>Margin</Text>
+                <Text style={styles.legendText}>Ingredient margin</Text>
               </View>
             </View>
           )}
@@ -207,6 +214,10 @@ export default function RecipesTabScreen() {
 }
 
 const styles = StyleSheet.create({
+  summaryRow:{flexDirection:'row',gap:12},
+  summaryStat:{flex:1,backgroundColor:Colors.surface,borderWidth:1,borderColor:Colors.border,borderRadius:20,padding:18,gap:6},
+  summaryNumber:{fontFamily:'Manrope_800ExtraBold',fontSize:30,letterSpacing:-1,color:Colors.textPrimary},
+  summaryLabel:{fontFamily:'Manrope_500Medium',fontSize:12,lineHeight:18,color:Colors.textSecondary},
   safe: { flex: 1, backgroundColor: Colors.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -216,34 +227,34 @@ const styles = StyleSheet.create({
 
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 10, paddingBottom: 90 },
 
-  scroll: { padding: 16, gap: 10, paddingBottom: 120 },
+  scroll: { padding: 20, gap: 16, paddingBottom: 120 },
   recipeList: { gap: 10 },
 
   infoBanner: {
-    backgroundColor: Colors.surface, borderRadius: 18,
+    backgroundColor: Colors.primaryLight, borderRadius: 22,
     borderWidth: 1, borderColor: Colors.border,
-    padding: 16, gap: 6,
+    padding: 20, gap: 8,
   },
   infoBannerLabel: { fontSize: 11, fontFamily: 'Manrope_800ExtraBold', color: Colors.textTertiary, letterSpacing: 1 },
   infoBannerBody: { fontSize: 13, fontFamily: 'Manrope_500Medium', color: Colors.textSecondary, lineHeight: 19 },
 
   cta: {
-    backgroundColor: Colors.primary, borderRadius: 14, height: 52,
+    backgroundColor: Colors.primary, borderRadius: 14, minHeight: 52,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: Colors.primary, shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3, shadowRadius: 12, elevation: 6,
+    shadowOpacity: 0.08, shadowRadius: 12, elevation: 6,
   },
   ctaText: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: '#fff' },
 
   card: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: Colors.surface, borderRadius: 18,
+    backgroundColor: Colors.surface, borderRadius: 22,
     borderWidth: 1, borderColor: Colors.border,
     paddingHorizontal: 16, paddingVertical: 14,
   },
-  cardName: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
-  cardMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 3 },
-  cardCost: { fontSize: 13, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary },
+  cardName: { fontSize: 17, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
+  cardMetaRow: { flexDirection: 'row', flexWrap:'wrap', alignItems: 'center', gap: 5, marginTop: 3 },
+  cardCost: { fontSize: 19, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
   cardMargin: { fontSize: 12, fontFamily: 'Manrope_600SemiBold', color: Colors.textTertiary },
 
   breakdownTrack: {
@@ -256,7 +267,7 @@ const styles = StyleSheet.create({
   legendRow: { flexDirection: 'row', gap: 16, paddingHorizontal: 2, marginTop: -2 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 7, height: 7, borderRadius: 3.5 },
-  legendText: { fontSize: 11.5, fontFamily: 'Manrope_600SemiBold', color: Colors.textTertiary },
+  legendText: { fontSize: 12, fontFamily: 'Manrope_600SemiBold', color: Colors.textTertiary },
 
   badge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, flexShrink: 0 },
   badgeText: { fontSize: 12, fontFamily: 'Manrope_700Bold' },

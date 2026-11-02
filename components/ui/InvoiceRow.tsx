@@ -19,13 +19,13 @@ export default function InvoiceRow({ invoice: inv, onPress, showVendorName }: In
           <>
             <Text style={styles.title} numberOfLines={1}>{inv.vendorName}</Text>
             <Text style={styles.meta} numberOfLines={1}>
-              Invoice #{inv.invoiceNumber || '—'} · {inv.date} · {inv.lineItems.length} items
+              Invoice #{inv.invoiceNumber || '—'} · {inv.date} · {inv.lineItems.length} {inv.lineItems.length === 1 ? 'item' : 'items'}
             </Text>
           </>
         ) : (
           <>
             <Text style={styles.title}>Invoice #{inv.invoiceNumber}</Text>
-            <Text style={styles.meta}>{inv.date} · {inv.lineItems.length} items</Text>
+            <Text style={styles.meta}>{inv.date} · {inv.lineItems.length} {inv.lineItems.length === 1 ? 'item' : 'items'}</Text>
           </>
         )}
         {(inv.hasMissingItems || inv.hasNote) && (
@@ -51,14 +51,14 @@ export default function InvoiceRow({ invoice: inv, onPress, showVendorName }: In
 
 const styles = StyleSheet.create({
   row: {
-    backgroundColor: Colors.surface, borderRadius: 16,
+    backgroundColor: Colors.surface, borderRadius: 20,
     borderWidth: 1, borderColor: Colors.border,
     padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10,
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 8,
+    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8,
   },
-  title: { fontSize: 14, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
+  title: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
   meta: { fontSize: 12, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary, marginTop: 1 },
-  total: { fontSize: 15, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary },
+  total: { fontSize: 17, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary },
   chevron: { fontSize: 18, fontFamily: 'Manrope_700Bold', color: Colors.textTertiary },
 
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 7 },

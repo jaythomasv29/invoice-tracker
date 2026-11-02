@@ -347,6 +347,9 @@ export const useStore = create<AppState>((set, get) => ({
     const { dashboard, priceAlerts } = buildDemoState(new Date());
     set({
       demoMode: true,
+      spendInvoices: dashboard.spendInvoices,
+      awaitingReview: [],
+      awaitingReviewCount: 0,
       vendors: dashboard.vendors,
       weekTotal: dashboard.weekTotal,
       weekPctChange: dashboard.weekPctChange,
@@ -374,6 +377,9 @@ export const useStore = create<AppState>((set, get) => ({
     // with the user's real data.
     set({
       demoMode: false,
+      spendInvoices: [],
+      awaitingReview: [],
+      awaitingReviewCount: 0,
       vendors: [],
       weekTotal: 0,
       weekPctChange: 0,

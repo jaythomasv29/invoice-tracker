@@ -1,3 +1,4 @@
+import type { SpendInvoice } from './spendSummary';
 import { formatDate, categoryColor, categoryLabel } from './invoicePipeline';
 import type {
   Vendor, DayData, CategorySpend, TopItem, UploadActivityEntry,
@@ -106,6 +107,7 @@ function roundBars(bars: DayData[]) {
 // ---- Types -----------------------------------------------------------------
 
 export interface DemoDashboard {
+  spendInvoices: SpendInvoice[];
   vendors: Vendor[];
   weekTotal: number;
   weekPctChange: number;
@@ -306,14 +308,13 @@ export function buildDemoState(now: Date = new Date()): DemoState {
 
   return {
     dashboard: {
+      spendInvoices: resolved.map(inv => ({id:inv.id, vendor_id:inv.vendorInfo.id, total:inv.total, invoice_date:localDateStr(inv.date), created_at:inv.date.toISOString()})),
       vendors,
       weekTotal: Math.round(weekTotal * 100) / 100,
-      // Fixed, believable demo deltas — the real period-over-period baselines
-      // would swing wildly depending on which weekday "today" is.
-      weekPctChange: weekTotal > 0 ? -6.4 : 0,
+      weekPctChange: (() => { const prev = resolved.filter(r => r.date >= prevWeekStart && r.date < weekStart).reduce((sum,r) => sum+r.total,0); return prev > 0 ? Math.round((weekTotal-prev)/prev*1000)/10 : 0; })(),
       dayData,
       monthTotal: Math.round(monthTotal * 100) / 100,
-      monthPctChange: -12.1,
+      monthPctChange: (() => { const start = new Date(y,m-1,1); const end = new Date(y,m,1); const prev = resolved.filter(r => r.date >= start && r.date < end).reduce((sum,r) => sum+r.total,0); return prev > 0 ? Math.round((monthTotal-prev)/prev*1000)/10 : 0; })(),
       monthData,
       allYearData: [yearBar],
       categorySpend,
@@ -350,3 +351,19 @@ export const DEMO_MISSING_FLAGS: MissingInvoiceFlag[] = [{
 
 export const DEMO_PRICE_ALERT_COUNT = 1;
 export const DEMO_EXTRACTION_USAGE = { used: 6, cap: 10, remaining: 4 };
+
+// The tour's invoice library uses the same fictional ledger as the dashboard.
+export function buildDemoInvoices(now = new Date()): import('../store/useStore').Invoice[] {
+  return LEDGER.map((inv, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - inv.daysAgo);
+    const dateIso = localDateStr(date);
+    const total = inv.items.reduce((sum, item) => sum + item.ext, 0);
+    return {
+      id:inv.id, vendorId:V[inv.vendor].id, vendorName:V[inv.vendor].name,
+      invoiceNumber:`JK-${String(1042-index)}`, date:formatDate(dateIso), dateIso,
+      subtotal:total, tax:0, total, status:'saved', pages:1,
+      hasMissingItems:false, hasNote:false,
+      lineItems:inv.items.map((item, i) => ({id:`${inv.id}-item-${i}`,desc:item.name,qty:1,unit:'case',unitPrice:item.ext,ext:item.ext,category:item.category,catColor:categoryColor(item.category),needsConfirm:false,confirmed:true,expanded:false,verification:'received',type:'charge',voided:false})),
+    };
+  });
+}

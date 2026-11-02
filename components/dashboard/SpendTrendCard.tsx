@@ -123,7 +123,7 @@ export default function SpendTrendCard({
               {isUp ? '↑' : '↓'}
             </Text>
             <Text style={[styles.trendPct, isUp ? styles.trendTextUp : styles.trendTextDown]}>
-              {Math.abs(periodPctChange)}%
+              {Math.abs(periodPctChange).toFixed(1)}%
             </Text>
           </View>
         )}

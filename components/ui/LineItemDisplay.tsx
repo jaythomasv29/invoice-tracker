@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { categoryLabel } from '../../lib/invoicePipeline';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { LineItem } from '../../store/useStore';
@@ -23,6 +25,7 @@ interface LineItemDisplayProps {
 export default function LineItemDisplay({
   item, onToggleExpand, onConfirm, onToggleMissing, onChangeNote, onEdit, onToggleVoid,
 }: LineItemDisplayProps) {
+  const [noteOpen, setNoteOpen] = useState(false);
   const isMissing = item.verification === 'missing';
 
   return (
@@ -31,7 +34,7 @@ export default function LineItemDisplay({
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={styles.badgeRow}>
             <View style={[styles.catBadge, { backgroundColor: item.catColor + '20' }]}>
-              <Text style={[styles.catBadgeText, { color: item.catColor }]}>{item.category}</Text>
+              <Text style={[styles.catBadgeText, { color: item.catColor }]}>{categoryLabel(item.category)}</Text>
             </View>
             {item.voided && (
               <View style={styles.voidedBadge}>
@@ -89,7 +92,8 @@ export default function LineItemDisplay({
             </View>
           )}
 
-          <TouchableOpacity
+          <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12}}><TouchableOpacity
+            accessibilityRole="button" accessibilityLabel={`${isMissing ? 'Mark received' : 'Mark missing'}: ${item.desc}`}
             style={[styles.missingBtn, isMissing && styles.missingBtnActive]}
             onPress={onToggleMissing}
             activeOpacity={0.85}
@@ -99,14 +103,17 @@ export default function LineItemDisplay({
             </Text>
           </TouchableOpacity>
 
-          <TextInput
+          {!noteOpen && !item.note && <TouchableOpacity onPress={() => setNoteOpen(true)} style={{minHeight:44,justifyContent:'center'}} accessibilityRole="button" accessibilityLabel={`Add a note for ${item.desc}`}><Text style={{fontFamily:'Manrope_600SemiBold',fontSize:12,color:Colors.textSecondary}}>+ Add note</Text></TouchableOpacity>}
+          </View>
+          {(noteOpen || !!item.note) && <TextInput
+            accessibilityLabel={`Note for ${item.desc}`}
             style={styles.noteInput}
             value={item.note ?? ''}
             onChangeText={onChangeNote}
             placeholder="Add a note (optional)"
             placeholderTextColor={Colors.textTertiary}
             multiline
-          />
+          />}
         </>
       )}
 
@@ -123,8 +130,8 @@ export default function LineItemDisplay({
 const styles = StyleSheet.create({
   itemCard: {
     backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
-    borderRadius: 16, padding: 15, gap: 11,
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 8,
+    borderRadius: 22, padding: 18, gap: 11,
+    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8,
   },
   itemCardVoided: { opacity: 0.55 },
   itemTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
@@ -139,10 +146,10 @@ const styles = StyleSheet.create({
     fontSize: 10, fontFamily: 'Manrope_700Bold', letterSpacing: 0.5,
     textTransform: 'uppercase', color: Colors.textTertiary,
   },
-  itemDesc: { fontSize: 14.5, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
+  itemDesc: { fontSize: 16, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
   itemRawDesc: { fontSize: 11, fontFamily: 'Manrope_500Medium', color: Colors.textTertiary, marginTop: 2 },
   itemMeta: { fontSize: 12, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary, marginTop: 3 },
-  itemExt: { fontSize: 15, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary },
+  itemExt: { fontSize: 18, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary },
   itemTextVoided: { textDecorationLine: 'line-through' },
   actionLinkRow: { flexDirection: 'row', gap: 12 },
   editLink: { fontSize: 11.5, fontFamily: 'Manrope_700Bold', color: Colors.primary },
@@ -179,7 +186,7 @@ const styles = StyleSheet.create({
 
   noteInput: {
     backgroundColor: Colors.background, borderRadius: 10, borderWidth: 1, borderColor: Colors.border,
-    paddingHorizontal: 12, paddingVertical: 9, minHeight: 40,
+    paddingHorizontal: 12, paddingVertical: 9, minHeight: 44,
     fontSize: 12.5, fontFamily: 'Manrope_500Medium', color: Colors.textPrimary,
   },
 

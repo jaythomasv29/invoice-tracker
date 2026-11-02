@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useOrganization } from '@clerk/clerk-expo';
+import { buildDemoInvoices } from '../../lib/demoData';
 import { Colors } from '../../constants/Colors';
 import { useStore, Vendor, Invoice, vendorAmountFromBars } from '../../store/useStore';
 import { useSpendPeriod, spendPeriodShortLabel } from '../../hooks/useSpendPeriod';
@@ -40,7 +41,7 @@ export default function VendorsScreen() {
     periodTotal, periodPctChange, periodBarData,
   } = useSpendPeriod();
 
-  const [tab, setTab] = useState<Tab>('vendors');
+  const [tab, setTab] = useState<Tab>('invoices');
   const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -65,9 +66,8 @@ export default function VendorsScreen() {
   useFocusEffect(
     useCallback(() => {
       if (tab !== 'invoices') return;
-      // The tour doesn't visit the All-Invoices sub-tab; keep it empty in demo
-      // mode rather than hitting Supabase.
-      if (demoMode) { setAllInvoices([]); setInvoicesLoading(false); return; }
+      // Keep sample exploration entirely local, using the tour ledger.
+      if (demoMode) { setAllInvoices(buildDemoInvoices()); setInvoicesLoading(false); return; }
       if (!organization?.id) return;
       setInvoicesLoading(true);
       fetchAllInvoices(supabase, organization.id)
@@ -103,7 +103,7 @@ export default function VendorsScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={styles.title}>{tab === 'vendors' ? 'Vendors' : 'All Invoices'}</Text>
+          <Text style={styles.title}>{tab === 'vendors' ? 'Your suppliers' : 'Invoice library'}</Text>
           <Text style={styles.subtitle}>
             {tab === 'vendors'
               ? `${activeCount} active ${shortLabel}`
@@ -117,6 +117,7 @@ export default function VendorsScreen() {
 
       <View style={styles.segmentRow}>
         <TouchableOpacity
+          accessibilityRole="button" accessibilityState={{selected: tab === 'vendors'}}
           style={[styles.segment, tab === 'vendors' && styles.segmentActive]}
           onPress={() => { Haptics.selectionAsync(); setTab('vendors'); }}
           activeOpacity={0.8}
@@ -124,6 +125,7 @@ export default function VendorsScreen() {
           <Text style={[styles.segmentText, tab === 'vendors' && styles.segmentTextActive]}>Vendors</Text>
         </TouchableOpacity>
         <TouchableOpacity
+          accessibilityRole="button" accessibilityState={{selected: tab === 'invoices'}}
           style={[styles.segment, tab === 'invoices' && styles.segmentActive]}
           onPress={() => { Haptics.selectionAsync(); setTab('invoices'); }}
           activeOpacity={0.8}
@@ -172,7 +174,8 @@ export default function VendorsScreen() {
                   style={styles.searchInput}
                   value={search}
                   onChangeText={setSearch}
-                  placeholder="Search by vendor or invoice #"
+                  accessibilityLabel="Search invoices by vendor or invoice number"
+                  placeholder="Search vendor or invoice number"
                   placeholderTextColor={Colors.textTertiary}
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -229,7 +232,7 @@ function VendorCard({ vendor: v, periodAmount, periodLabel }: { vendor: Vendor; 
     >
       <View style={styles.vendorTop}>
         <View style={[styles.vendorAvatar, { backgroundColor: v.color + '20' }]}>
-          <Text style={[styles.vendorAvatarText, { color: v.color }]}>
+          <Text style={[styles.vendorAvatarText, { color: Colors.textPrimary }]}>
             {initialsFor(v.name)}
           </Text>
         </View>
@@ -289,11 +292,11 @@ const styles = StyleSheet.create({
     fontSize: 14, fontFamily: 'Manrope_600SemiBold', color: Colors.textPrimary,
   },
 
-  scroll: { padding: 16, gap: 11, paddingBottom: 120 },
+  scroll: { padding: 20, gap: 11, paddingBottom: 120 },
 
   vendorCard: {
-    backgroundColor: Colors.surface, borderRadius: 18,
-    borderWidth: 1, borderColor: Colors.border, padding: 16, gap: 12,
+    backgroundColor: Colors.surface, borderRadius: 22,
+    borderWidth: 1, borderColor: Colors.border, padding: 20, gap: 12,
     shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 1, shadowRadius: 12,
   },
   vendorTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },

@@ -58,6 +58,7 @@ export default function AlertsScreen() {
         )}
       </View>
 
+      <Text style={{paddingHorizontal:20,paddingBottom:10,fontFamily:'Manrope_400Regular',fontSize:13,color:Colors.textSecondary}}>Supplier price changes, clearly surfaced.</Text>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {unread.length > 0 && (
           <>
@@ -142,7 +143,7 @@ function AlertRow({ alert: a, onPress, dimmed }: { alert: PriceAlert; onPress?: 
             </Text>
           </View>
           <Text style={styles.alertDetail}>
-            ${a.previousPrice.toFixed(2)} → ${a.newPrice.toFixed(2)}/{a.unit}
+            ${a.previousPrice.toFixed(2)} → ${a.newPrice.toFixed(2)}{a.unit ? `/${a.unit}` : ''}
           </Text>
         </View>
       </View>
@@ -170,12 +171,12 @@ const styles = StyleSheet.create({
     marginBottom: 4, marginTop: 8,
   },
   alertCard: {
-    backgroundColor: Colors.surface, borderRadius: 16,
+    backgroundColor: Colors.surface, borderRadius: 22,
     borderWidth: 1, borderColor: Colors.border,
     padding: 14, flexDirection: 'row', gap: 12, alignItems: 'flex-start',
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 8,
+    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8,
   },
-  alertCardDimmed: { opacity: 0.6 },
+  alertCardDimmed: { backgroundColor: Colors.surface },
   alertIcon: { width: 40, height: 40, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   alertIconGlyph: { fontSize: 18, fontFamily: 'Manrope_800ExtraBold' },
   alertItemName: { fontSize: 14, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },

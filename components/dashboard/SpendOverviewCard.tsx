@@ -1,205 +1,67 @@
-import { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { Colors } from "../../constants/Colors";
-import {
-  summarizeSpend,
-  type SpendInvoice,
-  type SummaryPeriod,
-} from "../../lib/spendSummary";
-const money = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD" });
-export default function SpendOverviewCard({
-  invoices,
-  vendors,
-  loading,
-}: {
-  invoices: SpendInvoice[];
-  vendors: { id: string; name: string }[];
-  loading: boolean;
+import { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Colors } from '../../constants/Colors';
+import { summarizeSpend, type SpendInvoice, type SummaryPeriod } from '../../lib/spendSummary';
+const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+
+export default function SpendOverviewCard({ invoices, vendors, loading }: {
+  invoices: SpendInvoice[]; vendors: { id: string; name: string }[]; loading: boolean;
 }) {
-  const [period, setPeriod] = useState<SummaryPeriod>("month");
+  const [period, setPeriod] = useState<SummaryPeriod>('month');
   const [offset, setOffset] = useState(0);
   const data = summarizeSpend(invoices, period, offset);
-  const date = (d: Date) =>
-    d.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  const label =
-    period === "month"
-      ? data.start.toLocaleDateString("en-US", {
-          month: "long",
-          year: "numeric",
-        })
-      : period === "day"
-        ? date(data.start)
-        : `${date(data.start)} – ${date(data.end)}`;
-  return (
-    <View style={s.card}>
-      <Text style={s.heading}>Your spending</Text>
-      <Text style={s.note}>Saved invoices · grouped by invoice date</Text>
-      <View style={s.tabs}>
-        {(["day", "week", "month"] as const).map((p) => (
-          <TouchableOpacity
-            key={p}
-            accessibilityRole="button"
-            accessibilityState={{ selected: p === period }}
-            onPress={() => {
-              setPeriod(p);
-              setOffset(0);
-            }}
-            style={[s.tab, p === period && s.selected]}
-          >
-            <Text style={[s.tabText, p === period && s.selectedText]}>
-              {p === "day" ? "Daily" : p === "week" ? "Weekly" : "Monthly"}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      <View style={s.navigation}>
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel={`Previous ${period}`}
-          onPress={() => setOffset((x) => x - 1)}
-          style={s.arrow}
-        >
-          <Text style={s.arrowText}>‹</Text>
-        </TouchableOpacity>
-        <Text style={s.date}>{label}</Text>
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel={`Next ${period}`}
-          accessibilityState={{ disabled: offset === 0 }}
-          disabled={offset === 0}
-          onPress={() => setOffset((x) => Math.min(0, x + 1))}
-          style={[s.arrow, offset === 0 && { opacity: 0.25 }]}
-        >
-          <Text style={s.arrowText}>›</Text>
-        </TouchableOpacity>
-      </View>
-      <Text style={s.amount} accessibilityLiveRegion="polite">
-        {loading ? "Loading…" : money(data.total)}
-      </Text>
-      <Text style={s.count}>
-        {data.count} {data.count === 1 ? "invoice" : "invoices"} ·{" "}
-        {data.vendors.length} {data.vendors.length === 1 ? "vendor" : "vendors"}
-      </Text>
-      {data.vendors.slice(0, 3).map(([id, total]) => (
-        <View key={id} style={s.row}>
-          <Text style={s.vendor} numberOfLines={1}>
-            {vendors.find((v) => v.id === id)?.name ?? "Unknown vendor"}
-          </Text>
-          <Text style={s.vendorAmount}>{money(total)}</Text>
-        </View>
-      ))}
-      {!loading && data.count === 0 && (
-        <Text style={s.note}>
-          No saved invoices dated in this period. Use the arrows to see older
-          invoices.
-        </Text>
-      )}
-      {data.fallbackCount > 0 && (
-        <Text style={s.note}>
-          {data.fallbackCount}{" "}
-          {data.fallbackCount === 1 ? "invoice uses" : "invoices use"} upload
-          date because its invoice date is missing. Correct the date in invoice
-          review.
-        </Text>
-      )}
-      <Text style={s.footer}>
-        {data.allCount} saved overall · {money(data.allTotal)} all-time
-      </Text>
+  const label = period === 'month'
+    ? data.start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    : period === 'day' ? data.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : `${data.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${data.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  const topVendors = data.vendors.slice(0, 3);
+  const max = Math.max(1, ...topVendors.map(([, total]) => Math.abs(total)));
+  return <View style={s.wrapper}>
+    <View style={s.tabs}>
+      {(['day', 'week', 'month'] as const).map(p => <TouchableOpacity key={p} accessibilityRole="button" accessibilityState={{ selected: p === period }} onPress={() => { setPeriod(p); setOffset(0); }} style={[s.tab, p === period && s.selected]}>
+        <Text style={[s.tabText, p === period && s.selectedText]}>{p === 'day' ? 'Day' : p === 'week' ? 'Week' : 'Month'}</Text>
+      </TouchableOpacity>)}
     </View>
-  );
+    <View style={s.hero}>
+      <View style={s.heroTop}><Text style={s.eyebrow}>TOTAL SPENDING</Text><View style={s.savedPill}><Text style={s.savedText}>Saved invoices</Text></View></View>
+      <View style={s.navigation}>
+        <Text style={s.date}>{label}</Text>
+        <View style={s.arrows}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Previous ${period}`} onPress={() => setOffset(x => x - 1)} style={s.arrow}><Text style={s.arrowText}>‹</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Next ${period}`} accessibilityState={{ disabled: offset === 0 }} disabled={offset === 0} onPress={() => setOffset(x => Math.min(0, x + 1))} style={[s.arrow, offset === 0 && s.disabled]}><Text style={s.arrowText}>›</Text></TouchableOpacity>
+        </View>
+      </View>
+      <Text style={s.amount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} accessibilityLiveRegion="polite">{loading ? 'Loading…' : money(data.total)}</Text>
+      <Text style={s.heroCaption}>Grouped by the date on each invoice</Text>
+      <View style={s.stats}>
+        <View style={s.stat}><Text style={s.statNumber}>{loading ? '—' : data.count}</Text><Text style={s.statLabel}>Invoices</Text></View>
+        <View style={s.stat}><Text style={s.statNumber}>{loading ? '—' : data.vendors.length}</Text><Text style={s.statLabel}>Vendors</Text></View>
+        <View style={s.stat}><Text style={s.statNumber} numberOfLines={1} adjustsFontSizeToFit>{loading || !data.count ? '—' : money(data.total / data.count)}</Text><Text style={s.statLabel}>Avg. invoice</Text></View>
+      </View>
+    </View>
+    <View style={s.breakdown}>
+      <View style={s.sectionRow}><Text style={s.heading}>Where it went</Text><Text style={s.note}>Top vendors</Text></View>
+      {topVendors.map(([id, total], index) => <View key={id} style={s.vendorRow}>
+        <View style={[s.rank, index === 0 && s.firstRank]}><Text style={s.rankText}>{String(index + 1).padStart(2, '0')}</Text></View>
+        <View style={s.vendorBody}><View style={s.sectionRow}><Text style={s.vendor} numberOfLines={1}>{vendors.find(v => v.id === id)?.name ?? 'Unknown vendor'}</Text><Text style={s.vendorAmount}>{money(total)}</Text></View>
+          <View style={s.track} accessible={false}><View style={[s.fill, { width: `${Math.abs(total) / max * 100}%`, opacity: 1 - index * 0.2 }]} /></View>
+        </View>
+      </View>)}
+      {!loading && data.count === 0 && <Text style={s.empty}>No saved invoices in this period. Scan your first invoice or use the arrows to explore past spending.</Text>}
+      {data.fallbackCount > 0 && <Text style={s.note}>{data.fallbackCount} {data.fallbackCount === 1 ? 'invoice uses' : 'invoices use'} upload date because the invoice date is missing.</Text>}
+      <View style={s.footer}><Text style={s.note}>All time · {data.allCount} saved</Text><Text style={s.allTotal}>{money(data.allTotal)}</Text></View>
+    </View>
+  </View>;
 }
 const s = StyleSheet.create({
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: 22,
-    padding: 20,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  heading: {
-    fontFamily: "Manrope_700Bold",
-    fontSize: 21,
-    color: Colors.textPrimary,
-  },
-  note: {
-    fontFamily: "Manrope_400Regular",
-    fontSize: 14,
-    lineHeight: 21,
-    color: Colors.textSecondary,
-  },
-  tabs: { flexDirection: "row", gap: 8 },
-  tab: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: Colors.background,
-  },
-  selected: {
-    backgroundColor: Colors.primaryLight,
-    borderWidth: 1,
-    borderColor: Colors.primaryDark,
-  },
-  tabText: {
-    fontFamily: "Manrope_600SemiBold",
-    fontSize: 14,
-    color: Colors.textPrimary,
-  },
-  selectedText: { color: Colors.textPrimary },
-  navigation: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  arrow: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  arrowText: { fontSize: 32, color: Colors.textPrimary },
-  date: {
-    flex: 1,
-    textAlign: "center",
-    fontFamily: "Manrope_600SemiBold",
-    fontSize: 14,
-    color: Colors.textPrimary,
-  },
-  amount: {
-    fontFamily: "Manrope_800ExtraBold",
-    fontSize: 36,
-    color: Colors.textPrimary,
-  },
-  count: {
-    fontFamily: "Manrope_500Medium",
-    fontSize: 15,
-    color: Colors.textSecondary,
-  },
-  row: { flexDirection: "row", gap: 12, justifyContent: "space-between" },
-  vendor: {
-    flex: 1,
-    fontFamily: "Manrope_500Medium",
-    fontSize: 15,
-    color: Colors.textPrimary,
-  },
-  vendorAmount: {
-    fontFamily: "Manrope_600SemiBold",
-    fontSize: 15,
-    color: Colors.textPrimary,
-  },
-  footer: {
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    paddingTop: 12,
-    fontFamily: "Manrope_500Medium",
-    fontSize: 14,
-    color: Colors.textSecondary,
-  },
+  wrapper: { gap: 14 }, tabs: { flexDirection: 'row', backgroundColor: '#E8EDE5', borderRadius: 16, padding: 4 },
+  tab: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12 }, selected: { backgroundColor: Colors.surface },
+  tabText: { fontFamily: 'Manrope_600SemiBold', fontSize: 14, color: Colors.textSecondary }, selectedText: { color: Colors.primaryDark },
+  hero: { backgroundColor: Colors.hero, borderRadius: 26, padding: 22 }, heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  eyebrow: { fontFamily: 'Manrope_700Bold', fontSize: 11, letterSpacing: 1.5, color: Colors.heroMuted }, savedPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, backgroundColor: '#285342' }, savedText: { fontFamily: 'Manrope_600SemiBold', fontSize: 11, color: Colors.accent },
+  navigation: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, gap: 4 }, date: { flex: 1, fontFamily: 'Manrope_500Medium', fontSize: 15, color: Colors.heroMuted }, arrows: { flexDirection: 'row' }, arrow: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }, arrowText: { color: Colors.heroText, fontSize: 28 }, disabled: { opacity: 0.3 },
+  amount: { fontFamily: 'Manrope_800ExtraBold', fontSize: 46, letterSpacing: -1.8, color: Colors.heroText, marginTop: -1, fontVariant: ['tabular-nums'] }, heroCaption: { fontFamily: 'Manrope_400Regular', fontSize: 12, color: Colors.heroMuted, marginTop: 6 },
+  stats: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#3B5C4D', marginTop: 22, paddingTop: 18, gap: 12 }, stat: { flex: 1, gap: 4 }, statNumber: { fontFamily: 'Manrope_700Bold', fontSize: 19, color: Colors.heroText, fontVariant: ['tabular-nums'] }, statLabel: { fontFamily: 'Manrope_400Regular', fontSize: 12, color: Colors.heroMuted },
+  breakdown: { padding: 20, borderRadius: 24, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, gap: 18 }, sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 }, heading: { fontFamily: 'Manrope_700Bold', fontSize: 17, color: Colors.textPrimary }, note: { fontFamily: 'Manrope_500Medium', fontSize: 12, lineHeight: 18, color: Colors.textSecondary },
+  vendorRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, rank: { width: 34, height: 34, borderRadius: 11, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' }, firstRank: { backgroundColor: Colors.primaryLight }, rankText: { fontFamily: 'Manrope_700Bold', fontSize: 11, color: Colors.primaryDark }, vendorBody: { flex: 1, gap: 8 }, vendor: { flex: 1, fontFamily: 'Manrope_600SemiBold', fontSize: 13, color: Colors.textPrimary }, vendorAmount: { fontFamily: 'Manrope_700Bold', fontSize: 13, color: Colors.textPrimary, fontVariant: ['tabular-nums'] }, track: { height: 4, borderRadius: 2, backgroundColor: Colors.background, overflow: 'hidden' }, fill: { height: 4, backgroundColor: Colors.primary, borderRadius: 2 }, empty: { fontFamily: 'Manrope_400Regular', fontSize: 14, lineHeight: 22, color: Colors.textSecondary }, footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: Colors.borderLight, paddingTop: 14, gap: 8 }, allTotal: { fontFamily: 'Manrope_700Bold', fontSize: 13, color: Colors.textPrimary },
 });

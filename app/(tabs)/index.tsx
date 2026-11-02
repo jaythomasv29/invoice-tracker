@@ -42,7 +42,7 @@ import UploadStreakCard from "../../components/dashboard/UploadStreakCard";
 import { TourTarget } from "../../components/tour/TourTarget";
 import { useTour } from "../../components/tour/TourProvider";
 
-const CARD_PAD = 16;
+const CARD_PAD = 20;
 
 // The home dashboard has no empty state to gate on, so its onboarding lives only
 // behind the header info button. Copy orients a new user to the whole app rather
@@ -99,6 +99,7 @@ export default function HomeScreen() {
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [openingReview, setOpeningReview] = useState(false);
+  const [showInsights, setShowInsights] = useState(false);
   const openReview = async (id:string) => {
     if (!organization?.id || openingReview) return;
     const scope=useStore.getState().activeScope;
@@ -115,7 +116,7 @@ export default function HomeScreen() {
 
   // Let the product tour scroll this screen so targets below the fold can be
   // brought into view before the spotlight measures them.
-  const { registerScroller } = useTour();
+  const { registerScroller, active: tourActive } = useTour();
   const scrollRef = useRef<ScrollView>(null);
   const scrollOffset = useRef(0);
   useEffect(() => {
@@ -152,7 +153,7 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={styles.greeting}>{getGreeting()}</Text>
+          <Text style={styles.greeting}>YOUR WORKSPACE</Text>
           <View style={styles.nameRow}>
             <Text style={styles.restaurantName} numberOfLines={1}>
               {restaurantName}
@@ -195,6 +196,10 @@ export default function HomeScreen() {
           scrollOffset.current = e.nativeEvent.contentOffset.y;
         }}
       >
+        <View style={styles.overviewHeading}>
+          <View style={{flex:1}}><Text style={styles.overviewTitle}>Kitchen overview</Text><Text style={styles.overviewSubtitle}>{getGreeting()}. Let’s make it a clear one.</Text></View>
+          <TouchableOpacity onPress={() => router.push('/scan')} accessibilityRole="button" accessibilityLabel="Scan a new invoice" style={styles.quickScan}><Text style={styles.quickScanText}>+ Scan</Text></TouchableOpacity>
+        </View>
         <SpendOverviewCard invoices={spendInvoices} vendors={vendors} loading={isLoadingSummary} />
         {awaitingReviewCount>0&&<View style={styles.reviewCard}>
           <Text style={styles.reviewTitle}>{awaitingReviewCount} {awaitingReviewCount===1?'invoice needs':'invoices need'} review</Text>
@@ -215,7 +220,7 @@ export default function HomeScreen() {
         {/* Daily upload-streak habit widget — shown to all tiers to drive the
             core "log your invoices" behavior. Self-fetches on focus. */}
         <TourTarget id="home-streak">
-          <UploadStreakCard onScan={() => router.push("/scan")} />
+          {(showInsights || tourActive) && <UploadStreakCard onScan={() => router.push("/scan")} />}
         </TourTarget>
 
         {/* Spend tracking + price-creep are the Pro differentiators. Free orgs
@@ -223,6 +228,10 @@ export default function HomeScreen() {
             stay available to everyone. */}
         {isPaid ? (
           <>
+            <TouchableOpacity onPress={() => setShowInsights(x => !x)} accessibilityRole="button" accessibilityState={{expanded: showInsights || tourActive}} style={styles.insightsToggle}>
+              <View style={{flex:1}}><Text style={styles.insightsTitle}>Purchasing intelligence</Text><Text style={styles.overviewSubtitle}>Trends, price changes & ingredient insights</Text></View><Text style={styles.insightsLink}>{showInsights || tourActive ? 'Hide −' : 'Explore +'}</Text>
+            </TouchableOpacity>
+            {(showInsights || tourActive) && <>
             <MissingInvoiceCard
               flags={missingInvoices}
               onPressVendor={(id) => router.push(`/vendor/${id}`)}
@@ -276,6 +285,7 @@ export default function HomeScreen() {
                 router.push({ pathname: '/item-history', params: { itemName: name } })
               }
             />
+            </>}
           </>
         ) : (
           <ProLockCard
@@ -403,6 +413,14 @@ function GridIcon() {
 }
 
 const styles = StyleSheet.create({
+  overviewHeading: {flexDirection:'row',alignItems:'center',gap:12,marginBottom:4},
+  overviewTitle:{fontFamily:'Manrope_800ExtraBold',fontSize:27,letterSpacing:-1,color:Colors.textPrimary},
+  overviewSubtitle:{fontFamily:'Manrope_400Regular',fontSize:12,lineHeight:19,color:Colors.textSecondary,marginTop:3},
+  quickScan:{minWidth:76,minHeight:44,paddingHorizontal:14,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:Colors.primary},
+  quickScanText:{fontFamily:'Manrope_700Bold',fontSize:14,color:Colors.textOnPrimary},
+  insightsToggle:{flexDirection:'row',alignItems:'center',gap:12,paddingVertical:12},
+  insightsTitle:{fontFamily:'Manrope_700Bold',fontSize:17,color:Colors.textPrimary},
+  insightsLink:{fontFamily:'Manrope_700Bold',fontSize:13,color:Colors.primary},
   reviewCard:{padding:20,gap:12,borderRadius:20,backgroundColor:Colors.surface,borderWidth:1,borderColor:Colors.border},
   reviewTitle:{fontFamily:'Manrope_700Bold',fontSize:18,color:Colors.textPrimary},
   reviewBody:{fontFamily:'Manrope_400Regular',fontSize:14,lineHeight:21,color:Colors.textSecondary},
@@ -420,8 +438,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   greeting: {
-    fontSize: 13,
-    fontFamily: "Manrope_600SemiBold",
+    fontSize: 10,
+    letterSpacing: 1.6,
+    fontFamily: "Manrope_700Bold",
     color: Colors.textSecondary,
   },
   nameRow: {
@@ -443,8 +462,8 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   iconBtn: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     borderRadius: 13,
     backgroundColor: Colors.surface,
     borderWidth: 1,
@@ -468,15 +487,15 @@ const styles = StyleSheet.create({
     borderColor: "#fff",
   },
   avatar: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     borderRadius: 13,
     backgroundColor: Colors.primary,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.08,
     shadowRadius: 10,
   },
   avatarText: {
@@ -486,7 +505,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  scroll: { padding: CARD_PAD, gap: 11, paddingBottom: 120 },
+  scroll: { padding: CARD_PAD, gap: 16, paddingBottom: 120 },
 
   actionCard: {
     flexDirection: "row",

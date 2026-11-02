@@ -7,6 +7,7 @@ import { Colors } from '../../constants/Colors';
 import { useStore, type Invoice, type LineItem } from '../../store/useStore';
 import { useSupabase } from '../../lib/supabase';
 import { fetchInvoiceById, fetchInvoiceImageUrls, updateLineItem, setLineItemVoided, deleteInvoice } from '../../lib/invoicePipeline';
+import { buildDemoInvoices } from '../../lib/demoData';
 import Spinner from '../../components/ui/Spinner';
 import ImageViewerModal from '../../components/ui/ImageViewerModal';
 import BackButton from '../../components/ui/BackButton';
@@ -20,6 +21,7 @@ export default function InvoiceDetailScreen() {
   const { organization } = useOrganization();
   const supabase = useSupabase();
 
+  const demoMode = useStore(s => s.demoMode);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -35,6 +37,7 @@ export default function InvoiceDetailScreen() {
   const showToast = useStore((s) => s.showToast);
 
   useEffect(() => {
+    if (demoMode) { setInvoice(buildDemoInvoices().find(x => x.id === id) ?? null); setLoading(false); return; }
     if (!organization?.id || !id) return;
     setLoading(true);
     setLoadError('');
@@ -42,7 +45,7 @@ export default function InvoiceDetailScreen() {
       .then(setInvoice)
       .catch((err: any) => setLoadError(err?.message ?? 'Could not load invoice'))
       .finally(() => setLoading(false));
-  }, [organization?.id, id, supabase]);
+  }, [organization?.id, id, supabase, demoMode]);
 
   const handleViewOriginal = async () => {
     if (!organization?.id || !id) return;

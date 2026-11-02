@@ -17,7 +17,7 @@ export default function BackButton({ onPress }: { onPress: () => void }) {
 
 const styles = StyleSheet.create({
   backBtn: {
-    width: 40, height: 40, borderRadius: 12,
+    width: 44, height: 44, borderRadius: 12,
     backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },

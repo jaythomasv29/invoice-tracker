@@ -1,37 +1,41 @@
 export const Colors = {
+  hero: '#123D30',
+  heroText: '#FFFFFF',
+  heroMuted: '#C4D7CD',
+  accent: '#D5ECA0',
   // Primary green (from design: oklch(70% 0.16 145))
-  primary: '#5DB075',
-  primaryDark: '#4A9660',
-  primaryLight: '#E8F5ED',
-  primaryMuted: '#B8DFC5',
+  primary: '#17624B',
+  primaryDark: '#104B3A',
+  primaryLight: '#E7F1EB',
+  primaryMuted: '#A8CBB9',
 
   // Backgrounds
-  background: '#F4F4F8',
+  background: '#F5F5F0',
   surface: '#FFFFFF',
-  surfacePressed: '#F0F0F4',
+  surfacePressed: '#EEF1EB',
 
   // Borders
-  border: '#E8E8EE',
-  borderLight: '#F0F0F5',
+  border: '#DFE5DC',
+  borderLight: '#EDF0E9',
 
   // Text
-  textPrimary: '#1A1A2E',
-  textSecondary: '#6B6B80',
-  textTertiary: '#9696A8',
+  textPrimary: '#172C25',
+  textSecondary: '#5D6D64',
+  textTertiary: '#647368',
   textOnPrimary: '#FFFFFF',
 
   // Semantic
-  warning: '#E07A30',
-  warningLight: '#FDF0E6',
+  warning: '#A65524',
+  warningLight: '#FAEEE1',
   warningMuted: '#F5A96B',
-  danger: '#D94F3A',
+  danger: '#BD4938',
   dangerLight: '#FDECEA',
   dangerMuted: '#E88A7D',
-  success: '#5DB075',
-  successLight: '#E8F5ED',
+  success: '#17624B',
+  successLight: '#E7F1EB',
 
   // Vendor chart colors (from design)
-  vendorCascade: '#5DB075',
+  vendorCascade: '#17624B',
   vendorGolden: '#5B7FD4',
   vendorGoldenLight: '#EEF2FF',
   vendorPinnacle: '#E09030',
@@ -46,20 +50,20 @@ export const Colors = {
   darkTextMuted: 'rgba(255,255,255,0.5)',
 
   // Dashboard chart accents (spend trend + bar/area viz)
-  chartGrid: '#EFEFF4',          // recessive gridlines / baseline
-  chartBarFrom: '#74C48D',       // duotone bar — light top
-  chartBarTo: '#43925A',         // duotone bar — dark bottom (emphasis)
-  chartBarMutedFrom: '#CBE9D5',  // past-period bar — light top
-  chartBarMutedTo: '#A2D3B2',    // past-period bar — dark bottom
+  chartGrid: '#E7ECE4',          // recessive gridlines / baseline
+  chartBarFrom: '#8BBE9B',       // duotone bar — light top
+  chartBarTo: '#17624B',         // duotone bar — dark bottom (emphasis)
+  chartBarMutedFrom: '#D9E8D9',  // past-period bar — light top
+  chartBarMutedTo: '#B7D3BE',    // past-period bar — dark bottom
   chartAreaFrom: 'rgba(93,176,117,0.18)',
   chartAreaTo: 'rgba(93,176,117,0.0)',
-  heroTintTop: '#F2FBF5',        // faint green wash for the hero card
+  heroTintTop: '#EDF4E9',        // faint green wash for the hero card
   heroTintBottom: '#FFFFFF',
 
   // Misc
   shadow: 'rgba(0,0,0,0.08)',
   tabBar: '#FFFFFF',
-  tabBarBorder: '#EBEBF0',
-  tabBarActive: '#5DB075',
-  tabBarInactive: '#9696A8',
+  tabBarBorder: '#DFE5DC',
+  tabBarActive: '#17624B',
+  tabBarInactive: '#718076',
 } as const;
