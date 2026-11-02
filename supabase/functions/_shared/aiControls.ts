@@ -28,3 +28,9 @@ export async function readImage(client: SupabaseClient, bucket: string, path: st
   let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte);
   return { data: btoa(binary), mediaType, bytes };
 }
+
+export async function setAiJobPhase(id: string | undefined, phase: 'checking' | 'reading' | 'saving') {
+  if (!id) return;
+  const { error } = await adminClient().from('ai_jobs').update({ phase }).eq('id',id).eq('status','running');
+  if (error) console.error('AI progress update delayed');
+}

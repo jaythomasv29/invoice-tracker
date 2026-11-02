@@ -200,6 +200,7 @@ export async function extractInvoice(
   opts?: { skipDuplicateCheck?: boolean }
 ): Promise<Invoice> {
   const { data, error } = await supabase.functions.invoke('extract-invoice', {
+    timeout: 180000,
     body: { invoiceId, skipDuplicateCheck: opts?.skipDuplicateCheck },
   });
   if (error) {
@@ -214,6 +215,7 @@ export async function extractInvoice(
           used?: number;
           cap?: number;
           existingInvoiceId?: string;
+          canOverride?: boolean;
           vendorName?: string | null;
           invoiceDate?: string | null;
           total?: number | null;
@@ -238,7 +240,8 @@ export async function extractInvoice(
         body.existingInvoiceId,
         body.vendorName ?? null,
         body.invoiceDate ?? null,
-        body.total ?? null
+        body.total ?? null,
+        body.canOverride !== false
       );
     }
     throw new Error(body?.error ?? error.message ?? 'Extraction failed');

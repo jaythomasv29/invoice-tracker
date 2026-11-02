@@ -27,7 +27,7 @@ import { PRIVACY_POLICY_URL, TERMS_URL, openLegalUrl } from '../constants/legal'
 export default function PaywallScreen() {
   const router = useRouter();
   const supabase = useSupabase();
-  const [offeringError, setOfferingError] = useState(false);
+  const [offeringError, setOfferingError] = useState<string | null>(null);
   const [loadingPackages, setLoadingPackages] = useState(true);
   const { organization } = useOrganization();
   const { plan, isPaid } = useEntitlement();
@@ -40,12 +40,12 @@ export default function PaywallScreen() {
   const [packages, setPackages] = useState<TierPackages>({ plus: null, pro: null });
 
   const loadPackages = async () => {
-    setLoadingPackages(true); setOfferingError(false);
+    setLoadingPackages(true); setOfferingError(null);
     try {
       const loaded = await getTierPackages();
       setPackages(loaded);
-      if (!loaded.pro) setOfferingError(true);
-    } catch { setOfferingError(true); }
+      if (!loaded.pro) setOfferingError('The App Store is not returning a Pro price yet.');
+    } catch (error: any) { setOfferingError(error?.message ?? 'Could not load the subscription.'); }
     finally { setLoadingPackages(false); }
   };
   useEffect(() => { void loadPackages(); }, []);
@@ -213,7 +213,7 @@ export default function PaywallScreen() {
               <Text style={styles.ctaText}>{busy ? 'Verifying purchase…' : loadingPackages ? 'Loading price…' : !selectedPkg ? 'Subscription unavailable' : `Upgrade to ${ctaTierLabel} — ${ctaPriceLabel}`}</Text>
             </TouchableOpacity>
 
-            {offeringError && <TouchableOpacity onPress={loadPackages} style={styles.restoreBtn} accessibilityRole="button"><Text style={styles.restoreText}>Could not load subscription. Tap to retry.</Text></TouchableOpacity>}
+            {offeringError && <TouchableOpacity onPress={loadPackages} style={styles.restoreBtn} accessibilityRole="button"><Text style={styles.restoreText}>{offeringError} Tap to retry.</Text></TouchableOpacity>}
             <TouchableOpacity
               onPress={handleRestore}
               disabled={restoring || busy}

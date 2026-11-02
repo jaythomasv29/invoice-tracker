@@ -1,3 +1,5 @@
+import { fetchInvoiceById, fetchInvoiceImageUrls } from '../../lib/invoicePipeline';
+import SpendOverviewCard from '../../components/dashboard/SpendOverviewCard';
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
@@ -71,6 +73,7 @@ export default function HomeScreen() {
   const userInitials = initialsFor(restaurantName);
   const {
     vendors,
+    spendInvoices, awaitingReview, awaitingReviewCount,
     categorySpend,
     topItems,
     uploadActivity,
@@ -95,6 +98,20 @@ export default function HomeScreen() {
   const topAlert = priceAlerts.find((a) => !a.read);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [openingReview, setOpeningReview] = useState(false);
+  const openReview = async (id:string) => {
+    if (!organization?.id || openingReview) return;
+    const scope=useStore.getState().activeScope;
+    setOpeningReview(true);
+    try {
+      const [invoice,imageUris]=await Promise.all([fetchInvoiceById(supabase,organization.id,id),fetchInvoiceImageUrls(supabase,organization.id,id)]);
+      if (useStore.getState().activeScope!==scope) return;
+      useStore.getState().setCurrentInvoice({...invoice,imageUris});
+      router.push('/scan/review');
+    } catch { useStore.getState().showToast('Could not open invoice review. Please retry.'); }
+    finally {setOpeningReview(false);}
+  };
+
 
   // Let the product tour scroll this screen so targets below the fold can be
   // brought into view before the spotlight measures them.
@@ -178,6 +195,16 @@ export default function HomeScreen() {
           scrollOffset.current = e.nativeEvent.contentOffset.y;
         }}
       >
+        <SpendOverviewCard invoices={spendInvoices} vendors={vendors} loading={isLoadingSummary} />
+        {awaitingReviewCount>0&&<View style={styles.reviewCard}>
+          <Text style={styles.reviewTitle}>{awaitingReviewCount} {awaitingReviewCount===1?'invoice needs':'invoices need'} review</Text>
+          <Text style={styles.reviewBody}>These scans are ready. Review and save them to include them in your spending.</Text>
+          {awaitingReview.map(invoice=><TouchableOpacity key={invoice.id} disabled={openingReview} accessibilityRole="button" accessibilityLabel={`Review invoice from ${invoice.vendorName}`} onPress={()=>void openReview(invoice.id)} style={styles.reviewRow}>
+            <Text style={styles.reviewVendor} numberOfLines={1}>{invoice.vendorName}</Text><Text style={styles.reviewLink}>{openingReview?'Opening…':'Review →'}</Text>
+          </TouchableOpacity>)}
+        </View>}
+
+
         {/* Flagship feature — kept at the top for easy access. Pro → the
             feature; free → paywall (conversion). */}
         <RecipeCostingCard
@@ -259,7 +286,7 @@ export default function HomeScreen() {
             }
             statLabel={monthTotal > 0 ? "spent this month" : undefined}
             title="See where every dollar goes"
-            body="Break spend down by vendor, category, and trend — and get alerted the moment a price creeps up on any invoice."
+            body="Unlock category trends, recipe costing, and supplier price-change alerts."
           />
         )}
 
@@ -376,6 +403,12 @@ function GridIcon() {
 }
 
 const styles = StyleSheet.create({
+  reviewCard:{padding:20,gap:12,borderRadius:20,backgroundColor:Colors.surface,borderWidth:1,borderColor:Colors.border},
+  reviewTitle:{fontFamily:'Manrope_700Bold',fontSize:18,color:Colors.textPrimary},
+  reviewBody:{fontFamily:'Manrope_400Regular',fontSize:14,lineHeight:21,color:Colors.textSecondary},
+  reviewRow:{minHeight:48,flexDirection:'row',alignItems:'center',gap:12},
+  reviewVendor:{flex:1,fontFamily:'Manrope_600SemiBold',fontSize:15,color:Colors.textPrimary},
+  reviewLink:{fontFamily:'Manrope_700Bold',fontSize:14,color:Colors.textPrimary,textDecorationLine:'underline'},
   safe: { flex: 1, backgroundColor: Colors.background },
   header: {
     flexDirection: "row",

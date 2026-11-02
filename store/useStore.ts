@@ -1,3 +1,4 @@
+import type { SpendInvoice } from '../lib/spendSummary';
 import { create } from 'zustand';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatDate, fallbackVendorColor, categoryColor, categoryLabel, localDateFromTimestamp } from '../lib/invoicePipeline';
@@ -139,6 +140,9 @@ interface AppState {
   scanStage: 'idle' | 'processing' | 'done';
 
   // Dashboard
+  spendInvoices: SpendInvoice[];
+  awaitingReview: { id: string; vendorName: string; total: number }[];
+  awaitingReviewCount: number;
   spendView: SpendPeriod;
   yearsBack: number;
   selectedDay: number | null;
@@ -315,6 +319,8 @@ export const useStore = create<AppState>((set, get) => ({
   currentInvoice: null,
   scanStage: 'idle',
   selectedDay: null,
+  spendInvoices: [],
+  awaitingReview: [], awaitingReviewCount: 0,
   spendView: 'month',
   yearsBack: 1,
   weekTotal: 0,
@@ -481,16 +487,23 @@ export const useStore = create<AppState>((set, get) => ({
       return;
     }
 
-    const { data: invoiceRows, error: invoiceErr } = await supabase
-      .from('invoices')
-      .select('id, vendor_id, total, invoice_date, created_at, invoice_line_items(id, clean_name, category, extended_price, line_item_type, voided_at, reconciliation_status)')
-      .eq('organization_id', organizationId)
-      .eq('status', 'saved')
-      .order('created_at', { ascending: false });
-    if (invoiceErr) {
-      get().showToast('Could not load dashboard data');
-      return;
+    const invoiceMap = new Map<string, any>();
+    for (let offset = 0; ; offset += 500) {
+      if (get().activeScope !== scope) return;
+      const { data: rows, error } = await supabase.from('invoices')
+        .select('id, vendor_id, total, invoice_date, created_at, invoice_line_items(id, clean_name, category, extended_price, line_item_type, voided_at, reconciliation_status)')
+        .eq('organization_id', organizationId).eq('status', 'saved')
+        .order('created_at', { ascending: false }).order('id', { ascending: false }).range(offset, offset + 499);
+      if (error) { get().showToast('Could not load dashboard data'); return; }
+      for (const row of rows ?? []) invoiceMap.set(row.id,row);
+      if (!rows || rows.length < 500) break;
     }
+    const invoiceRows = [...invoiceMap.values()];
+
+    const { data: reviewRows, count: reviewCount, error: reviewError } = await supabase.from('invoices')
+      .select('id, total, vendors(name)', { count: 'exact' }).eq('organization_id',organizationId).eq('status','scanned').order('created_at',{ascending:false}).limit(20);
+    const awaitingReview = reviewError ? [] : (reviewRows ?? []).map((row:any)=>({id:row.id,vendorName:row.vendors?.name??'Unknown vendor',total:Number(row.total??0)}));
+    if (reviewError) get().showToast('Could not load invoices awaiting review');
 
     const today = new Date();
     const weekStart = mondayOf(today);
@@ -737,6 +750,8 @@ export const useStore = create<AppState>((set, get) => ({
       weekTotal: Math.round(weekTotal * 100) / 100, weekPctChange, dayData,
       monthTotal: Math.round(monthTotal * 100) / 100, monthPctChange, monthData,
       allYearData,
+      awaitingReview, awaitingReviewCount: reviewCount ?? 0,
+      spendInvoices: invoiceRows.map(({id,vendor_id,total,invoice_date,created_at})=>({id,vendor_id,total,invoice_date,created_at})),
       categorySpend, uploadActivity, topItems,
       deliveryGapTotal: Math.round(deliveryGapTotal * 100) / 100, deliveryGapItems,
     });

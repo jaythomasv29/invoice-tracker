@@ -89,3 +89,26 @@ do $$ declare r jsonb; begin
  if exists(select 1 from public.extraction_usage where organization_id='org_monthly_budget_test') then raise exception 'denial changed successful usage'; end if;
 end $$;
 rollback;
+
+-- Duplicate commit and progress isolation regression checks.
+begin;
+insert into public.vendors(id,organization_id,name) values('11111111-1111-4111-8111-111111111119','org_duplicate_qa','QA Vendor');
+insert into public.invoices(id,organization_id) values('22222222-2222-4222-8222-222222222229','org_duplicate_qa'),('33333333-3333-4333-8333-333333333339','org_duplicate_qa');
+do $$declare a jsonb;b jsonb;begin
+ a:=public.begin_ai_job('org_duplicate_qa','22222222-2222-4222-8222-222222222229','invoice',10);
+ b:=public.begin_ai_job('org_duplicate_qa','33333333-3333-4333-8333-333333333339','invoice',10);
+ perform public.complete_invoice_extraction((a->>'id')::uuid,'11111111-1111-4111-8111-111111111119','{"invoice_number":"QA-001","invoice_date":"2026-11-01","total":60,"image_hashes":["same-hash"]}','[]');
+ begin
+  perform public.complete_invoice_extraction((b->>'id')::uuid,'11111111-1111-4111-8111-111111111119','{"invoice_number":"QA001","invoice_date":"2026-11-01","total":60,"image_hashes":["different-hash"]}','[]');
+  raise exception 'duplicate committed';
+ exception when raise_exception then if sqlerrm not like 'duplicate invoice:%' then raise; end if;end;
+ if (select status from public.invoices where id='33333333-3333-4333-8333-333333333339')<>'pending' then raise exception 'duplicate changed invoice';end if;
+ perform public.finish_ai_job((b->>'id')::uuid,false);
+ if (select used from public.extraction_usage where organization_id='org_duplicate_qa')<>1 then raise exception 'duplicate charged twice';end if;
+end$$;
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"user_qa","o":{"id":"org_other"}}',true);
+do $$begin
+ if public.invoice_processing_status('22222222-2222-4222-8222-222222222229') is not null then raise exception 'progress tenant leak';end if;
+end$$;
+rollback;

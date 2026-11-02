@@ -13,6 +13,7 @@
 // Requires a dev/prod build — RevenueCat does not run in Expo Go.
 
 import { Platform } from 'react-native';
+import * as Sentry from '@sentry/react-native';
 import Purchases, {
   type CustomerInfo,
   type PurchasesOffering,
@@ -111,10 +112,22 @@ function findByProductId(offering: PurchasesOffering, productId: string): Purcha
 // by product id against PAID_TIERS, falling back to RevenueCat's `.monthly`
 // accessor for whichever tier the dashboard put in that standard slot.
 export async function getTierPackages(): Promise<TierPackages> {
-  if (!configured) return { plus: null, pro: null };
-  const offerings = await Purchases.getOfferings();
+  configurePurchases();
+  if (!configured) throw new Error('Subscriptions are unavailable on this device.');
+  let offerings;
+  try { offerings = await Purchases.getOfferings(); }
+  catch (error: any) {
+    Sentry.captureException(new Error('Subscription products unavailable'), { tags: { iap_error_code: String(error?.code ?? 'unknown') } });
+    const message = error?.code === PURCHASES_ERROR_CODE.NETWORK_ERROR ? 'Could not connect to the App Store. Check your connection and retry.' : 'The App Store is not returning this subscription yet. Please retry shortly.';
+    const code = String(error?.code ?? 'unknown').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,32);
+    throw new Error(`${message} Support reference: RC-${code}.`);
+  }
   const current: PurchasesOffering | null = offerings.current;
-  if (!current) return { plus: null, pro: null };
+  if (!current) throw new Error('Subscriptions are temporarily unavailable. Please retry shortly.');
+  if (!findByProductId(current, 'sift_pro_monthly')) {
+    Sentry.captureException(new Error('Pro StoreKit product missing from offering'), { tags: { iap_error_code: 'missing_pro_product' } });
+    throw new Error('The App Store is not returning the Pro price yet. Please retry shortly.');
+  }
   return {
     plus: findByProductId(current, 'sift_plus_monthly'),
     pro: findByProductId(current, 'sift_pro_monthly'),

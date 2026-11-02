@@ -1,3 +1,4 @@
+import { compareInvoiceIdentity } from '../_shared/invoiceIdentity.ts';
 import { getOrganization } from '../_shared/clerkAuth.ts';
 // Invoice extraction pipeline — PRD section 6.3 / 9.
 //
@@ -17,7 +18,7 @@ import { getOrganization } from '../_shared/clerkAuth.ts';
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { adminClient, beginAiJob, finishAiJob, readImage, requireAiConsent } from '../_shared/aiControls.ts';
+import { adminClient, beginAiJob, finishAiJob, readImage, requireAiConsent, setAiJobPhase } from '../_shared/aiControls.ts';
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -300,12 +301,13 @@ const DUPLICATE_INVOICE_CODE = 'DUPLICATE_INVOICE_DETECTED';
 // confirmation UI. Same shape for either dedup layer — the client doesn't need
 // to know which one caught it. `existing` is a row selected with
 // `id, invoice_date, total, vendors(name)`.
-function duplicateResponse(existing: any): Response {
+function duplicateResponse(existing: any, canOverride = true): Response {
   const vendorName = existing.vendors?.name ?? null;
   return new Response(
     JSON.stringify({
       error: 'This looks like a duplicate of an invoice you already have.',
       code: DUPLICATE_INVOICE_CODE,
+      canOverride,
       existingInvoiceId: existing.id,
       vendorName,
       invoiceDate: existing.invoice_date ?? null,
@@ -441,26 +443,25 @@ Deno.serve(async (req) => {
     );
 
     const imageHashes = images.map((img) => img.hash);
+    if (new Set(imageHashes).size !== imageHashes.length) throw new Error('The same photo appears more than once. Remove repeated pages and retry.');
 
-    // Duplicate detection — runs before any Sonnet spend, unless the client
-    // explicitly forced this scan through ("continue anyway"). "Warn, let the
-    // user override": on a likely duplicate we don't extract and don't fail
-    // silently — we return a structured 409 the client turns into a confirm UI.
-    if (!skipDuplicateCheck) {
+    // Exact complete page sets are always blocked. The override only skips
+    // a possible header match; final commit still rejects strong identities.
       // Layer 1 — exact image bytes (free). Postgres array-overlap (`&&`)
       // against this org's already-extracted invoices.
       const { data: hashMatches } = await supabase
         .from('invoices')
-        .select('id, invoice_date, total, vendors(name)')
+        .select('id, invoice_date, total, image_hashes, vendors(name)')
         .eq('organization_id', invoice.organization_id)
         .in('status', ['scanned', 'saved'])
-        .overlaps('image_hashes', imageHashes)
-        .limit(1);
-      if (hashMatches && hashMatches.length > 0) {
+        .overlaps('image_hashes', imageHashes);
+      const exactMatch = hashMatches?.find((row:any) => row.image_hashes?.length === imageHashes.length && imageHashes.every(hash => row.image_hashes.includes(hash)));
+      if (exactMatch) {
         await finishAiJob(jobId, false);
-        return duplicateResponse(hashMatches[0]);
+        return duplicateResponse(exactMatch, false);
       }
 
+    if (!skipDuplicateCheck) {
       // Layer 2 — cheap Haiku fingerprint. Catches the same paper invoice
       // re-photographed (different bytes, so layer 1 missed it) by reading only
       // vendor/number/date/total and matching against existing invoices.
@@ -473,28 +474,19 @@ Deno.serve(async (req) => {
           .eq('organization_id', invoice.organization_id)
           .in('status', ['scanned', 'saved']);
 
-        const fpMatch = (candidates ?? []).find((c: any) => {
-          if (normalizeVendorName(c.vendors?.name ?? '') !== normalizedFpVendor) return false;
-          // Vendor matches; confirm with either the invoice number or the
-          // date+total pair (a photo re-take won't change these printed values).
-          const numberMatch =
-            !!fp.invoice_number && !!c.invoice_number && fp.invoice_number === c.invoice_number;
-          const dateTotalMatch =
-            !!fp.invoice_date &&
-            fp.invoice_date === c.invoice_date &&
-            fp.total != null &&
-            c.total != null &&
-            Math.abs(Number(fp.total) - Number(c.total)) < 0.01;
-          return numberMatch || dateTotalMatch;
-        });
+        const identity = {vendor:fp.vendor_name??'',number:fp.invoice_number,date:fp.invoice_date,total:fp.total};
+        const fpMatch = (candidates ?? []).find((c:any)=>compareInvoiceIdentity(identity,{vendor:c.vendors?.name??'',number:c.invoice_number,date:c.invoice_date,total:c.total==null?null:Number(c.total)}));
         if (fpMatch) {
+          const match=compareInvoiceIdentity(identity,{vendor:fpMatch.vendors?.name??'',number:fpMatch.invoice_number,date:fpMatch.invoice_date,total:fpMatch.total==null?null:Number(fpMatch.total)});
           await finishAiJob(jobId, false);
-          return duplicateResponse(fpMatch);
+          return duplicateResponse(fpMatch, match !== 'same');
         }
       }
     }
 
+    await setAiJobPhase(jobId, 'reading');
     const result = await extractWithModel(MODEL_SONNET, images);
+    await setAiJobPhase(jobId, 'saving');
 
     // Resolve or create the vendor. OCR reads of the same vendor's name
     // drift between scans in trivial ways ("S.J. Distributors LLC" vs
@@ -563,7 +555,15 @@ Deno.serve(async (req) => {
         raw_ai_response: result, image_hashes: imageHashes },
       p_lines: lineItemRows,
     });
-    if (commitErr) throw new Error('Could not save invoice. Please try again.');
+    if (commitErr) {
+      const duplicateId = commitErr.message.match(/duplicate invoice:([0-9a-f-]{36})/i)?.[1];
+      if (duplicateId) {
+        await finishAiJob(jobId, false);
+        const { data: existing } = await supabase.from('invoices').select('id, invoice_date, total, vendors(name)').eq('id',duplicateId).single();
+        if (existing) return duplicateResponse(existing,false);
+      }
+      throw new Error('Could not save invoice. Please try again.');
+    }
     jobId = undefined; // commit includes quota completion in the same transaction
     const { data: updatedInvoice } = await supabase.from('invoices').select('*, vendors(name)').eq('id', invoiceId).single();
     const { data: insertedLineItems } = await supabase.from('invoice_line_items').select('*').eq('invoice_id', invoiceId);

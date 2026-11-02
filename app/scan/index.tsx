@@ -1,10 +1,10 @@
 import { ensureAiConsent } from '../../lib/aiConsent';
 import { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Modal, Image, ScrollView,
+  View, Text, TouchableOpacity, StyleSheet, Modal, Image, ScrollView, BackHandler,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useNavigation } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
@@ -25,6 +25,12 @@ import Toast from '../../components/ui/Toast';
 
 export default function ScanScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
+  const operation = useRef(false);
+  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [processingStep, setProcessingStep] = useState('Preparing photos');
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [elapsed, setElapsed] = useState(0);
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const { organization } = useOrganization();
@@ -52,12 +58,53 @@ export default function ScanScreen() {
     draftInvoiceId: string;
     jpegUris: string[];
     existingInvoiceId: string;
+    canOverride: boolean;
     vendorName: string | null;
     invoiceDate: string | null;
     total: number | null;
   } | null>(null);
 
   const isOffline = network.isConnected === false || network.isInternetReachable === false;
+  const processing = scanStage === 'processing';
+  useEffect(() => {
+    navigation.setOptions({ gestureEnabled: !processing });
+    if (!processing) return;
+    const back = BackHandler.addEventListener('hardwareBackPress', () => true);
+    const timer = setInterval(() => setElapsed(startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0), 1000);
+    return () => { back.remove(); clearInterval(timer); };
+  }, [processing, startedAt, navigation]);
+  useEffect(() => () => { if (pollTimer.current) clearInterval(pollTimer.current); }, []);
+  const readInvoice = async (invoiceId: string, skipDuplicateCheck = false) => {
+    setProcessingStep('Checking for duplicates');
+    let polling = false;
+    let active = true;
+    pollTimer.current = setInterval(async () => {
+      if (polling) return;
+      polling = true;
+      try {
+        const { data } = await supabase.rpc('invoice_processing_status', { p_invoice: invoiceId });
+        if (!active) return;
+        if (data?.phase === 'reading') setProcessingStep('Reading invoice details');
+        if (data?.phase === 'saving' || data?.phase === 'complete') setProcessingStep('Preparing your review');
+      } catch { /* Progress is best effort; extraction keeps its own result. */ } finally { polling = false; }
+    }, 2000);
+    try { return await extractInvoice(supabase, invoiceId, { skipDuplicateCheck }); }
+    finally { active = false; if (pollTimer.current) clearInterval(pollTimer.current); pollTimer.current = null; }
+  };
+  const renderProcessing = () => (
+    <Modal visible={processing} transparent animationType="fade" onRequestClose={() => {}}>
+      <View style={styles.busyBackdrop} accessibilityViewIsModal>
+        <View style={styles.busyCard} accessibilityLiveRegion="polite">
+          <ProcessingSpinner variant="light" style={spinnerStyle} />
+          <Text style={styles.busyTitle}>{processingStep}</Text>
+          <Text style={styles.busyBody}>{elapsed >= 60 ? 'Still working. Larger invoices can take longer. Keep Sift open; there is no need to scan again.' : 'Keep Sift open while we check and read your invoice. You will review every detail before saving.'}</Text>
+          <Text style={styles.busyElapsed}>{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')} elapsed · Timing varies by invoice</Text>
+          <Text style={styles.busySteps}>Step {Math.max(1, ['Preparing photos','Uploading invoice photos','Checking for duplicates','Reading invoice details','Preparing your review'].indexOf(processingStep)+1)} of 5 · Prepare → Upload → Check → Read → Review</Text>
+        </View>
+      </View>
+    </Modal>
+  );
+
 
   const spin = useSharedValue(0);
   const flashOpacity = useSharedValue(0);
@@ -98,7 +145,8 @@ export default function ScanScreen() {
       return;
     }
     if (uris.length > 5) { showToast('Import up to 5 pages per invoice.'); return; }
-    setScanStage('processing');
+    if (operation.current) return;
+    operation.current = true;
     // Hoisted so the catch block can reference the draft invoice / images when
     // the server flags a duplicate (to delete it or force it through later).
     let invoiceId: string | undefined;
@@ -109,15 +157,18 @@ export default function ScanScreen() {
       // so every image is re-encoded to a guaranteed-real JPEG regardless of
       // source format before it ever gets uploaded.
       if (!(await ensureAiConsent(supabase))) return;
+      setStartedAt(Date.now()); setElapsed(0); setProcessingStep('Preparing photos');
+      setScanStage('processing');
       jpegUris = await Promise.all(
         uris.map(async (uri) => {
           const result = await manipulateAsync(uri, [{ resize: { width: 2000 } }], { compress: 0.85, format: SaveFormat.JPEG });
           return result.uri;
         })
       );
+      setProcessingStep('Uploading invoice photos');
       invoiceId = await createDraftInvoice(supabase, organization.id);
       await uploadInvoiceImages(supabase, organization.id, invoiceId, jpegUris);
-      const invoice = await extractInvoice(supabase, invoiceId);
+      const invoice = await readInvoice(invoiceId);
       refreshUsage();
       setCurrentInvoice({ ...invoice, imageUris: jpegUris });
       router.replace('/scan/review');
@@ -139,6 +190,7 @@ export default function ScanScreen() {
           draftInvoiceId: invoiceId,
           jpegUris,
           existingInvoiceId: err.existingInvoiceId,
+          canOverride: err.canOverride,
           vendorName: err.vendorName,
           invoiceDate: err.invoiceDate,
           total: err.total,
@@ -160,6 +212,7 @@ export default function ScanScreen() {
       }
       showToast(err?.message ?? 'Could not process invoice. Please try again.');
     } finally {
+      operation.current = false;
       setScanStage('idle');
     }
   };
@@ -183,10 +236,11 @@ export default function ScanScreen() {
   const handleContinueAnyway = async () => {
     const info = duplicateInfo;
     setDuplicateInfo(null);
-    if (!info) return;
+    if (!info || operation.current) return;
+    operation.current = true; setStartedAt(Date.now()); setElapsed(0);
     setScanStage('processing');
     try {
-      const invoice = await extractInvoice(supabase, info.draftInvoiceId, { skipDuplicateCheck: true });
+      const invoice = await readInvoice(info.draftInvoiceId, true);
       refreshUsage();
       setCurrentInvoice({ ...invoice, imageUris: info.jpegUris });
       router.replace('/scan/review');
@@ -198,6 +252,7 @@ export default function ScanScreen() {
       console.error('[scan] continue anyway failed:', err);
       showToast(err?.message ?? 'Could not process invoice');
     } finally {
+      operation.current = false;
       setScanStage('idle');
     }
   };
@@ -225,7 +280,7 @@ export default function ScanScreen() {
         <View style={styles.dupBackdrop}>
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleDismissDuplicate} />
           <View style={styles.dupCard}>
-            <Text style={styles.dupTitle}>Possible duplicate</Text>
+            <Text style={styles.dupTitle}>{duplicateInfo.canOverride ? 'Possible duplicate' : 'Invoice already added'}</Text>
             <Text style={styles.dupSubtitle}>
               This looks like an invoice you already have:
             </Text>
@@ -236,9 +291,9 @@ export default function ScanScreen() {
             <TouchableOpacity style={styles.dupPrimaryBtn} onPress={handleViewExisting} activeOpacity={0.85}>
               <Text style={styles.dupPrimaryText}>View existing invoice</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.dupSecondaryBtn} onPress={handleContinueAnyway} activeOpacity={0.85}>
-              <Text style={styles.dupSecondaryText}>Continue anyway</Text>
-            </TouchableOpacity>
+            {duplicateInfo.canOverride && <TouchableOpacity style={styles.dupSecondaryBtn} onPress={handleContinueAnyway} activeOpacity={0.85}>
+              <Text style={styles.dupSecondaryText}>Add as a different invoice</Text>
+            </TouchableOpacity>}
             <TouchableOpacity style={styles.dupCancelBtn} onPress={handleDismissDuplicate} activeOpacity={0.7}>
               <Text style={styles.dupCancelText}>Cancel</Text>
             </TouchableOpacity>
@@ -279,6 +334,7 @@ export default function ScanScreen() {
   };
 
   const handleImport = async () => {
+    if (operation.current || processing) return;
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
@@ -315,7 +371,8 @@ export default function ScanScreen() {
         <View style={styles.topBar}>
           <TouchableOpacity
             style={styles.closeBtn}
-            onPress={() => router.back()}
+            onPress={() => { if (!operation.current) router.back(); }}
+            disabled={processing}
             hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel="Close"
@@ -337,13 +394,12 @@ export default function ScanScreen() {
             <Text style={styles.importBtnText}>Import from library</Text>
           </TouchableOpacity>
         </View>
+        {renderProcessing()}
         {renderDuplicateModal()}
         <Toast />
       </View>
     );
   }
-
-  const processing = scanStage === 'processing';
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -351,7 +407,8 @@ export default function ScanScreen() {
       <View style={styles.topBar}>
         <TouchableOpacity
           style={styles.closeBtn}
-          onPress={() => router.back()}
+          onPress={() => { if (!operation.current) router.back(); }}
+            disabled={processing}
           activeOpacity={0.7}
           hitSlop={8}
           accessibilityRole="button"
@@ -396,13 +453,7 @@ export default function ScanScreen() {
         {/* Shutter flash */}
         <Animated.View pointerEvents="none" style={[styles.shutterFlash, shutterFlashStyle]} />
 
-        {/* Processing overlay */}
-        {processing && (
-          <View style={styles.processingOverlay}>
-            <ProcessingSpinner style={spinnerStyle} />
-            <Text style={styles.processingText}>Reading invoice…</Text>
-          </View>
-        )}
+
       </View>
 
       {/* Captured-pages tray — thumbnails + the single-shot process CTA. Only
@@ -498,6 +549,7 @@ export default function ScanScreen() {
         )}
       </View>
 
+      {renderProcessing()}
       {renderDuplicateModal()}
       <Toast />
     </View>
@@ -532,6 +584,12 @@ function FlashIcon({ active }: { active: boolean }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
+  busyBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  busyCard: { width: '100%', maxWidth: 440, borderRadius: 24, padding: 28, backgroundColor: Colors.background, alignItems: 'center', gap: 16 },
+  busyTitle: { fontFamily: 'Manrope_700Bold', fontSize: 21, color: Colors.textPrimary, textAlign: 'center' },
+  busyBody: { fontFamily: 'Manrope_400Regular', fontSize: 16, lineHeight: 24, color: Colors.textSecondary, textAlign: 'center' },
+  busyElapsed: { fontFamily: 'Manrope_600SemiBold', fontSize: 14, color: Colors.textPrimary, textAlign: 'center' },
+  busySteps: { fontFamily: 'Manrope_400Regular', fontSize: 13, lineHeight: 20, color: Colors.textSecondary, textAlign: 'center' },
 
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

@@ -73,6 +73,7 @@ export const DUPLICATE_INVOICE_CODE = 'DUPLICATE_INVOICE_DETECTED';
 
 export class DuplicateInvoiceError extends Error {
   readonly code = DUPLICATE_INVOICE_CODE;
+  readonly canOverride: boolean;
   readonly existingInvoiceId: string;
   readonly vendorName: string | null;
   readonly invoiceDate: string | null;
@@ -82,10 +83,12 @@ export class DuplicateInvoiceError extends Error {
     existingInvoiceId: string,
     vendorName: string | null,
     invoiceDate: string | null,
-    total: number | null
+    total: number | null,
+    canOverride = true
   ) {
     super(message);
     this.name = 'DuplicateInvoiceError';
+    this.canOverride = canOverride;
     this.existingInvoiceId = existingInvoiceId;
     this.vendorName = vendorName;
     this.invoiceDate = invoiceDate;
