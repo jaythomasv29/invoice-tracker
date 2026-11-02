@@ -58,33 +58,15 @@ export default function Hero() {
         </motion.div>
       </div>
 
-      {/* Real app screenshot, front and center — the actual dashboard with sample data. A floating stat card echoes Sift's price-alert USP and
-          overlaps the phone the way a lock-screen widget would. */}
-      <div className="relative mx-auto mt-16 w-full max-w-[300px] px-6">
+      {/* Full native screen, without overlays obscuring the interface. */}
+      <div className="relative mx-auto mt-16 w-full max-w-[348px] px-6">
         <motion.div
-          initial={{ opacity: 0, y: 30, scale: 0.97 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: easeOut, delay: 0.35 }}
         >
-          <PhoneFrame src="/screens/home.png" alt="Sift dashboard showing historical invoice spending and a vendor breakdown using fictional sample data" priority />
-          <p className="mt-5 text-xs text-muted">Actual app screens · fictional sample data</p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: easeOut, delay: 0.6 }}
-          className="absolute -left-8 top-12 w-[172px] rounded-2xl border border-border bg-surface p-3.5 shadow-xl shadow-black/[0.08] sm:-left-16"
-        >
-          <div className="mb-1.5 flex items-center gap-1.5">
-            <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: "#E07A30" }} />
-            <span className="text-[10px] font-bold uppercase tracking-wide text-muted">Price alert</span>
-          </div>
-          <div className="text-[13px] font-semibold leading-snug">Chicken Thigh, boneless</div>
-          <div className="mt-1 flex items-center justify-between">
-            <span className="text-xs text-muted">$1.62 → $1.94/lb</span>
-            <span className="text-xs font-bold" style={{ color: "#E07A30" }}>+20%</span>
-          </div>
+          <PhoneFrame src="/screens/home-fe430ac8.png" alt="Sift dashboard showing historical invoice spending and a vendor breakdown using fictional sample data" priority />
+          <p className="mt-6 text-center text-xs text-muted">Actual app screens · fictional sample data</p>
         </motion.div>
       </div>
     </section>

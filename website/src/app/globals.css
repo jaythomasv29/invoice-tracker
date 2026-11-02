@@ -63,3 +63,31 @@ body {
 }
 
 @media (prefers-color-scheme: dark) { .feature-eyebrow { color: #BDE3C9 !important; } }
+
+/* Hardware scales with the device; the image retains its native ratio.
+   Applying the screen ratio to a padded shell would crop the capture. */
+.phone-device { container-type: inline-size; isolation: isolate; }
+.phone-shell {
+  padding: 2.25%;
+  border-radius: 15.2% / 7.25%;
+  background: linear-gradient(135deg, #767875, #343735 18%, #111512 48%, #555a55 80%, #858982);
+  box-shadow: 0 24px 48px -20px rgb(0 0 0 / 30%), 0 6px 14px -7px rgb(0 0 0 / 25%), inset 0 0 0 1px rgb(255 255 255 / 25%);
+}
+.phone-display {
+  overflow: hidden;
+  border: 1.2cqw solid #101410;
+  border-radius: 13.2% / 6.1%;
+  background: #101410;
+  isolation: isolate;
+}
+.phone-button {
+  position: absolute;
+  z-index: -1;
+  width: 1%;
+  background: linear-gradient(90deg, #696e68, #252b26);
+  border-radius: 1cqw;
+}
+.phone-action { left: -0.6%; top: 16%; height: 3.4%; }
+.phone-volume-up { left: -0.6%; top: 23%; height: 6.5%; }
+.phone-volume-down { left: -0.6%; top: 31%; height: 6.5%; }
+.phone-power { right: -0.6%; top: 25%; height: 10%; }
