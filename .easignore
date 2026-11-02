@@ -10,8 +10,3 @@ website/
 !.env.example
 thai_kitchen_invoices/
 .maestro/
-
-# Marketing exports and local capture tooling are not app runtime assets.
-launch-assets/
-design-system/
-scripts/capture/
