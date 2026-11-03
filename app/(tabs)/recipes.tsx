@@ -1,6 +1,7 @@
+import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  View, Text, ScrollView, StyleSheet,
   type NativeScrollEvent, type NativeSyntheticEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

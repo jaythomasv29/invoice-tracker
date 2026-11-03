@@ -1,3 +1,5 @@
+import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
+import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { fetchInvoiceById, fetchInvoiceImageUrls } from '../../lib/invoicePipeline';
 import SpendOverviewCard from '../../components/dashboard/SpendOverviewCard';
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -5,7 +7,6 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
   StyleSheet,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -231,7 +232,7 @@ export default function HomeScreen() {
             <TouchableOpacity onPress={() => setShowInsights(x => !x)} accessibilityRole="button" accessibilityState={{expanded: showInsights || tourActive}} style={styles.insightsToggle}>
               <View style={{flex:1}}><Text style={styles.insightsTitle}>Purchasing intelligence</Text><Text style={styles.overviewSubtitle}>Trends, price changes & ingredient insights</Text></View><Text style={styles.insightsLink}>{showInsights || tourActive ? 'Hide −' : 'Explore +'}</Text>
             </TouchableOpacity>
-            {(showInsights || tourActive) && <>
+            {(showInsights || tourActive) && <Animated.View entering={FadeInDown.duration(240).reduceMotion(ReduceMotion.System)} style={{gap: 16}}>
             <MissingInvoiceCard
               flags={missingInvoices}
               onPressVendor={(id) => router.push(`/vendor/${id}`)}
@@ -285,7 +286,7 @@ export default function HomeScreen() {
                 router.push({ pathname: '/item-history', params: { itemName: name } })
               }
             />
-            </>}
+            </Animated.View>}
           </>
         ) : (
           <ProLockCard

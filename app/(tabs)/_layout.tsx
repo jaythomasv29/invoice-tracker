@@ -7,6 +7,7 @@ import {
   GestureResponderEvent,
 } from "react-native";
 import Animated, {
+  useReducedMotion,
   useSharedValue,
   useAnimatedStyle,
   withSpring,
@@ -240,6 +241,7 @@ function useTabBarStyle() {
 }
 
 export default function TabLayout() {
+  const reducedMotion = useReducedMotion();
   const router = useRouter();
   // treatPendingAsSignedOut:false so a pending (choose-organization) session
   // isn't misread as signed-out here. Route on orgId (active org from the
@@ -267,6 +269,7 @@ export default function TabLayout() {
     <TourProvider>
     <Tabs
       screenOptions={{
+        animation: reducedMotion ? 'none' : 'fade',
         headerShown: false,
         tabBarStyle,
         tabBarBackground: () => <GlassBackground />,

@@ -1,3 +1,4 @@
+import { useReducedMotion } from 'react-native-reanimated';
 import { SessionScope } from '../components/SessionScope';
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
@@ -79,6 +80,7 @@ export default function RootLayout() {
 // leaving the provider's context tree). Until Clerk finishes hydrating the
 // session we keep the branded <LoadingScreen /> up instead of a blank frame.
 function AppContent() {
+  const reducedMotion = useReducedMotion();
   const { isLoaded } = useAuth();
 
   if (!isLoaded) return <LoadingScreen />;
@@ -87,16 +89,16 @@ function AppContent() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false }}>
+        <Stack screenOptions={{ headerShown: false, animation: reducedMotion ? 'none' : 'default' }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="onboarding/organization" />
           <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
           <Stack.Screen name="scan/index" options={{ presentation: 'fullScreenModal' }} />
           <Stack.Screen name="scan/review" />
-          <Stack.Screen name="vendor/[id]" options={{ animation: 'fade_from_bottom' }} />
-          <Stack.Screen name="invoice/[id]" options={{ animation: 'fade_from_bottom' }} />
-          <Stack.Screen name="item-history" options={{ animation: 'fade_from_bottom' }} />
+          <Stack.Screen name="vendor/[id]" options={{ animation: reducedMotion ? 'none' : 'slide_from_right' }} />
+          <Stack.Screen name="invoice/[id]" options={{ animation: reducedMotion ? 'none' : 'slide_from_right' }} />
+          <Stack.Screen name="item-history" options={{ animation: reducedMotion ? 'none' : 'slide_from_right' }} />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>

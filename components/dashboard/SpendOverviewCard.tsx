@@ -1,5 +1,8 @@
+import TouchableOpacity from '../ui/MotionTouchable';
+import SupplierSpendBar from './SupplierSpendBar';
+import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { summarizeSpend, type SpendInvoice, type SummaryPeriod } from '../../lib/spendSummary';
 const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
@@ -31,8 +34,9 @@ export default function SpendOverviewCard({ invoices, vendors, loading }: {
           <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Next ${period}`} accessibilityState={{ disabled: offset === 0 }} disabled={offset === 0} onPress={() => setOffset(x => Math.min(0, x + 1))} style={[s.arrow, offset === 0 && s.disabled]}><Text style={s.arrowText}>›</Text></TouchableOpacity>
         </View>
       </View>
-      <Text style={s.amount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} accessibilityLiveRegion="polite">{loading ? 'Loading…' : money(data.total)}</Text>
+      <Animated.Text key={`${period}:${offset}:${data.total}:${loading}`} entering={FadeIn.duration(220).reduceMotion(ReduceMotion.System)} style={s.amount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} accessibilityLiveRegion="polite">{loading ? 'Loading…' : money(data.total)}</Animated.Text>
       <Text style={s.heroCaption}>Grouped by the date on each invoice</Text>
+      {!loading && <SupplierSpendBar totals={data.vendors} vendors={vendors} />}
       <View style={s.stats}>
         <View style={s.stat}><Text style={s.statNumber}>{loading ? '—' : data.count}</Text><Text style={s.statLabel}>Invoices</Text></View>
         <View style={s.stat}><Text style={s.statNumber}>{loading ? '—' : data.vendors.length}</Text><Text style={s.statLabel}>Vendors</Text></View>
