@@ -89,3 +89,13 @@ Apple build 63112634-718c-4b21-9b68-393c2b221ed1 (1.0.0 build 6) is VALID and IN
 
 - Build 7 compatible OTA group `d6d04159-11a9-4e8d-9a14-73a889d82541`, update `01a19b5c-30c4-7c75-b7e9-e7d56d8fe8aa`, includes the final recipe average edge-case fix. Actual beta manifests verified for both native runtimes. Build 7 physical-phone checks remain pending.
 - Disposable development capture organization/user deleted after media capture; capture server and local website preview stopped. No production restaurant data was used for the public assets.
+
+
+## November 3 — supplier distribution and motion
+
+- Home Total spending now includes a proportional color-coded supplier bar and a complete name/amount legend for the selected calendar period. Supplier colors use the full registry so period changes keep them consistent. Negative net supplier balances remain in totals/legend and are explicitly excluded from positive-spend segments.
+- Added UI-thread spring press feedback across Home, recipes and invoice/supplier controls, a spending-total fade, supplier segment layout transitions, purchasing-insights reveal, tab crossfades and native detail pushes. New motion honors system Reduce Motion. No native package changes.
+- No backend calls, data migrations or invoice deletions were performed. Owner's two real supplier invoices were not modified.
+- Typecheck/lint and all 15 regression tests pass; iOS Hermes exports succeed. Physical-phone animation and supplier-display checks remain pending.
+- Build 6 beta OTA group `dcfc6d37-0c34-4eaf-b14f-2913eab3e895`, update `01a1a0d2-6b96-726a-8037-91dfc8cfd7dd`, runtime `c679d8b41e86371737a4b1a2779d24876d7d74db`. Compatible native configuration was used for each export, then current build 7 configuration restored. No cloud native build was consumed.
+- Build 7 beta OTA group `dce48792-fcce-41d3-8bfe-adf0c29efe57`, update `01a1a0d0-a210-76a2-afc7-f1b9196ce4b8`, runtime `062bedef39aff97c339accbe22183fe3470f622f`. Compatible native configuration was used for each export, then current build 7 configuration restored. No cloud native build was consumed.

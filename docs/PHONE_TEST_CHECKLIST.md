@@ -44,3 +44,12 @@ Report the build number, iOS version, step, expected result and actual result. A
 - With the computer off, verify sign-in, restaurant and saved invoices persist. Check day/week/month arrows, old invoice periods, top suppliers and invoice search.
 - Verify recipe averages exclude missing menu prices and retain meaningful cost shares over 100%. Ingredient margin is an estimate, not total restaurant profit.
 - Test invoice review with optional notes, scanner processing controls, duplicate protection and Pro price/purchase/restore. Report the exact visible error if Pro is unavailable; those checks are still open.
+
+
+## November 3 supplier spending and motion update
+
+- Keep existing real invoices. Do not delete, reset or re-import them to test this UI update.
+- In Home's Total spending card, check the selected period includes your invoice dates. Each supplier should have a distinct segment and matching name/amount; totals must match the saved invoices.
+- Switch Day/Week/Month and past periods. Colors should remain consistent for existing suppliers. Credits remain in net totals; negative supplier balances are listed but do not become misleading positive segments.
+- Check press feedback on Home, invoice/library and recipe controls; check insights reveal, tab fades and detail navigation. Enable iOS Reduce Motion, reopen Sift, and verify these new transitions become immediate or reduced.
+- Test on the physical phone before calling animation quality/device behavior verified. The update uses existing native dependencies and requires no invoice-data migration.
