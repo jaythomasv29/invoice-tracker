@@ -181,3 +181,15 @@ export async function manageSubscription(): Promise<void> {
   if (!configured) return;
   await Purchases.showManageSubscriptions();
 }
+
+// Fresh, restaurant-scoped display information. It never changes server access.
+export async function getSubscriptionEntitlement(orgId: string) {
+  return serializeIdentity(async () => {
+    if (!configured) throw new Error('Purchases are unavailable on this build.');
+    await Purchases.logIn(orgId);
+    identifiedOrg = orgId;
+    await Purchases.invalidateCustomerInfoCache();
+    const info = await Purchases.getCustomerInfo();
+    return info.entitlements.all.pro ?? info.entitlements.all.plus ?? null;
+  });
+}

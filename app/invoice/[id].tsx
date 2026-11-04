@@ -65,16 +65,12 @@ export default function InvoiceDetailScreen() {
     }
   };
 
-  const handleSaveEdit = async (updates: { desc: string; qty: number; unitPrice: number }) => {
+  const handleSaveEdit = async (updates: { desc: string; qty: number; unitPrice: number; extendedPrice?: number }) => {
     if (!invoice || !editingItem) return;
     setIsSavingEdit(true);
     try {
-      const otherLineItemsTotal = invoice.lineItems
-        .filter((it) => it.id !== editingItem.id)
-        .reduce((sum, it) => sum + it.ext, 0);
-
       const { subtotal, total, extendedPrice } = await updateLineItem(
-        supabase, invoice.id, editingItem.id, updates, otherLineItemsTotal, invoice.tax
+        supabase, invoice.id, editingItem.id, updates
       );
 
       setInvoice({

@@ -1,6 +1,9 @@
 import { ensureAiConsent, withdrawAiConsent } from '../../lib/aiConsent';
 import { syncSubscription } from '../../lib/subscriptionSync';
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
+import { AppState } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { subscriptionStatusText } from '../../lib/subscriptionStatus';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -11,7 +14,7 @@ import { useStore } from '../../store/useStore';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { useExtractionUsage } from '../../hooks/useExtractionUsage';
 import { useSupabase } from '../../lib/supabase';
-import { manageSubscription, restorePurchases } from '../../lib/purchases';
+import { manageSubscription, restorePurchases, getSubscriptionEntitlement } from '../../lib/purchases';
 import { fetchAllInvoices } from '../../lib/invoicePipeline';
 import { exportInvoicesCsv } from '../../lib/csvExport';
 import { initialsFor } from '../../lib/initials';
@@ -31,6 +34,32 @@ export default function MoreScreen() {
   const { start: startTour } = useTour();
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const [billingLabel, setBillingLabel] = useState('Checking Apple subscription…');
+  const activeOrg = useRef(organization);
+  activeOrg.current = organization;
+  const refreshBilling = useCallback(async () => {
+    const current = activeOrg.current;
+    if (!current) return;
+    const id = current.id;
+    try {
+      const info = await getSubscriptionEntitlement(id);
+      if (activeOrg.current?.id !== id) return;
+      setBillingLabel(subscriptionStatusText(info, Date.now(), info?.identifier === 'plus' ? 'Plus' : 'Pro') + (info?.isSandbox ? ' · TestFlight sandbox' : ''));
+      try {
+        await syncSubscription(supabase);
+        if (activeOrg.current?.id === id) await current.reload();
+      } catch { /* A parallel server sync must not hide a freshly verified Apple end date. */ }
+    } catch {
+      if (activeOrg.current?.id === id) setBillingLabel('Could not refresh status · check Manage subscription');
+    }
+  }, [supabase]);
+  useFocusEffect(useCallback(() => {
+    setBillingLabel('Checking Apple subscription…');
+    void refreshBilling();
+    const listener = AppState.addEventListener('change', state => { if (state === 'active') void refreshBilling(); });
+    return () => listener.remove();
+  }, [refreshBilling]));
 
   const restaurantName = organization?.name ?? '';
   const userInitials = initialsFor(restaurantName);
@@ -65,6 +94,7 @@ export default function MoreScreen() {
       // Opens the native App Store subscription-management sheet. Cancels/changes
       // flow back through the revenuecat-webhook, which updates the plan flag.
       await manageSubscription();
+      await refreshBilling();
     } catch (err: any) {
       showToast(err?.message ?? 'Could not open subscription settings');
     }
@@ -76,6 +106,7 @@ export default function MoreScreen() {
       await restorePurchases(organization.id);
       const restoredPlan = await syncSubscription(supabase);
       await organization.reload();
+      await refreshBilling();
       showToast(restoredPlan !== 'free' ? `Restored — you're on ${restoredPlan}` : 'No active subscription found');
     } catch (err: any) {
       showToast(err?.message ?? 'Could not restore purchases');
@@ -118,7 +149,7 @@ export default function MoreScreen() {
 
   const planLabel = plan === 'pro' ? 'Pro' : plan === 'plus' ? 'Plus' : 'Free';
 
-  type Row = { label: string; detail?: string; onPress?: () => void; accent?: boolean };
+  type Row = { label: string; detail?: string; onPress?: () => void; accent?: boolean; stacked?: boolean };
   const sections: { header: string; rows: Row[] }[] = [
     {
       header: 'Intelligence',
@@ -143,6 +174,7 @@ export default function MoreScreen() {
           accent: isPaid,
           onPress: () => router.push('/paywall'),
         },
+        { label: 'Apple subscription', stacked: true, detail: billingLabel, onPress: handleManageSubscription },
         { label: 'Extractions this month', detail: `${used} of ${cap} used` },
         ...(isPaid
           ? [{ label: 'Manage subscription', onPress: handleManageSubscription } as Row]
@@ -202,13 +234,13 @@ export default function MoreScreen() {
               {section.rows.map((row, i) => (
                 <TouchableOpacity
                   key={row.label}
-                  style={[styles.row, i > 0 && styles.rowBorder]}
+                  style={[styles.row, i > 0 && styles.rowBorder, row.stacked && {flexDirection: 'column', alignItems: 'flex-start', gap: 8}]}
                   onPress={row.onPress ? () => { Haptics.selectionAsync(); row.onPress!(); } : undefined}
                   activeOpacity={row.onPress ? 0.7 : 1}
                 >
                   <Text style={[styles.rowLabel, row.accent && styles.rowLabelAccent]}>{row.label}</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    {row.detail && <Text style={styles.rowDetail}>{row.detail}</Text>}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, ...(row.stacked ? {width: '100%' as const} : {}) }}>
+                    {row.detail && <Text style={[styles.rowDetail, row.stacked && {flex: 1, lineHeight: 22}]}>{row.detail}</Text>}
                     {row.onPress && <Text style={styles.rowChevron}>›</Text>}
                   </View>
                 </TouchableOpacity>

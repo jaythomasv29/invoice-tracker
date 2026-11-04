@@ -157,6 +157,10 @@ export default function SignInScreen() {
             )}
           </TouchableOpacity>
 
+          <TouchableOpacity accessibilityRole="button" onPress={() => router.push('/(auth)/password')} style={{minHeight:48,alignItems:'center',justifyContent:'center',marginTop:12}}>
+            <Text style={styles.legalLink}>Sign in with password</Text>
+          </TouchableOpacity>
+
           <Text style={styles.legal}>
             By continuing, you agree to our{' '}
             <Text

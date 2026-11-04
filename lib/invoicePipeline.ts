@@ -1,3 +1,4 @@
+import { validatedLineTotal } from './linePricing';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Invoice, LineItem, LineItemType, VerificationStatus } from '../store/useStore';
 import {
@@ -258,33 +259,15 @@ export async function updateLineItem(
   supabase: SupabaseClient,
   invoiceId: string,
   lineItemId: string,
-  updates: { desc: string; qty: number; unitPrice: number },
-  otherLineItemsTotal: number,
-  tax: number
+  updates: { desc: string; qty: number; unitPrice: number; extendedPrice?: number },
 ): Promise<{ subtotal: number; total: number; extendedPrice: number }> {
-  const extendedPrice = Math.round(updates.qty * updates.unitPrice * 100) / 100;
-
-  const { error: lineItemErr } = await supabase
-    .from('invoice_line_items')
-    .update({
-      clean_name: updates.desc,
-      qty: updates.qty,
-      unit_price: updates.unitPrice,
-      extended_price: extendedPrice,
-    })
-    .eq('id', lineItemId);
-  if (lineItemErr) throw new Error(`Could not update line item: ${lineItemErr.message}`);
-
-  const subtotal = Math.round((otherLineItemsTotal + extendedPrice) * 100) / 100;
-  const total = Math.round((subtotal + tax) * 100) / 100;
-
-  const { error: invoiceErr } = await supabase
-    .from('invoices')
-    .update({ subtotal, total })
-    .eq('id', invoiceId);
-  if (invoiceErr) throw new Error(`Could not update invoice totals: ${invoiceErr.message}`);
-
-  return { subtotal, total, extendedPrice };
+  const extendedPrice = validatedLineTotal(updates.qty, updates.unitPrice, updates.extendedPrice);
+  const { data, error } = await supabase.rpc('edit_invoice_line', {
+    p_invoice: invoiceId, p_line: lineItemId, p_description: updates.desc,
+    p_qty: updates.qty, p_unit_price: updates.unitPrice, p_extended: extendedPrice,
+  });
+  if (error || !data) throw new Error('Could not save the invoice edit. Please retry.');
+  return { subtotal: Number(data.subtotal), total: Number(data.total), extendedPrice: Number(data.extendedPrice) };
 }
 
 // Reversible delete for a line item: stamps/clears voided_at rather than

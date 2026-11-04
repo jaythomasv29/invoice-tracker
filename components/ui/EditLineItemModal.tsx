@@ -1,3 +1,4 @@
+import { usesPrintedLineTotal } from '../../lib/linePricing';
 import { useEffect, useState } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { Colors } from '../../constants/Colors';
@@ -8,19 +9,21 @@ interface EditLineItemModalProps {
   item: LineItem | null;
   isSaving: boolean;
   onCancel: () => void;
-  onSave: (updates: { desc: string; qty: number; unitPrice: number }) => void;
+  onSave: (updates: { desc: string; qty: number; unitPrice: number; extendedPrice?: number }) => void;
 }
 
 export default function EditLineItemModal({ item, isSaving, onCancel, onSave }: EditLineItemModalProps) {
   const [desc, setDesc] = useState('');
   const [qtyStr, setQtyStr] = useState('');
   const [priceStr, setPriceStr] = useState('');
+  const [totalStr, setTotalStr] = useState('');
 
   useEffect(() => {
     if (item) {
       setDesc(item.desc);
       setQtyStr(String(item.qty));
       setPriceStr(item.unitPrice.toFixed(2));
+      setTotalStr(item.ext.toFixed(2));
     }
   }, [item]);
 
@@ -28,8 +31,9 @@ export default function EditLineItemModal({ item, isSaving, onCancel, onSave }: 
 
   const qty = parseFloat(qtyStr) || 0;
   const unitPrice = parseFloat(priceStr) || 0;
-  const ext = Math.round(qty * unitPrice * 100) / 100;
-  const canSave = desc.trim().length > 0 && qty > 0 && unitPrice >= 0 && !isSaving;
+  const printedTotal = usesPrintedLineTotal(item);
+  const ext = printedTotal ? Number(totalStr) : Math.round(qty * unitPrice * 100) / 100;
+  const canSave = desc.trim().length > 0 && qty > 0 && unitPrice >= 0 && [qty,unitPrice,ext].every(Number.isFinite) && ext >= 0 && (!printedTotal || totalStr.trim().length > 0) && !isSaving;
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
@@ -71,6 +75,11 @@ export default function EditLineItemModal({ item, isSaving, onCancel, onSave }: 
             </View>
           </View>
 
+          {printedTotal && <>
+            <Text style={styles.label}>Invoice line total</Text>
+            <TextInput accessibilityLabel="Invoice line total" style={styles.input} value={totalStr} onChangeText={setTotalStr} keyboardType="decimal-pad" editable={!isSaving} />
+            <Text style={{fontSize:13,lineHeight:20,color:Colors.textSecondary}}>This line is billed by weight or has an adjusted amount. Confirm its total against the original invoice.</Text>
+          </>}
           <View style={styles.extRow}>
             <Text style={styles.extLabel}>New total</Text>
             <Text style={styles.extValue}>${ext.toFixed(2)}</Text>
@@ -82,7 +91,7 @@ export default function EditLineItemModal({ item, isSaving, onCancel, onSave }: 
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.saveBtn, !canSave && styles.saveBtnDisabled]}
-              onPress={() => canSave && onSave({ desc: desc.trim(), qty, unitPrice })}
+              onPress={() => canSave && onSave({ desc: desc.trim(), qty, unitPrice, extendedPrice: ext })}
               disabled={!canSave}
               activeOpacity={0.85}
             >

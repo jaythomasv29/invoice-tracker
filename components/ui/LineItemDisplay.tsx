@@ -1,3 +1,4 @@
+import { printedCatchWeight } from '../../lib/linePricing';
 import { useState } from 'react';
 import { categoryLabel } from '../../lib/invoicePipeline';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
@@ -27,6 +28,7 @@ export default function LineItemDisplay({
 }: LineItemDisplayProps) {
   const [noteOpen, setNoteOpen] = useState(false);
   const isMissing = item.verification === 'missing';
+  const catchWeight = printedCatchWeight(item.rawDesc ?? item.desc);
 
   return (
     <View style={[styles.itemCard, item.voided && styles.itemCardVoided]}>
@@ -47,7 +49,7 @@ export default function LineItemDisplay({
             <Text style={styles.itemRawDesc} numberOfLines={1}>Printed as: {item.rawDesc}</Text>
           )}
           <Text style={[styles.itemMeta, item.voided && styles.itemTextVoided]}>
-            {item.qty} {item.unit} @ ${item.unitPrice.toFixed(2)}
+            {catchWeight ? `${item.qty} ${item.unit} · ${catchWeight} lb billed @ $${item.unitPrice.toFixed(2)}/lb` : `${item.qty} ${item.unit} @ $${item.unitPrice.toFixed(2)}`}
           </Text>
         </View>
         <View style={{ alignItems: 'flex-end', gap: 6 }}>
