@@ -81,6 +81,10 @@
     "purpose": "APP_FUNCTIONALITY",
     "linkedToIdentity": true,
     "tracking": false,
-    "publishStatus": "Awaiting owner confirmation of Apple legal attestation"
+    "publishStatus": "PUBLISHED \u2014 owner confirmed legal attestation; browser verified publication by James Vongampai"
+  },
+  "ownerPhoneChecks": {
+    "build": "7",
+    "restorePurchases": "PASS \u2014 owner reports restore succeeded and Pro stayed unlocked"
   }
 }

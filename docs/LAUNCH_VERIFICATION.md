@@ -9,10 +9,10 @@ Public release remains gated; no App Review submission has been made.
 | Supplier bar / scan controls / animations | Implemented; phone checks pending | Current beta includes the bar and native motion. Actual rendering, processing lock and smoothness still need physical-phone confirmation. |
 | Price and purchase | Owner reports pass | Build 7 shows a price and successful purchase. |
 | Cancellation and resubscription | Owner reports pass | Owner canceled and renewed successfully. Server expiry tests preserve paid-through access. New Profile status distinguishes renewal, auto-renewal off, billing issue and expiry. |
-| Restore purchases | Awaiting owner | Do not infer restore success from purchase or resubscription. |
+| Restore purchases | Owner reports pass | Build 7 restore succeeded and Pro stayed unlocked on the same restaurant/Apple account. |
 | Catch-weight / adjusted line totals | Fixed | Explicit weight cost resolution and line-total preservation; ambiguous case sizes remain unknown. Atomic edit saves line and invoice totals together. Existing invoices were not rewritten. |
 | Reviewer access | Configured | Dedicated Gmail alias approved by owner; separate fictional restaurant, normal password authentication, production frontend sign-in completed. Credentials stored only in ignored local file and Apple reviewer fields. |
-| Privacy questionnaire | Completed draft; confirmation pending | All 15 data types configured and browser-verified; app functionality, linked identity, no tracking. Apple final Publish dialog requires owner legal attestation. |
+| Privacy questionnaire | Published | Owner explicitly confirmed the legal attestation; Apple browser verified Published by James Vongampai. All 15 types: app functionality, linked identity, no tracking. |
 | Age rating | Draft saved | Content questionnaire completed, 16+ override consistent with business audience and privacy policy. No age-assurance claim. |
 | Listing assets | Prepared | Six screenshots, preview, header/search artwork and icon already uploaded. All six screenshots, preview, creative images and reviewer attachment revalidated. Subscription review image is confirmed blank and must be replaced with a real paywall screenshot. |
 | Final native binary | Still required before public review | Build 7 is the beta QA baseline. A final production-channel binary must embed the approved changes; do not rely on beta OTA for public App Review. |

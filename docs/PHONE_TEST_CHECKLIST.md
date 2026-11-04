@@ -57,7 +57,7 @@ Report the build number, iOS version, step, expected result and actual result. A
 
 ## Cancellation/end-date and reviewer access update
 
-- Owner confirmed build 7 price loading, purchase, cancellation and resubscription. Restore purchases still needs an explicit successful result.
+- Owner confirmed build 7 price loading, purchase, cancellation and resubscription. Owner also confirmed Restore purchases succeeds and Pro remains unlocked.
 - Download the latest beta OTA, cold-launch again, and open Profile > Apple subscription. With renewal on, it should say Renews with Apple's date/time. After canceling auto-renewal, it should say Auto-renewal off and show Pro access until the paid-through date. Pro remains active until expiry; returning from Apple settings refreshes the status.
 - TestFlight sandbox billing is accelerated; its renewal/expiry dates are not a real month of paid service. The status labels identify sandbox subscriptions.
 - No owner data reset or account deletion is needed. Check all existing invoices and their source photos remain.

@@ -1,6 +1,6 @@
-# App Privacy draft — November 3, 2026
+# Published App Privacy disclosures — November 3, 2026
 
-Apple App Store Connect has all 15 selected data types configured. Each is declared for **App Functionality**, linked to identity (including account/device linkage), with **no tracking**. No advertising, marketing, personalization or analytics purpose was selected. Publish awaits the owner's action-time confirmation of Apple's final legal attestation.
+Apple App Store Connect has all 15 selected data types configured. Each is declared for **App Functionality**, linked to identity (including account/device linkage), with **no tracking**. No advertising, marketing, personalization or analytics purpose was selected. Owner explicitly confirmed Apple's final legal attestation. Publication completed and the browser showed ‘Published a few seconds ago by James Vongampai’.
 
 | Apple data types | Actual processing |
 |---|---|
