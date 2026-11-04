@@ -12,7 +12,7 @@ export default function Hero() {
     <section id="top" className="pb-16 pt-24 sm:pt-40">
       <div className="mx-auto w-full max-w-4xl px-6 text-center">
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={false}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: easeOut }}
           className="mb-8 hidden justify-center sm:flex"
@@ -21,7 +21,7 @@ export default function Hero() {
         </motion.div>
 
         <motion.h1
-          initial={{ opacity: 0, y: 24 }}
+          initial={false}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: easeOut, delay: 0.05 }}
           className="text-balance text-4xl font-extrabold leading-[1.04] tracking-[-0.035em] sm:text-6xl md:text-7xl"
@@ -32,7 +32,7 @@ export default function Hero() {
         </motion.h1>
 
         <motion.p
-          initial={{ opacity: 0, y: 24 }}
+          initial={false}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: easeOut, delay: 0.15 }}
           className="mx-auto mt-6 max-w-2xl text-balance text-lg leading-relaxed text-muted sm:text-xl"
@@ -42,7 +42,7 @@ export default function Hero() {
         </motion.p>
 
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
+          initial={false}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: easeOut, delay: 0.25 }}
           className="mt-10 flex flex-col items-center gap-3"
@@ -66,7 +66,7 @@ export default function Hero() {
       {/* Full native screen, without overlays obscuring the interface. */}
       <div className="relative mx-auto mt-16 w-full max-w-[400px] px-6">
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={false}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: easeOut, delay: 0.35 }}
         >
