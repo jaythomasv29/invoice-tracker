@@ -12,3 +12,8 @@ Seven fresh 1320 × 2868 native captures from the current Sift UI (`cd9cd3e`), u
 The player is click-to-play, with native controls, inline iPhone playback and no video preload/autoplay. The phone mockups use each capture's intrinsic ratio without cropping or repainting the interface.
 
 Rebuild browser exports with `node scripts/prepare-website-media.cjs` from the repository root (requires the website's installed `sharp` dependency). `video/build-web-edition.py` rebuilds the website film/closing artwork; set `SIFT_FFMPEG` to a trusted ffmpeg executable if it is not on PATH. Then regenerate the browser exports. Temporary development capture routes/config overrides were removed after capture and the disposable identity was deleted.
+
+
+## Live verification
+
+Production deployment `dpl_47KUF4jogrdAB5ZnnLaBLuBMUZaQ` (website source `442c7b2`) is READY at https://siftcosts.com. `verification/public-media.json` records current HTML, checksums, video range support, captions/poster/legal responses and image-optimizer geometry. `verification/website-live-desktop.png` is a page-only crop of the final live desktop view, excluding personal browser chrome/bookmarks; `verification/website-live-mobile.png` captures the live 375-point iPhone Safari layout. Native app source was restored after capture and no production invoice data was changed.

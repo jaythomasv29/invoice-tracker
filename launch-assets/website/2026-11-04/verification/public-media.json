@@ -1,0 +1,82 @@
+{
+  "checkedAt": "2026-11-04T23:27:16.749Z",
+  "origin": "https://siftcosts.com",
+  "currentHtml": true,
+  "assets": [
+    {
+      "url": "/screens/home-25b8cb6381.webp",
+      "status": 200,
+      "bytes": 136048,
+      "sha256": "25b8cb63811446a3b5c9c9f94c7362422517fd2385a6a52aa252f3d95bfad7d4"
+    },
+    {
+      "url": "/screens/intelligence-9c508672b8.webp",
+      "status": 200,
+      "bytes": 172260,
+      "sha256": "9c508672b8d3e6395f76055cc3e0de78effd27558553407669bb8bf43fedcda2"
+    },
+    {
+      "url": "/screens/review-89a480bedc.webp",
+      "status": 200,
+      "bytes": 116518,
+      "sha256": "89a480bedcdb1b34371cff65d1b99b0f9408069b2f45e4947629736c90f7034b"
+    },
+    {
+      "url": "/screens/alerts-8471f35922.webp",
+      "status": 200,
+      "bytes": 104856,
+      "sha256": "8471f35922ef211415bf23a2fb2ac2d3f9d9da0ed6a6fca36ee046ef157d650c"
+    },
+    {
+      "url": "/screens/library-4cff33bc0c.webp",
+      "status": 200,
+      "bytes": 177418,
+      "sha256": "4cff33bc0c859b297b577053a2fb51922f4641655663639818055829f7203bcf"
+    },
+    {
+      "url": "/screens/recipes-161fe899fa.webp",
+      "status": 200,
+      "bytes": 142044,
+      "sha256": "161fe899fab756b9a5dfde138b0eeee89d7f1e74c170928575112383d416b414"
+    },
+    {
+      "url": "/screens/suppliers-419699b4aa.webp",
+      "status": 200,
+      "bytes": 132092,
+      "sha256": "419699b4aaf4c60627c32ca0cc4a36623d3cda3ef895a90c891c43a76af87a57"
+    },
+    {
+      "url": "/media/sift-launch-film-6a5b67f6b1.mp4",
+      "status": 200,
+      "bytes": 4367021,
+      "sha256": "6a5b67f6b188fcd0a1710208e94bc4667ba091bcce30d4ebe402b2be18f31e4e"
+    }
+  ],
+  "videoRangeStatus": 206,
+  "captionsStatus": 200,
+  "posterStatus": 200,
+  "legal": [
+    {
+      "url": "/privacy",
+      "status": 200
+    },
+    {
+      "url": "/terms",
+      "status": 200
+    },
+    {
+      "url": "/support",
+      "status": 200
+    }
+  ],
+  "finalHtmlCheckedAt": "2026-11-04T23:32:28.206Z",
+  "deploymentId": "dpl_47KUF4jogrdAB5ZnnLaBLuBMUZaQ",
+  "websiteCommit": "442c7b2",
+  "initialNavigationAndHeroVisible": true,
+  "noVideoAutoplay": true,
+  "optimizedHome": {
+    "status": 200,
+    "width": 750,
+    "height": 1630
+  }
+}
