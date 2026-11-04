@@ -1,0 +1,86 @@
+{
+  "verifiedAt": "2026-11-04T01:32:46.520Z",
+  "screenshots": [
+    {
+      "file": "screenshots/app-store/01-overview.png",
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store/02-invoices.png",
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store/03-review.png",
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store/04-recipes.png",
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store/05-alerts.png",
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store/06-suppliers.png",
+      "state": "COMPLETE",
+      "errors": []
+    }
+  ],
+  "previews": [
+    {
+      "file": "previews/sift-app-preview-886x1920.mp4",
+      "state": "COMPLETE",
+      "errors": []
+    }
+  ],
+  "creative": [
+    {
+      "file": "creative/product-page-header-3840x1646.png",
+      "state": "PREPARE_FOR_SUBMISSION",
+      "errors": []
+    },
+    {
+      "file": "creative/search-results-3840x2560.png",
+      "state": "PREPARE_FOR_SUBMISSION",
+      "errors": []
+    }
+  ],
+  "draftState": "PREPARE_FOR_SUBMISSION",
+  "releaseType": "MANUAL",
+  "metadata": {
+    "description": true,
+    "supportUrl": "https://siftcosts.com/support",
+    "marketingUrl": "https://siftcosts.com",
+    "keywordLength": 70
+  },
+  "build": "7",
+  "reviewerCredentialsPresent": true,
+  "attachments": [
+    {
+      "filename": "sift-fictional-test-invoice.jpg",
+      "state": "COMPLETE"
+    }
+  ],
+  "ageRating": "SEVENTEEN_PLUS",
+  "/privacy": 200,
+  "/terms": 200,
+  "/support": 200,
+  "subscriptionReviewScreenshot": {
+    "productId": "sift_pro_monthly",
+    "state": "COMPLETE",
+    "visualValidation": "FAIL \u2014 existing image is blank; replace with actual native paywall capture"
+  },
+  "privacyDraft": {
+    "configuredDataTypes": 15,
+    "purpose": "APP_FUNCTIONALITY",
+    "linkedToIdentity": true,
+    "tracking": false,
+    "publishStatus": "Awaiting owner confirmation of Apple legal attestation"
+  }
+}

@@ -53,3 +53,14 @@ Report the build number, iOS version, step, expected result and actual result. A
 - Switch Day/Week/Month and past periods. Colors should remain consistent for existing suppliers. Credits remain in net totals; negative supplier balances are listed but do not become misleading positive segments.
 - Check press feedback on Home, invoice/library and recipe controls; check insights reveal, tab fades and detail navigation. Enable iOS Reduce Motion, reopen Sift, and verify these new transitions become immediate or reduced.
 - Test on the physical phone before calling animation quality/device behavior verified. The update uses existing native dependencies and requires no invoice-data migration.
+
+
+## Cancellation/end-date and reviewer access update
+
+- Owner confirmed build 7 price loading, purchase, cancellation and resubscription. Restore purchases still needs an explicit successful result.
+- Download the latest beta OTA, cold-launch again, and open Profile > Apple subscription. With renewal on, it should say Renews with Apple's date/time. After canceling auto-renewal, it should say Auto-renewal off and show Pro access until the paid-through date. Pro remains active until expiry; returning from Apple settings refreshes the status.
+- TestFlight sandbox billing is accelerated; its renewal/expiry dates are not a real month of paid service. The status labels identify sandbox subscriptions.
+- No owner data reset or account deletion is needed. Check all existing invoices and their source photos remain.
+- A catch-weight item should show its billed pounds separately from the shipped case quantity. Opening Edit and changing only its description must preserve its printed extended total. Test actual edits only on a disposable/sample invoice.
+- Capture the real paywall with price and monthly subscription terms visible for the subscription review screenshot. The existing Apple product review image is blank.
+- Final public submission needs a fresh production-profile binary embedding the approved fixes and reviewer sign-in; no new native build is needed for these beta UI tests.
