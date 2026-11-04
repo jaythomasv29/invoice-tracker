@@ -54,6 +54,16 @@ html {
   scroll-behavior: smooth;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { transition-duration: 0.01ms !important; }
+}
+
+a:focus-visible, button:focus-visible, summary:focus-visible, video:focus-visible {
+  outline: 3px solid var(--foreground);
+  outline-offset: 5px;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

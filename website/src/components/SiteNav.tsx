@@ -37,7 +37,7 @@ export default function SiteNav() {
         </a>
         <a
           href="#waitlist"
-          className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.03] active:scale-95"
+          className="inline-flex min-h-11 items-center rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.03] active:scale-95"
         >
           Join the waitlist
         </a>

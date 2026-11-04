@@ -48,3 +48,8 @@ The app targets iPhone; no unsupported iPad or iPhone Duo layout is represented.
 Apple processed all six screenshots and the preview as COMPLETE. Both header and search artwork show 1 of 1 assigned in the browser editor. Build 7 is VALID and in internal beta testing, attached to the App Store draft, and carries the new icon. The modern interface also reached the owner's build 6 by OTA, confirmed on the phone. No public App Review submission or release was performed.
 
 The live website at https://siftcosts.com uses these native-screen exports. Physical build 7 and Pro purchase/restore checks remain in `docs/PHONE_TEST_CHECKLIST.md`.
+
+
+## Current website refresh — November 4, 2026
+
+The marketing website now selects fresh build-7-era native UI captures and a website launch film from [`website/2026-11-04/`](website/2026-11-04/README.md), through `website/src/content/media.json`. This includes the supplier spending bar and permanently expanded Purchasing intelligence. The original supplied Downloads movie is preserved alongside a prelaunch website edition with “Coming to iPhone” closing artwork. Public App Store screenshots and the older 22-second Apple preview remain separate; this website refresh does not replace uploaded Apple assets or submit the app.

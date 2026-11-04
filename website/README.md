@@ -1,39 +1,29 @@
-# Sift marketing site
+# Sift marketing website
 
-Standalone Next.js (App Router, TypeScript, Tailwind v4) site — the public
-face of the Sift app for App Store review, marketing, and pre-launch waitlist
-signups. Lives inside the Expo app's repo but deploys and runs completely
-independently of it.
+Next.js App Router / Tailwind website deployed to https://siftcosts.com, independently of the native Expo app. The linked Vercel project is `siftcosts`; use the existing `website/.vercel` link rather than creating a new project.
 
-## Routes
+The landing page includes current native screenshots, expanded Purchasing intelligence, invoice review, Pro price alerts and recipe costing, a searchable invoice library, a click-to-play launch film and waitlist signups. Privacy, terms and support remain at `/privacy`, `/terms` and `/support`. The app is prelaunch: waitlist CTAs remain until its real public App Store listing is available.
 
-| Route             | Purpose                                                                 |
-| ------------------ | ------------------------------------------------------------------------ |
-| `/`                 | Parallax landing page — hero, feature sections, waitlist CTAs.          |
-| `/api/waitlist`     | `POST { email, source? }` — inserts into Supabase, used by `WaitlistForm`. |
-| `/billing-return`   | Stripe redirects here after checkout/the billing portal; bounces the visitor into the native app via `sift://billing-return`. |
-| `/privacy`          | Privacy policy (ported from `../legal/privacy-policy.html`).            |
-| `/terms`            | Terms of service (ported from `../legal/terms-of-service.html`).        |
+## Work locally
 
-## Local setup
-
-```bash
+```sh
 cd website
-npm install
-cp .env.local.example .env.local   # fill in the three Supabase values below
+npm ci
 npm run dev
+npm run lint
+npm run build
 ```
 
-Env vars (`.env.local`, never committed):
+Read `AGENTS.md` and the relevant installed Next.js docs before making changes. Next.js 16 image preloading uses `preload`; explicitly allowed optimization qualities are 75 and 90.
 
-- `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` — same values as the Expo app's `.env` (same Supabase project).
-- `SUPABASE_SERVICE_ROLE_KEY` — **server-only**, from Supabase dashboard → Project Settings → API. Used solely by `/api/waitlist` to write to `waitlist_signups`, a table with no anon-facing RLS policies at all (see the migration).
+## Media
 
-## Before this goes live — things only a human can do
+`src/content/media.json` selects content-hashed assets in `public/screens/` and `public/media/`. Native display ratios remain intact inside `PhoneFrame`. Video uses a poster and native controls, inline playback, optional captions and a text description; it does not autoplay or preload the full film. Shared Framer Motion settings respect Reduce Motion.
 
-1. **Apply the new migration.** This site added `supabase/migrations/20260723140000_waitlist_signups.sql` (plus two earlier security-fix migrations from the same session — `20260723120000_verified_current_org_id_rpc.sql` and `20260723130000_atomic_extraction_quota.sql`). From the repo root: `supabase db push`.
-2. **Deploy this site** (Vercel is the path of least resistance for a Next.js app — `vercel` from this directory, or connect the repo and set the root directory to `website/`). Set the three env vars above in the deployment's environment settings.
-3. **Point `APP_RETURN_URL` at the real domain.** The Stripe edge functions (`create-checkout`, `billing-portal`) currently use a placeholder: `npx supabase secrets set APP_RETURN_URL=https://<your-deployed-domain>/billing-return`.
-4. **Fill in the legal page placeholders.** `/privacy` and `/terms` still carry `[FILL IN DATE BEFORE PUBLISHING]` and `[FILL IN CONTACT EMAIL]` — update both `website/src/app/privacy/page.tsx` and `website/src/app/terms/page.tsx` (and the original `../legal/*.html` files stay as the canonical source text if you'd rather edit those and re-port).
-5. **Point the App Store Connect / `.env` legal URLs here** instead of a separate static host: `EXPO_PUBLIC_PRIVACY_POLICY_URL=https://<domain>/privacy`, `EXPO_PUBLIC_TERMS_URL=https://<domain>/terms`.
-6. **App Store badge**: intentionally not included anywhere on the site — the app isn't listed yet. Add Apple's official "Download on the App Store" badge (from Apple's Marketing Resources — don't reuse a screenshot from elsewhere) to the hero/nav once there's a real App Store URL to link it to.
+Source media, the supplied Downloads original, website film edition, hashes and rebuild instructions are in [`../launch-assets/website/2026-11-04/`](../launch-assets/website/2026-11-04/README.md). The supplied film's original final “On the App Store” card is replaced only in the website edition with “Coming to iPhone.”
+
+## Hosting and environment
+
+Deploy from this directory with the authenticated Vercel CLI using the existing project (`vercel --prod --yes`). Production has the waitlist's hosted Supabase configuration. For local waitlist testing, use an ignored `.env.local` with `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and server-only `SUPABASE_SERVICE_ROLE_KEY`; never put the service key in a `NEXT_PUBLIC_` variable. Do not submit fake signups to production during UI/media checks.
+
+`/billing-return` is retained for legacy deep links. Native subscriptions use Apple's in-app purchase flow. The website deployment does not create an EAS native build or modify restaurant data.

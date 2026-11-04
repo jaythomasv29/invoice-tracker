@@ -16,7 +16,7 @@ export default function PhoneFrame({ src, alt, priority = false, maxWidthClass =
         <div className="phone-display">
           <Image src={src} alt={alt} width={1320} height={2868}
             sizes="(max-width: 380px) 78vw, (max-width: 640px) 300px, 340px"
-            className="block h-auto w-full" priority={priority} />
+            className="block h-auto w-full" preload={priority} quality={90} />
         </div>
       </div>
     </div>

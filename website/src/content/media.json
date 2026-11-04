@@ -1,0 +1,67 @@
+{
+  "createdAt": "2026-11-04T23:14:03.749Z",
+  "appCommit": "cd9cd3e",
+  "data": "Fictional local demo ledger; disposable development identity. No production restaurant data.",
+  "screens": {
+    "home": {
+      "src": "/screens/home-25b8cb6381.webp",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "25b8cb63811446a3b5c9c9f94c7362422517fd2385a6a52aa252f3d95bfad7d4",
+      "rawSha256": "f021d92b5602c035242aa2c375a36f23ed6059c03954f7e5c9fc14a9ce68039f"
+    },
+    "intelligence": {
+      "src": "/screens/intelligence-9c508672b8.webp",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "9c508672b8d3e6395f76055cc3e0de78effd27558553407669bb8bf43fedcda2",
+      "rawSha256": "4f571362a8ed038cf795dead8fea9d3d09465d82c88b4029ecc2fc15c4e05ff7"
+    },
+    "review": {
+      "src": "/screens/review-89a480bedc.webp",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "89a480bedcdb1b34371cff65d1b99b0f9408069b2f45e4947629736c90f7034b",
+      "rawSha256": "9883ec1796caf27595f9f9bdd2de1e60531636f0b78454f90cef046737c948b7"
+    },
+    "alerts": {
+      "src": "/screens/alerts-8471f35922.webp",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "8471f35922ef211415bf23a2fb2ac2d3f9d9da0ed6a6fca36ee046ef157d650c",
+      "rawSha256": "26e8d7b64eac2dd9fa033ecfaf233d3296b3cea220a0dfacbc4c0ab9beebb805"
+    },
+    "library": {
+      "src": "/screens/library-4cff33bc0c.webp",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "4cff33bc0c859b297b577053a2fb51922f4641655663639818055829f7203bcf",
+      "rawSha256": "00271d8920b398bb5ed3e0f13bb1aa0586e8f7589c96208fdd70a2981b791e72"
+    },
+    "recipes": {
+      "src": "/screens/recipes-161fe899fa.webp",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "161fe899fab756b9a5dfde138b0eeee89d7f1e74c170928575112383d416b414",
+      "rawSha256": "24713c112c8cefa910a76f17986ae7b5f83b814475f02097a804fe03c6fb3983"
+    },
+    "suppliers": {
+      "src": "/screens/suppliers-419699b4aa.webp",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "419699b4aaf4c60627c32ca0cc4a36623d3cda3ef895a90c891c43a76af87a57",
+      "rawSha256": "09956884ad0366e610679c966d90d1add4e428fed193640b990d5c1e65957c7b"
+    }
+  },
+  "film": {
+    "src": "/media/sift-launch-film-6a5b67f6b1.mp4",
+    "poster": "/media/sift-launch-film-poster-2300535c7e.jpg",
+    "captions": "/media/sift-launch-film.en-ce8c146e77.vtt",
+    "durationSeconds": 45,
+    "width": 1920,
+    "height": 1080,
+    "sha256": "6a5b67f6b188fcd0a1710208e94bc4667ba091bcce30d4ebe402b2be18f31e4e",
+    "originalSha256": "dc5761364281a4ca851d0c0a2b62acac0c904e22e114a64fde86d1ed07c3a526",
+    "edition": "Website prelaunch closing card replaces the original final 7.5 seconds. Original audio retained."
+  }
+}
