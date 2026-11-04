@@ -190,6 +190,6 @@ export async function getSubscriptionEntitlement(orgId: string) {
     identifiedOrg = orgId;
     await Purchases.invalidateCustomerInfoCache();
     const info = await Purchases.getCustomerInfo();
-    return info.entitlements.all.pro ?? info.entitlements.all.plus ?? null;
+    return info.entitlements.active.pro ?? info.entitlements.active.plus ?? info.entitlements.all.pro ?? info.entitlements.all.plus ?? null;
   });
 }
