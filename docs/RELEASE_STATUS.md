@@ -116,3 +116,13 @@ Apple build 63112634-718c-4b21-9b68-393c2b221ed1 (1.0.0 build 6) is VALID and IN
 
 
 Owner confirmation update: Restore purchases succeeded on build 7 and Pro remained unlocked. Owner explicitly approved Apple's privacy legal attestation; App Privacy responses were published. Browser verification showed “Published a few seconds ago by James Vongampai.” This publication does not submit the app for App Review or release it. Subscription end-date phone confirmation, a real paywall review screenshot and the final production binary remain outstanding.
+
+
+## Expanded Home intelligence and app motion — November 4
+
+- Used the UI/UX skill and existing Sift design system for shared interactions and route surfaces. Purchasing intelligence is permanently expanded, with Kitchen momentum, honest invoice milestones/upload-day activity, recipe entry, alerts and purchasing patterns. Updated tour copy removes the former daily-streak/countdown promise.
+- Spending figures drill into a saved-invoice date range matching Home, including invoice-date history and explicit upload-date fallback. Clear restores the full captured library. Supplier, alert, item-history, recipe and invoice links retain real destinations and paid-feature gates.
+- Shared native press springs and short route reveals apply across authentication, scanning/review, invoices, suppliers, recipes, alerts, paywall and Profile. Motion uses the existing Reanimated dependency and honors Reduce Motion. Added calendar/invoice accessibility labels and larger calendar touch targets. Camera processing locks and invoice storage are unchanged.
+- Expo Go skips native StoreKit configuration so fictional UI previews can run; TestFlight retains normal RevenueCat initialization. No native dependency/config change is required.
+- Verified actual simulator rendering with a disposable development identity and local fictional ledger; momentum opens the library, November filtering shows the correct 3 invoices/$217.90, and Clear restores 12. Removed the temporary capture route/config override and deleted only the disposable development identity/organization afterward. No production invoice writes or data migration.
+- Physical-phone motion, large-text and new Home-link confirmation remain owner QA. Re-capture the approved new Home for final public marketing/listing parity before the production release candidate.

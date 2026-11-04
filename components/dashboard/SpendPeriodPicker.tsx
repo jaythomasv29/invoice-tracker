@@ -1,5 +1,6 @@
+import TouchableOpacity from '../ui/MotionTouchable';
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { SpendPeriod } from '../../store/useStore';
 import { spendPeriodBadge } from '../../hooks/useSpendPeriod';

@@ -1,5 +1,6 @@
+import TouchableOpacity from './MotionTouchable';
 import type { ComponentType } from 'react';
-import { Modal, View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { Modal, View, Text, ScrollView, StyleSheet } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Colors } from '../../constants/Colors';
@@ -70,9 +71,9 @@ export function OnboardingExplainerSheet({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+        <TouchableOpacity style={StyleSheet.absoluteFill} accessible={false} activeOpacity={1} onPress={onClose} />
         <View style={styles.sheetCard}>
-          <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={8} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.closeBtn} accessibilityLabel="Close explanation" onPress={onClose} hitSlop={8} activeOpacity={0.7}>
             <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={Colors.textTertiary} strokeWidth={2.4} strokeLinecap="round">
               <Path d="M6 6l12 12M18 6L6 18" />
             </Svg>

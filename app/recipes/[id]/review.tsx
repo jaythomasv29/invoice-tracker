@@ -1,8 +1,9 @@
+import TouchableOpacity from '../../../components/ui/MotionTouchable';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Modal, KeyboardAvoidingView, Platform, Alert,
+  View, Text, ScrollView, StyleSheet, TextInput, Modal, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import SafeAreaView from '../../../components/ui/Screen';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useOrganization } from '@clerk/clerk-expo';
 import { Colors } from '../../../constants/Colors';

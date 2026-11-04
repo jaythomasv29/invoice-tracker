@@ -1,5 +1,6 @@
+import TouchableOpacity from './MotionTouchable';
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import { View, Text, StyleSheet, Modal } from 'react-native';
 import { Colors } from '../../constants/Colors';
 
 interface DatePickerModalProps {
@@ -75,14 +76,14 @@ export default function DatePickerModal({ visible, value, onSelect, onClose }: D
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+        <TouchableOpacity style={StyleSheet.absoluteFill} accessible={false} activeOpacity={1} onPress={onClose} />
         <View style={styles.card}>
           <View style={styles.navRow}>
-            <TouchableOpacity style={styles.navBtn} onPress={() => goToMonth(-1)} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.navBtn} accessibilityLabel="Previous month" onPress={() => goToMonth(-1)} activeOpacity={0.7}>
               <Text style={styles.navBtnText}>‹</Text>
             </TouchableOpacity>
             <Text style={styles.monthLabel}>{MONTH_LABELS[viewMonth]} {viewYear}</Text>
-            <TouchableOpacity style={styles.navBtn} onPress={() => goToMonth(1)} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.navBtn} accessibilityLabel="Next month" onPress={() => goToMonth(1)} activeOpacity={0.7}>
               <Text style={styles.navBtnText}>›</Text>
             </TouchableOpacity>
           </View>
@@ -103,6 +104,8 @@ export default function DatePickerModal({ visible, value, onSelect, onClose }: D
                 return (
                   <TouchableOpacity
                     key={di}
+                    accessibilityLabel={`${MONTH_LABELS[viewMonth]} ${day}, ${viewYear}`}
+                    accessibilityState={{selected:isSelected,disabled}}
                     style={[styles.dayCell, isSelected && styles.dayCellSelected]}
                     onPress={() => handleSelectDay(day)}
                     disabled={disabled}
@@ -133,15 +136,15 @@ export default function DatePickerModal({ visible, value, onSelect, onClose }: D
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1, backgroundColor: 'rgba(10,10,16,0.5)',
-    alignItems: 'center', justifyContent: 'center', padding: 24,
+    alignItems: 'center', justifyContent: 'center', padding: 12,
   },
   card: {
-    width: '100%', maxWidth: 340, backgroundColor: Colors.surface,
-    borderRadius: 18, padding: 18,
+    width: '100%', maxWidth: 360, backgroundColor: Colors.surface,
+    borderRadius: 18, padding: 14,
   },
   navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   navBtn: {
-    width: 32, height: 32, borderRadius: 10, backgroundColor: Colors.background,
+    width: 44, height: 44, borderRadius: 10, backgroundColor: Colors.background,
     alignItems: 'center', justifyContent: 'center',
   },
   navBtnText: { fontSize: 18, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary, marginTop: -2 },
@@ -152,7 +155,7 @@ const styles = StyleSheet.create({
   },
   weekRow: { flexDirection: 'row' },
   dayCell: {
-    flex: 1, aspectRatio: 1, alignItems: 'center', justifyContent: 'center',
+    flex: 1, minWidth:44, minHeight:44, aspectRatio: 1, alignItems: 'center', justifyContent: 'center',
     borderRadius: 10, margin: 1,
   },
   dayCellSelected: { backgroundColor: Colors.primary },

@@ -13,6 +13,7 @@
 // Requires a dev/prod build — RevenueCat does not run in Expo Go.
 
 import { Platform } from 'react-native';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Sentry from '@sentry/react-native';
 import Purchases, {
   type CustomerInfo,
@@ -49,7 +50,7 @@ export function configurePurchases(): void {
   if (configured) return;
   // iOS-only for now (Android/web aren't launched). Leaving `configured` false
   // makes every other call in this module short-circuit to a no-op.
-  if (Platform.OS !== 'ios') return;
+  if (Platform.OS !== 'ios' || Constants.executionEnvironment === ExecutionEnvironment.StoreClient) return;
   if (!RC_IOS_KEY) {
     // Fail soft in dev without a key rather than crashing startup — purchases
     // just won't work until the key is set. Mirrors the Sentry no-DSN pattern.

@@ -1,7 +1,8 @@
+import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { ensureAiConsent } from '../../lib/aiConsent';
 import { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Modal, Image, ScrollView, BackHandler,
+  View, Text, StyleSheet, Modal, Image, ScrollView, BackHandler,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useNavigation } from 'expo-router';

@@ -4,7 +4,7 @@ import {
   View, Text, ScrollView, StyleSheet,
   type NativeScrollEvent, type NativeSyntheticEvent,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import SafeAreaView from '../../components/ui/Screen';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useOrganization } from '@clerk/clerk-expo';

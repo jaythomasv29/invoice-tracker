@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import TouchableOpacity from './MotionTouchable';
+import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { Invoice } from '../../store/useStore';
 
@@ -13,7 +14,7 @@ interface InvoiceRowProps {
 
 export default function InvoiceRow({ invoice: inv, onPress, showVendorName }: InvoiceRowProps) {
   return (
-    <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity style={styles.row} accessibilityLabel={`Open ${inv.vendorName} invoice ${inv.invoiceNumber}, ${inv.date}, $${inv.total.toFixed(2)}`} onPress={onPress} activeOpacity={0.85}>
       <View style={{ flex: 1, minWidth: 0 }}>
         {showVendorName ? (
           <>

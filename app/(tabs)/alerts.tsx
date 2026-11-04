@@ -1,6 +1,7 @@
+import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, LayoutAnimation, Platform, UIManager } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, ScrollView, StyleSheet, LayoutAnimation, Platform, UIManager } from 'react-native';
+import SafeAreaView from '../../components/ui/Screen';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useOrganization } from '@clerk/clerk-expo';

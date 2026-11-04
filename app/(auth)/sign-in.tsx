@@ -1,10 +1,11 @@
+import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  View, Text, TextInput, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import SafeAreaView from '../../components/ui/Screen';
 import * as Haptics from 'expo-haptics';
 import { useAuth, useSignIn, useSignUp } from '@clerk/clerk-expo';
 import { Colors } from '../../constants/Colors';

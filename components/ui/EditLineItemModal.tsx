@@ -1,6 +1,7 @@
+import TouchableOpacity from './MotionTouchable';
 import { usesPrintedLineTotal } from '../../lib/linePricing';
 import { useEffect, useState } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { Modal, View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { LineItem } from '../../store/useStore';
 import Spinner from './Spinner';
@@ -38,7 +39,7 @@ export default function EditLineItemModal({ item, isSaving, onCancel, onSave }: 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.backdrop}>
-        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={isSaving ? undefined : onCancel} />
+        <TouchableOpacity style={StyleSheet.absoluteFill} accessible={false} activeOpacity={1} onPress={isSaving ? undefined : onCancel} />
         <View style={styles.card}>
           <Text style={styles.title}>Edit item</Text>
 

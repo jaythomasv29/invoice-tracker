@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import TouchableOpacity from '../ui/MotionTouchable';
+import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { PriceAlert } from '../../store/useStore';
 
@@ -14,15 +15,15 @@ interface AIInsightCardProps {
 // scanning more invoices, since the detector needs repeat purchases of the
 // same item to have anything to compare.
 export default function AIInsightCard({ priceAlerts, onPress }: AIInsightCardProps) {
-  const increases = priceAlerts
+  const allIncreases = priceAlerts
     .filter((a) => a.pctChange > 0)
-    .sort((a, b) => b.pctChange - a.pctChange)
-    .slice(0, 3);
+    .sort((a, b) => b.pctChange - a.pctChange);
+  const increases=allIncreases.slice(0,3);
 
   const hasData = increases.length > 0;
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={hasData ? 0.85 : 1} disabled={!hasData}>
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Open price alerts">
       <View style={styles.headerRow}>
         <View style={styles.aiBadge}>
           <Text style={styles.aiBadgeText}>AI</Text>
@@ -33,7 +34,7 @@ export default function AIInsightCard({ priceAlerts, onPress }: AIInsightCardPro
       {hasData ? (
         <>
           <Text style={styles.caption}>
-            {increases.length === 1 ? '1 item has' : `${increases.length} items have`} crept up in price recently
+            {allIncreases.length === 1 ? '1 item has' : `${allIncreases.length} items have`} crept up in price recently
           </Text>
           <View style={styles.list}>
             {increases.map((a) => (
@@ -55,9 +56,9 @@ export default function AIInsightCard({ priceAlerts, onPress }: AIInsightCardPro
         </>
       ) : (
         <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>Unlock AI price insights</Text>
+          <Text style={styles.emptyTitle}>Your price watch is ready</Text>
           <Text style={styles.emptyBody}>
-            Scan a few more invoices from the same vendors — once we see a repeat item, we&apos;ll automatically flag when its price creeps up.
+            As you log repeat purchases, Sift compares unit prices and surfaces increases here. Open Alerts to see your price watch.
           </Text>
         </View>
       )}
@@ -70,7 +71,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface, borderRadius: 22,
     borderWidth: 1, borderColor: Colors.border,
     padding: 18,
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 18,
+    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 18,
   },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   aiBadge: {

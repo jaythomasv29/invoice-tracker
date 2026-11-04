@@ -1,5 +1,6 @@
+import TouchableOpacity from '../ui/MotionTouchable';
 import { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, withDelay, Easing,
   type SharedValue,

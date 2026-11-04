@@ -11,7 +11,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import SafeAreaView from '../../components/ui/Screen';
 import { useRouter, useFocusEffect } from "expo-router";
 import { useOrganization } from "@clerk/clerk-expo";
 import { Colors } from "../../constants/Colors";
@@ -36,10 +36,9 @@ import VendorSpendListCard from "../../components/dashboard/VendorSpendListCard"
 import SpendTrendCard from "../../components/dashboard/SpendTrendCard";
 import AIInsightCard from "../../components/dashboard/AIInsightCard";
 import CategorySpendCard from "../../components/dashboard/CategorySpendCard";
-import PriceAlertBanner from "../../components/dashboard/PriceAlertBanner";
 import UploadActivityCard from "../../components/dashboard/UploadActivityCard";
 import DeliveryGapCard from "../../components/dashboard/DeliveryGapCard";
-import UploadStreakCard from "../../components/dashboard/UploadStreakCard";
+import KitchenMomentumCard from "../../components/dashboard/KitchenMomentumCard";
 import { TourTarget } from "../../components/tour/TourTarget";
 import { useTour } from "../../components/tour/TourProvider";
 
@@ -96,11 +95,12 @@ export default function HomeScreen() {
     periodPctChange,
   } = useSpendPeriod();
 
-  const topAlert = priceAlerts.find((a) => !a.read);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [openingReview, setOpeningReview] = useState(false);
-  const [showInsights, setShowInsights] = useState(false);
+  const openInvoices = (range?: {from:string;to:string}) => router.push({ pathname:'/(tabs)/vendors', params:{view:'invoices',from:range?.from??'',to:range?.to??'',entry:Date.now().toString()} });
+  const openSuppliers = () => router.push({pathname:'/(tabs)/vendors',params:{view:'vendors',from:'',to:''}});
+  const openVendor = (id:string) => { if(vendors.some(v=>v.id===id)) router.push(`/vendor/${id}`); else openInvoices(); };
   const openReview = async (id:string) => {
     if (!organization?.id || openingReview) return;
     const scope=useStore.getState().activeScope;
@@ -117,7 +117,7 @@ export default function HomeScreen() {
 
   // Let the product tour scroll this screen so targets below the fold can be
   // brought into view before the spotlight measures them.
-  const { registerScroller, active: tourActive } = useTour();
+  const { registerScroller } = useTour();
   const scrollRef = useRef<ScrollView>(null);
   const scrollOffset = useRef(0);
   useEffect(() => {
@@ -201,7 +201,7 @@ export default function HomeScreen() {
           <View style={{flex:1}}><Text style={styles.overviewTitle}>Kitchen overview</Text><Text style={styles.overviewSubtitle}>{getGreeting()}. Let’s make it a clear one.</Text></View>
           <TouchableOpacity onPress={() => router.push('/scan')} accessibilityRole="button" accessibilityLabel="Scan a new invoice" style={styles.quickScan}><Text style={styles.quickScanText}>+ Scan</Text></TouchableOpacity>
         </View>
-        <SpendOverviewCard invoices={spendInvoices} vendors={vendors} loading={isLoadingSummary} />
+        <SpendOverviewCard invoices={spendInvoices} vendors={vendors} loading={isLoadingSummary} onOpenInvoices={openInvoices} onOpenSuppliers={openSuppliers} onOpenVendor={openVendor} />
         {awaitingReviewCount>0&&<View style={styles.reviewCard}>
           <Text style={styles.reviewTitle}>{awaitingReviewCount} {awaitingReviewCount===1?'invoice needs':'invoices need'} review</Text>
           <Text style={styles.reviewBody}>These scans are ready. Review and save them to include them in your spending.</Text>
@@ -211,126 +211,25 @@ export default function HomeScreen() {
         </View>}
 
 
-        {/* Flagship feature — kept at the top for easy access. Pro → the
-            feature; free → paywall (conversion). */}
-        <RecipeCostingCard
-          isPaid={isPaid}
-          onPress={() => router.push(isPaid ? "/recipes" : "/paywall")}
-        />
-
-        {/* Daily upload-streak habit widget — shown to all tiers to drive the
-            core "log your invoices" behavior. Self-fetches on focus. */}
-        <TourTarget id="home-streak">
-          {(showInsights || tourActive) && <UploadStreakCard onScan={() => router.push("/scan")} />}
-        </TourTarget>
-
-        {/* Spend tracking + price-creep are the Pro differentiators. Free orgs
-            see an upsell here instead; vendor storage + recent uploads below
-            stay available to everyone. */}
-        {isPaid ? (
-          <>
-            <TouchableOpacity onPress={() => setShowInsights(x => !x)} accessibilityRole="button" accessibilityState={{expanded: showInsights || tourActive}} style={styles.insightsToggle}>
-              <View style={{flex:1}}><Text style={styles.insightsTitle}>Purchasing intelligence</Text><Text style={styles.overviewSubtitle}>Trends, price changes & ingredient insights</Text></View><Text style={styles.insightsLink}>{showInsights || tourActive ? 'Hide −' : 'Explore +'}</Text>
-            </TouchableOpacity>
-            {(showInsights || tourActive) && <Animated.View entering={FadeInDown.duration(240).reduceMotion(ReduceMotion.System)} style={{gap: 16}}>
-            <MissingInvoiceCard
-              flags={missingInvoices}
-              onPressVendor={(id) => router.push(`/vendor/${id}`)}
-            />
-
-            <TourTarget id="home-spend">
-              <SpendTrendCard
-                period={spendView}
-                yearsBack={yearsBack}
-                periodTotal={periodTotal}
-                periodPctChange={periodPctChange}
-                barData={periodBarData}
-                isLoading={isLoadingSummary}
-              />
-            </TourTarget>
-
-            <TourTarget id="home-vendors">
-              <VendorSpendListCard
-                vendors={vendors}
-                period={spendView}
-                onChangePeriod={setSpendView}
-                yearsBack={yearsBack}
-                onChangeYears={setYearsBack}
-                maxYears={maxYears}
-                periodBarData={periodBarData}
-                onPressVendor={(id) => router.push(`/vendor/${id}`)}
-                isLoading={isLoadingSummary}
-              />
-            </TourTarget>
-
-            <TourTarget id="home-alerts">
-              <AIInsightCard
-                priceAlerts={priceAlerts}
-                onPress={() => router.push("/(tabs)/alerts")}
-              />
-            </TourTarget>
-
-            <DeliveryGapCard
-              total={deliveryGapTotal}
-              items={deliveryGapItems}
-              onPressInvoice={(id) => router.push(`/invoice/${id}`)}
-            />
-
-            {categorySpend.length > 0 && (
-              <CategorySpendCard categorySpend={categorySpend} />
-            )}
-
-            <TopItemsCard
-              topItems={topItems}
-              onPressItem={(name) =>
-                router.push({ pathname: '/item-history', params: { itemName: name } })
-              }
-            />
-            </Animated.View>}
-          </>
-        ) : (
-          <ProLockCard
-            stat={
-              monthTotal > 0
-                ? `$${Math.round(monthTotal).toLocaleString("en-US")}`
-                : undefined
-            }
-            statLabel={monthTotal > 0 ? "spent this month" : undefined}
-            title="See where every dollar goes"
-            body="Unlock category trends, recipe costing, and supplier price-change alerts."
-          />
-        )}
-
-        {uploadActivity.length > 0 && (
-          <UploadActivityCard
-            entries={uploadActivity}
-            onPressInvoice={(id) => router.push(`/invoice/${id}`)}
-          />
-        )}
-
-        {isPaid && topAlert && (
-          <PriceAlertBanner
-            alert={topAlert}
-            onPress={() => router.push("/(tabs)/alerts")}
-          />
-        )}
-
-        {/* Action tile */}
-        <TouchableOpacity
-          style={styles.actionCard}
-          onPress={() => router.push("/(tabs)/vendors")}
-          activeOpacity={0.85}
-        >
-          <View style={styles.vendorIconWrap}>
-            <GridIcon />
-          </View>
-          <View>
-            <Text style={styles.vendorTitle}>Invoices</Text>
-            <Text style={styles.vendorSub}>
-              {vendors.length} vendors
-            </Text>
-          </View>
-        </TouchableOpacity>
+        <View style={styles.intelligenceHeading}>
+          <View style={{flex:1}}><Text style={styles.intelligenceEyebrow}>THE BIGGER PICTURE</Text><Text style={styles.intelligenceTitle}>Purchasing intelligence</Text><Text style={styles.overviewSubtitle}>Build momentum. Spot changes. Know your next move.</Text></View>
+          {isPaid && <View style={styles.intelligenceBadge}><Text style={styles.intelligenceBadgeText}>PRO</Text></View>}
+        </View>
+        <Animated.View entering={FadeInDown.duration(240).reduceMotion(ReduceMotion.System)} style={{gap:16}}>
+          <TourTarget id="home-streak"><KitchenMomentumCard invoices={spendInvoices} pending={awaitingReviewCount} loading={isLoadingSummary} onInvoices={()=>openInvoices()} onReview={()=>{ if(awaitingReview[0]) void openReview(awaitingReview[0].id); else openInvoices(); }} onScan={()=>router.push('/scan')} /></TourTarget>
+          <RecipeCostingCard isPaid={isPaid} onPress={()=>router.push(isPaid?'/recipes':'/paywall')} />
+          {isPaid ? <>
+            <TourTarget id="home-alerts"><AIInsightCard priceAlerts={priceAlerts} onPress={()=>router.push('/(tabs)/alerts')} /></TourTarget>
+            <MissingInvoiceCard flags={missingInvoices} onPressVendor={openVendor} />
+            <View style={styles.patternHeading}><Text style={styles.patternTitle}>Your purchasing patterns</Text><TouchableOpacity onPress={openSuppliers} accessibilityRole="button" style={styles.sectionAction}><Text style={styles.insightsLink}>Suppliers ›</Text></TouchableOpacity></View>
+            <TourTarget id="home-spend"><SpendTrendCard period={spendView} yearsBack={yearsBack} periodTotal={periodTotal} periodPctChange={periodPctChange} barData={periodBarData} isLoading={isLoadingSummary} onOpenDetails={openSuppliers} /></TourTarget>
+            <TourTarget id="home-vendors"><VendorSpendListCard vendors={vendors} period={spendView} onChangePeriod={setSpendView} yearsBack={yearsBack} onChangeYears={setYearsBack} maxYears={maxYears} periodBarData={periodBarData} onPressVendor={openVendor} isLoading={isLoadingSummary} /></TourTarget>
+            <DeliveryGapCard total={deliveryGapTotal} items={deliveryGapItems} onPressInvoice={id=>router.push(`/invoice/${id}`)} />
+            {categorySpend.length>0 && <CategorySpendCard categorySpend={categorySpend} onOpenInvoices={()=>openInvoices()} />}
+            <TopItemsCard topItems={topItems} onPressItem={name=>router.push({pathname:'/item-history',params:{itemName:name}})} />
+          </> : <ProLockCard stat={monthTotal>0?`$${Math.round(monthTotal).toLocaleString('en-US')}`:undefined} statLabel={monthTotal>0?'spent this month':undefined} title="See the patterns behind your purchasing" body="Pro connects supplier trends, price-change alerts and recipe costing to your invoices." />}
+        </Animated.View>
+        {uploadActivity.length>0 && <UploadActivityCard entries={uploadActivity} onPressInvoice={id=>router.push(`/invoice/${id}`)} />}
       </ScrollView>
 
       <OnboardingExplainerSheet
@@ -387,38 +286,20 @@ function BellIcon() {
   );
 }
 
-function GridIcon() {
-  return (
-    <View
-      style={{
-        width: 20,
-        height: 20,
-        flexDirection: "row",
-        flexWrap: "wrap",
-        gap: 3,
-      }}
-    >
-      {[0, 1, 2, 3].map((i) => (
-        <View
-          key={i}
-          style={{
-            width: 8,
-            height: 8,
-            backgroundColor: Colors.primary,
-            borderRadius: 2,
-          }}
-        />
-      ))}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   overviewHeading: {flexDirection:'row',alignItems:'center',gap:12,marginBottom:4},
   overviewTitle:{fontFamily:'Manrope_800ExtraBold',fontSize:27,letterSpacing:-1,color:Colors.textPrimary},
   overviewSubtitle:{fontFamily:'Manrope_400Regular',fontSize:12,lineHeight:19,color:Colors.textSecondary,marginTop:3},
   quickScan:{minWidth:76,minHeight:44,paddingHorizontal:14,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:Colors.primary},
   quickScanText:{fontFamily:'Manrope_700Bold',fontSize:14,color:Colors.textOnPrimary},
+  intelligenceHeading:{flexDirection:'row',alignItems:'flex-start',gap:12,marginTop:20,marginBottom:2},
+  intelligenceEyebrow:{fontFamily:'Manrope_700Bold',fontSize:10,letterSpacing:1.5,color:Colors.primary,marginBottom:7},
+  intelligenceTitle:{fontFamily:'Manrope_800ExtraBold',fontSize:25,letterSpacing:-0.6,color:Colors.textPrimary,marginBottom:6},
+  intelligenceBadge:{paddingHorizontal:10,paddingVertical:6,borderRadius:10,backgroundColor:Colors.primaryLight},
+  intelligenceBadgeText:{fontFamily:'Manrope_800ExtraBold',fontSize:10,letterSpacing:1,color:Colors.primaryDark},
+  patternHeading:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:8,marginTop:8},
+  patternTitle:{fontFamily:'Manrope_700Bold',fontSize:17,color:Colors.textPrimary},
+  sectionAction:{minHeight:44,justifyContent:'center',paddingHorizontal:4},
   insightsToggle:{flexDirection:'row',alignItems:'center',gap:12,paddingVertical:12},
   insightsTitle:{fontFamily:'Manrope_700Bold',fontSize:17,color:Colors.textPrimary},
   insightsLink:{fontFamily:'Manrope_700Bold',fontSize:13,color:Colors.primary},

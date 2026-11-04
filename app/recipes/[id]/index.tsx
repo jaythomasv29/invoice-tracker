@@ -1,9 +1,10 @@
+import TouchableOpacity from '../../../components/ui/MotionTouchable';
 import { useCallback, useMemo, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Alert,
+  View, Text, ScrollView, StyleSheet, TextInput, Alert,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import SafeAreaView from '../../../components/ui/Screen';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../../constants/Colors';

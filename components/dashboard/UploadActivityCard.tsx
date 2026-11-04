@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import TouchableOpacity from '../ui/MotionTouchable';
+import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { UploadActivityEntry } from '../../store/useStore';
 

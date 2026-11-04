@@ -88,6 +88,7 @@ interface DbLineItem {
 }
 
 interface DbInvoice {
+  created_at?: string;
   id: string;
   vendor_id: string | null;
   vendors?: { name: string | null } | null;
@@ -148,6 +149,7 @@ export function mapInvoice(dbInvoice: DbInvoice, dbLineItems: DbLineItem[]): Inv
     invoiceNumber: dbInvoice.invoice_number ?? '',
     date: formatDate(dbInvoice.invoice_date),
     dateIso: dbInvoice.invoice_date,
+    uploadedAt: dbInvoice.created_at,
     lineItems,
     subtotal: dbInvoice.subtotal ?? 0,
     tax: dbInvoice.tax ?? 0,

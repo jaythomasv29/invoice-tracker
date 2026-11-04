@@ -1,8 +1,9 @@
+import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { useCallback, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Dimensions} from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import SafeAreaView from '../../components/ui/Screen';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue, useAnimatedStyle, useAnimatedScrollHandler,

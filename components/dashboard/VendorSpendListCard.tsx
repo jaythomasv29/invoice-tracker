@@ -1,5 +1,6 @@
+import TouchableOpacity from '../ui/MotionTouchable';
 import { useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { DayData, SpendPeriod, Vendor, vendorAmountFromBars } from '../../store/useStore';
 import { spendPeriodShortLabel } from '../../hooks/useSpendPeriod';

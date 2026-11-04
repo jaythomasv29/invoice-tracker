@@ -1,8 +1,9 @@
+import { filterInvoiceLibrary } from '../../lib/invoiceLibrary';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Linking, TextInput } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
+import SafeAreaView from '../../components/ui/Screen';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useOrganization } from '@clerk/clerk-expo';
 import { buildDemoInvoices } from '../../lib/demoData';
@@ -34,6 +35,7 @@ const INVOICE_EXPLAINER: ExplainerConfig = {
 
 export default function VendorsScreen() {
   const router = useRouter();
+  const params=useLocalSearchParams<{view?:string;from?:string;to?:string;entry?:string}>();
   const supabase = useSupabase();
   const { organization } = useOrganization();
   const { vendors, selectedDay, selectDay, fetchDashboardSummary, demoMode } = useStore();
@@ -42,10 +44,15 @@ export default function VendorsScreen() {
     periodTotal, periodPctChange, periodBarData,
   } = useSpendPeriod();
 
-  const [tab, setTab] = useState<Tab>('invoices');
+  const [tab, setTab] = useState<Tab>(params.view==='vendors'?'vendors':'invoices');
+  useEffect(()=>{if(params.view==='vendors'||params.view==='invoices')setTab(params.view);},[params.view]);
   const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [search, setSearch] = useState('');
+  useEffect(()=>{setSearch('');},[params.entry]);
+  const rangeFrom=typeof params.from==='string'?params.from:undefined;
+  const rangeTo=typeof params.to==='string'?params.to:undefined;
+  const hasRange=!!rangeFrom&&!!rangeTo;
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
 
@@ -93,12 +100,7 @@ export default function VendorsScreen() {
     selectDay(i);
   }, [selectDay]);
 
-  const query = search.trim().toLowerCase();
-  const filteredInvoices = query
-    ? allInvoices.filter((inv) =>
-        inv.vendorName.toLowerCase().includes(query) || inv.invoiceNumber.toLowerCase().includes(query)
-      )
-    : allInvoices;
+  const filteredInvoices=filterInvoiceLibrary(allInvoices,search,rangeFrom,rangeTo);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -108,7 +110,7 @@ export default function VendorsScreen() {
           <Text style={styles.subtitle}>
             {tab === 'vendors'
               ? `${activeCount} active ${shortLabel}`
-              : `${allInvoices.length} invoice${allInvoices.length === 1 ? '' : 's'} captured`}
+              : hasRange?`${filteredInvoices.length} saved invoices in this period`:`${allInvoices.length} invoice${allInvoices.length === 1 ? '' : 's'} captured`}
           </Text>
         </View>
         {tab === 'invoices' && allInvoices.length > 0 && (
@@ -116,11 +118,12 @@ export default function VendorsScreen() {
         )}
       </View>
 
+      {tab==='invoices'&&hasRange&&<View style={{marginHorizontal:16,marginBottom:10,paddingHorizontal:12,borderRadius:12,backgroundColor:Colors.primaryLight,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8}}><Text style={{flex:1,fontFamily:'Manrope_600SemiBold',fontSize:12,color:Colors.primaryDark}}>{rangeFrom} — {rangeTo}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear invoice date filter" onPress={()=>router.setParams({from:'',to:''})} style={{minHeight:44,justifyContent:'center',paddingHorizontal:8}}><Text style={{fontFamily:'Manrope_700Bold',fontSize:12,color:Colors.primary}}>Clear</Text></TouchableOpacity></View>}
       <View style={styles.segmentRow}>
         <TouchableOpacity
           accessibilityRole="button" accessibilityState={{selected: tab === 'vendors'}}
           style={[styles.segment, tab === 'vendors' && styles.segmentActive]}
-          onPress={() => { Haptics.selectionAsync(); setTab('vendors'); }}
+          onPress={() => { Haptics.selectionAsync(); setTab('vendors'); router.setParams({view:'vendors'}); }}
           activeOpacity={0.8}
         >
           <Text style={[styles.segmentText, tab === 'vendors' && styles.segmentTextActive]}>Vendors</Text>
@@ -128,7 +131,7 @@ export default function VendorsScreen() {
         <TouchableOpacity
           accessibilityRole="button" accessibilityState={{selected: tab === 'invoices'}}
           style={[styles.segment, tab === 'invoices' && styles.segmentActive]}
-          onPress={() => { Haptics.selectionAsync(); setTab('invoices'); }}
+          onPress={() => { Haptics.selectionAsync(); setTab('invoices'); router.setParams({view:'invoices'}); }}
           activeOpacity={0.8}
         >
           <Text style={[styles.segmentText, tab === 'invoices' && styles.segmentTextActive]}>All Invoices</Text>
@@ -197,7 +200,7 @@ export default function VendorsScreen() {
                     {filteredInvoices.length === 0 && (
                       <View style={styles.empty}>
                         <Text style={styles.emptyTitle}>No matches</Text>
-                        <Text style={styles.emptySub}>Try a different vendor name or invoice number.</Text>
+                        <Text style={styles.emptySub}>Try another search or clear the date filter.</Text>
                       </View>
                     )}
                   </>

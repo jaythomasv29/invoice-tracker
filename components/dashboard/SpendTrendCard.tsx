@@ -1,3 +1,4 @@
+import Touch from '../ui/MotionTouchable';
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, LayoutChangeEvent } from 'react-native';
 import Svg, {
@@ -30,6 +31,7 @@ interface SpendTrendCardProps {
   periodPctChange: number;
   barData: DayData[];
   isLoading?: boolean;
+  onOpenDetails?:()=>void;
 }
 
 // A single duotone gradient bar. Grows up from the baseline on mount / whenever
@@ -64,7 +66,7 @@ function Bar({
 // current bucket is drawn in the vivid gradient so the row of bars has reference
 // points instead of reading as noise.
 export default function SpendTrendCard({
-  period, yearsBack, periodTotal, periodPctChange, barData, isLoading,
+  period, yearsBack, periodTotal, periodPctChange, barData, isLoading, onOpenDetails,
 }: SpendTrendCardProps) {
   const compare = spendPeriodCompareLabel(period, yearsBack);
   const hasData = barData.some((d) => d.total > 0);
@@ -109,7 +111,7 @@ export default function SpendTrendCard({
         <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroWash)" />
       </Svg>
 
-      <View style={styles.headerRow}>
+      <Touch onPress={onOpenDetails} disabled={!onOpenDetails} accessibilityRole="button" accessibilityLabel="Open supplier purchasing trends" style={styles.headerRow}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={styles.labelRow}>
             <Text style={styles.label}>{spendPeriodLabel(period, yearsBack)}</Text>
@@ -127,7 +129,7 @@ export default function SpendTrendCard({
             </Text>
           </View>
         )}
-      </View>
+      </Touch>
       {compare && <Text style={styles.compareLabel}>{compare}</Text>}
 
       {hasData ? (

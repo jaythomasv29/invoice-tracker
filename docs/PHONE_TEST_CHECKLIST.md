@@ -64,3 +64,14 @@ Report the build number, iOS version, step, expected result and actual result. A
 - A catch-weight item should show its billed pounds separately from the shipped case quantity. Opening Edit and changing only its description must preserve its printed extended total. Test actual edits only on a disposable/sample invoice.
 - Capture the real paywall with price and monthly subscription terms visible for the subscription review screenshot. The existing Apple product review image is blank.
 - Final public submission needs a fresh production-profile binary embedding the approved fixes and reviewer sign-in; no new native build is needed for these beta UI tests.
+
+
+## Expanded intelligence and motion update — November 4
+
+- Build 7 stays installed; open online to download the beta OTA, then force-quit and reopen to apply it. No computer/server or new native build is needed.
+- Purchasing intelligence remains expanded on every Home visit. Check Kitchen momentum's saved-invoice milestone and upload-day activity; historical invoice dates still determine spending independently.
+- Tap the spending amount, invoice count or average to open invoices for that Day/Week/Month. Check the date chip, then Clear to restore all captured invoices. Supplier counts open suppliers; supplier rows open their detail history. Alerts, recipes, top items, missing invoices and shorted deliveries lead to their corresponding screens.
+- Preserve all real invoices and source photos. No deletion or re-upload is needed for this UI check.
+- Check press springs, short screen reveals, chart transitions and normal back navigation across sign-in, Home, invoice library/details, suppliers, recipes, alerts, scanning/review, Pro and Profile. Processing locks and disabled actions must remain intact.
+- Check Reduce Motion and a larger iOS text size on the physical phone. The new shared effects explicitly honor system motion preferences; this code check does not verify physical-device animation smoothness.
+- Local verification: 27 regression tests, typecheck/lint; actual iOS simulator rendering of Home, momentum, Profile and invoice library with fictional data. The November fixture drilldown showed 3 saved invoices totaling $217.90; clearing the date filter restored 12 captured invoices. No owner data was changed.

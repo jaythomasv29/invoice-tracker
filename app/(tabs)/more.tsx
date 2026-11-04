@@ -1,12 +1,11 @@
+import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { ensureAiConsent, withdrawAiConsent } from '../../lib/aiConsent';
 import { syncSubscription } from '../../lib/subscriptionSync';
 import { useState, useCallback, useRef } from 'react';
-import { AppState } from 'react-native';
-import { useFocusEffect } from 'expo-router';
 import { subscriptionStatusText } from '../../lib/subscriptionStatus';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { View, Text, ScrollView, StyleSheet, Alert, AppState } from 'react-native';
+import SafeAreaView from '../../components/ui/Screen';
+import { useRouter, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useAuth, useOrganization, useUser } from '@clerk/clerk-expo';
 import { Colors } from '../../constants/Colors';

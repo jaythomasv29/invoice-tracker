@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import SafeAreaView from '../components/ui/Screen';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useOrganization } from '@clerk/clerk-expo';
 import Svg, { Polyline, Circle, Line } from 'react-native-svg';

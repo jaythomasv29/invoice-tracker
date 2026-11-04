@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet, Image, Modal, FlatList, useWindowDimensions } from 'react-native';
+import TouchableOpacity from './MotionTouchable';
+import { View, Text, StyleSheet, Image, Modal, FlatList, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface ImageViewerModalProps {

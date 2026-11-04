@@ -1,7 +1,8 @@
+import TouchableOpacity from './MotionTouchable';
 import { printedCatchWeight } from '../../lib/linePricing';
 import { useState } from 'react';
 import { categoryLabel } from '../../lib/invoicePipeline';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
+import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { LineItem } from '../../store/useStore';
 

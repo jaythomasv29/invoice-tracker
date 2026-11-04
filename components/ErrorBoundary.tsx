@@ -1,5 +1,6 @@
+import TouchableOpacity from './ui/MotionTouchable';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import * as Sentry from '@sentry/react-native';
 import { Colors } from '../constants/Colors';
 

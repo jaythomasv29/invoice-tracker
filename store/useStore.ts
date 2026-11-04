@@ -44,6 +44,7 @@ export interface Invoice {
   // Raw ISO (yyyy-mm-dd) backing `date` — null when extraction found no
   // date. Editable in the review screen; `date` is re-derived from it.
   dateIso: string | null;
+  uploadedAt?: string;
   lineItems: LineItem[];
   subtotal: number;
   tax: number;

@@ -1,12 +1,13 @@
+import Touch from '../ui/MotionTouchable';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { CategorySpend } from '../../store/useStore';
 import DonutChart from '../ui/DonutChart';
 
-export default function CategorySpendCard({ categorySpend }: { categorySpend: CategorySpend[] }) {
+export default function CategorySpendCard({ categorySpend, onOpenInvoices }: { categorySpend: CategorySpend[]; onOpenInvoices?:()=>void }) {
   return (
     <View style={styles.card}>
-      <Text style={styles.tileLabel}>Spend by category</Text>
+      <Touch onPress={onOpenInvoices} disabled={!onOpenInvoices} accessibilityRole="button" accessibilityLabel="View invoices behind category spending" style={{minHeight:44,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><Text style={styles.tileLabel}>Spend by category</Text>{onOpenInvoices&&<Text style={{fontSize:12,fontFamily:'Manrope_700Bold',color:Colors.primary}}>Invoices ›</Text>}</Touch>
       <Text style={styles.tileCaption}>This week, across all vendors</Text>
       <View style={styles.verifyChartRow}>
         <View style={styles.donutWrap}>
@@ -43,5 +44,5 @@ const styles = StyleSheet.create({
   verifyLegend: { flex: 1, minWidth: 0, gap: 3 },
   verifyLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   verifyLegendDot: { width: 6, height: 6, borderRadius: 3 },
-  verifyLegendText: { fontSize: 10, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary, flexShrink: 1 },
+  verifyLegendText: { fontSize: 12, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary, flexShrink: 1 },
 });

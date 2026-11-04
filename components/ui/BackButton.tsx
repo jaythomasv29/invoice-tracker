@@ -1,4 +1,5 @@
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import TouchableOpacity from './MotionTouchable';
+import { View, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
 
 export default function BackButton({ onPress }: { onPress: () => void }) {

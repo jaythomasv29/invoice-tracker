@@ -20,8 +20,8 @@ export const TOUR_STEPS: TourStep[] = [
     tab: 'index',
     targetId: 'home-streak',
     placement: 'bottom',
-    title: 'Build a daily habit',
-    body: 'Log an invoice each day to keep your streak alive — the countdown resets at midnight.',
+    title: 'Build kitchen momentum',
+    body: 'Reach milestones with saved invoices and see your upload activity this week. Scan when deliveries arrive; there is no daily streak to protect.',
   },
   {
     id: 'spend',
@@ -29,7 +29,7 @@ export const TOUR_STEPS: TourStep[] = [
     targetId: 'home-spend',
     placement: 'bottom',
     title: 'See spend at a glance',
-    body: 'Every invoice you scan rolls into your weekly and monthly totals automatically.',
+    body: 'Reviewed, saved invoices build your spending history. Tap totals on Home to open their invoices, or explore supplier trends here.',
   },
   {
     id: 'alerts',
