@@ -1,10 +1,11 @@
+import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Linking } from 'react-native';
 import SafeAreaView from '../../components/ui/Screen';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useOrganization } from '@clerk/clerk-expo';
+
 import { Colors } from '../../constants/Colors';
 import { useStore, Invoice } from '../../store/useStore';
 import { useSupabase } from '../../lib/supabase';
@@ -46,7 +47,7 @@ function cadenceLabel(invoices: Invoice[]): string {
 export default function VendorDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { organization } = useOrganization();
+  const { organization, isPersonal } = useWorkspace();
   const supabase = useSupabase();
   const { vendors } = useStore();
   const { isPaid } = useEntitlement();
@@ -137,7 +138,7 @@ export default function VendorDetailScreen() {
           );
         })()}
 
-        <Text style={styles.sectionLabel}>Invoices</Text>
+        <Text style={styles.sectionLabel}>{isPersonal?'Receipts':'Invoices'}</Text>
         {loading ? (
           <View style={styles.empty}>
             <Spinner />

@@ -85,7 +85,7 @@ export default function WaitlistForm({
             setEmail(e.target.value);
             if (status === "error") setStatus("idle");
           }}
-          placeholder="you@restaurant.com"
+          placeholder="you@example.com"
           aria-label="Email address"
           disabled={status === "loading"}
           className="w-full flex-1 appearance-none rounded-2xl border border-border bg-surface px-5 py-3.5 text-base text-foreground outline-none transition placeholder:text-muted focus:border-brand focus:ring-2 focus:ring-brand/30 disabled:opacity-60"

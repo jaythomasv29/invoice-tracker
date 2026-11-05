@@ -1,15 +1,17 @@
+import { WORKSPACE_PLANS } from '../shared/workspacePolicy.ts';
+import { useWorkspace } from '../lib/workspaceContext';
 import TouchableOpacity from '../components/ui/MotionTouchable';
 import { useSupabase } from '../lib/supabase';
 import { syncSubscription } from '../lib/subscriptionSync';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
 import SafeAreaView from '../components/ui/Screen';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useOrganization } from '@clerk/clerk-expo';
+
 import { Colors } from '../constants/Colors';
-import { PLAN_FEATURES, PAYWALL_HEADLINE, PAYWALL_SUBHEAD } from '../constants/plans';
-import { PLAN_INVOICE_CAPS } from '../lib/entitlements';
+import { featuresFor, PAYWALL_HEADLINE, PAYWALL_SUBHEAD } from '../constants/plans';
+
 import { useExtractionUsage } from '../hooks/useExtractionUsage';
 import { useEntitlement } from '../hooks/useEntitlement';
 import {
@@ -30,7 +32,9 @@ export default function PaywallScreen() {
   const supabase = useSupabase();
   const [offeringError, setOfferingError] = useState<string | null>(null);
   const [loadingPackages, setLoadingPackages] = useState(true);
-  const { organization } = useOrganization();
+  const { organization, accountType, isPersonal } = useWorkspace();
+  const features=featuresFor(accountType);
+  const policy=WORKSPACE_PLANS[accountType];
   const { plan, isPaid } = useEntitlement();
   const { used, cap } = useExtractionUsage();
   const [busy, setBusy] = useState(false);
@@ -40,20 +44,20 @@ export default function PaywallScreen() {
   // RevenueCat project/key isn't set up yet.
   const [packages, setPackages] = useState<TierPackages>({ plus: null, pro: null });
 
-  const loadPackages = async () => {
+  const loadPackages = useCallback(async () => {
     setLoadingPackages(true); setOfferingError(null);
     try {
-      const loaded = await getTierPackages();
+      const loaded = await getTierPackages(accountType);
       setPackages(loaded);
       if (!loaded.pro) setOfferingError('The App Store is not returning a Pro price yet.');
     } catch (error: any) { setOfferingError(error?.message ?? 'Could not load the subscription.'); }
     finally { setLoadingPackages(false); }
-  };
-  useEffect(() => { void loadPackages(); }, []);
+  },[accountType]);
+  useEffect(() => { void loadPackages(); }, [loadPackages]);
   const selectedPkg = packages.pro;
   const proDisplay = selectedPkg ? `${selectedPkg.product.priceString}/month` : 'Price unavailable';
   const ctaPriceLabel = proDisplay;
-  const ctaTierLabel = 'Pro';
+  const ctaTierLabel = isPersonal?'Personal Pro':'Business Pro';
 
   const usagePct = cap > 0 ? Math.min(1, used / cap) : 0;
 
@@ -70,7 +74,7 @@ export default function PaywallScreen() {
   };
 
   const handleUpgrade = async () => {
-    if (busy || restoring || !organization?.id) return;
+    if (busy || restoring || !organization?.canPurchase) return;
     // RevenueCat project/key not wired yet (migration in progress) or the
     // selected package isn't configured — don't dead-end the button.
     if (!purchasesReady() || !selectedPkg) {
@@ -79,7 +83,7 @@ export default function PaywallScreen() {
     }
     setBusy(true);
     try {
-      const { plan: purchasedPlan, cancelled } = await purchaseTier(selectedPkg, organization!.id);
+      const { plan: purchasedPlan, cancelled } = await purchaseTier(selectedPkg, organization!.billingCustomerId, accountType);
       if (cancelled) return; // user backed out of the native sheet — no error
       if (purchasedPlan !== 'free') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -94,10 +98,10 @@ export default function PaywallScreen() {
   };
 
   const handleRestore = async () => {
-    if (restoring || busy || !organization?.id) return;
+    if (restoring || busy || !organization?.canPurchase) return;
     setRestoring(true);
     try {
-      const restoredPlan = await restorePurchases(organization.id);
+      const restoredPlan = await restorePurchases(organization.billingCustomerId, accountType);
       if (restoredPlan !== 'free') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         await awaitEntitlementAndClose(restoredPlan);
@@ -130,8 +134,8 @@ export default function PaywallScreen() {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
-          <Text style={styles.headline}>{PAYWALL_HEADLINE}</Text>
-          <Text style={styles.subhead}>{PAYWALL_SUBHEAD}</Text>
+          <Text style={styles.headline}>{isPersonal?'Make more sense of your grocery spend.':PAYWALL_HEADLINE}</Text>
+          <Text style={styles.subhead}>{`${isPersonal?'Personal':'Business'} Pro includes ${policy.pro.scans} scans per calendar month${isPersonal?'':', plus 10 AI recipe draft attempts'}. ${PAYWALL_SUBHEAD}`}</Text>
         </View>
 
         {isPaid ? (
@@ -150,6 +154,7 @@ export default function PaywallScreen() {
           </View>
         )}
 
+        {!organization?.canPurchase&&<Text style={styles.disclosure}>{organization?.purchaseUnavailableReason??'Only the workspace billing owner can purchase or restore.'}</Text>}
         <View style={styles.table}>
           <View style={styles.tableHeaderRow}>
             <View style={styles.featureCol} />
@@ -161,7 +166,7 @@ export default function PaywallScreen() {
             </View>
           </View>
 
-          {PLAN_FEATURES.map((feature, i) => (
+          {features.map((feature, i) => (
             <View
               key={feature.label}
               style={[styles.tableRow, i > 0 && styles.tableRowBorder]}
@@ -198,7 +203,7 @@ export default function PaywallScreen() {
               <TierOption
                 label="Pro"
                 price={proDisplay}
-                caption={`${PLAN_INVOICE_CAPS.pro} invoices / mo`}
+                caption={`${policy.pro.scans} ${isPersonal?'receipts':'invoices'} / mo`}
                 badge="Recommended"
                 selected
                 onPress={() => Haptics.selectionAsync()}
@@ -208,7 +213,7 @@ export default function PaywallScreen() {
             <TouchableOpacity
               style={[styles.cta, (busy || loadingPackages || !selectedPkg) && styles.ctaBusy]}
               onPress={handleUpgrade}
-              disabled={busy || restoring || loadingPackages || !selectedPkg}
+              disabled={busy || restoring || loadingPackages || !selectedPkg || !organization?.canPurchase}
               activeOpacity={0.85}
             >
               <Text style={styles.ctaText}>{busy ? 'Verifying purchase…' : loadingPackages ? 'Loading price…' : !selectedPkg ? 'Subscription unavailable' : `Upgrade to ${ctaTierLabel} — ${ctaPriceLabel}`}</Text>
@@ -229,7 +234,7 @@ export default function PaywallScreen() {
               Sift {ctaTierLabel} is an auto-renewing monthly subscription. Payment is charged to
               your Apple ID account at confirmation. It renews automatically unless cancelled at
               least 24 hours before the end of the current period; manage or cancel anytime in your
-              Apple ID settings. One subscription per restaurant, managed by the owner’s Apple ID.
+              Apple ID settings. Personal and Business are separate subscriptions, managed by the purchasing owner’s Apple ID.
             </Text>
             <View style={styles.legalRow}>
               <TouchableOpacity onPress={() => openLegalUrl(TERMS_URL, () => Alert.alert('Terms', 'Terms of Service will be available at launch.'))}>

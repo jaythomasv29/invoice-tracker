@@ -7,7 +7,7 @@ export async function ensureAiConsent(client: SupabaseClient): Promise<boolean> 
   if (data?.version === AI_CONSENT_VERSION && !data.withdrawn_at) return true;
   const accepted = await new Promise<boolean>((resolve) => Alert.alert(
     'Allow Anthropic AI processing?',
-    'Sift sends your invoice photos and their contents, or your dish name and optional dish photo, to Anthropic (Claude) to extract invoice details or draft recipe ingredients. Invoice photos may contain names, addresses and account numbers. Review AI results before relying on them. You can withdraw permission in Profile at any time; saved records stay available.',
+    'Sift sends your receipt/invoice photos and their contents, or your dish name and optional dish photo, to Anthropic (Claude) to extract purchase details or draft recipe ingredients. Receipt and invoice photos may contain names, addresses and account numbers. Review AI results before relying on them. You can withdraw permission in Profile at any time; saved records stay available.',
     [{ text: 'Not now', style: 'cancel', onPress: () => resolve(false) },
      { text: 'Allow AI processing', onPress: () => resolve(true) }],
     { cancelable: false },

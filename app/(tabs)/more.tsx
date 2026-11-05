@@ -1,3 +1,4 @@
+import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { ensureAiConsent, withdrawAiConsent } from '../../lib/aiConsent';
 import { syncSubscription } from '../../lib/subscriptionSync';
@@ -7,7 +8,7 @@ import { View, Text, ScrollView, StyleSheet, Alert, AppState } from 'react-nativ
 import SafeAreaView from '../../components/ui/Screen';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useAuth, useOrganization, useUser } from '@clerk/clerk-expo';
+import { useAuth, useUser } from '@clerk/clerk-expo';
 import { Colors } from '../../constants/Colors';
 import { useStore } from '../../store/useStore';
 import { useEntitlement } from '../../hooks/useEntitlement';
@@ -25,7 +26,7 @@ export default function MoreScreen() {
   const router = useRouter();
   const supabase = useSupabase();
   const { signOut } = useAuth();
-  const { organization } = useOrganization();
+  const { organization, accountType, isPersonal, personalId, select } = useWorkspace();
   const { user } = useUser();
   const { plan, isPaid } = useEntitlement();
   const { used, cap } = useExtractionUsage();
@@ -42,7 +43,7 @@ export default function MoreScreen() {
     if (!current) return;
     const id = current.id;
     try {
-      const info = await getSubscriptionEntitlement(id);
+      const info = await getSubscriptionEntitlement(current.billingCustomerId, accountType);
       if (activeOrg.current?.id !== id) return;
       setBillingLabel(subscriptionStatusText(info, Date.now(), info?.identifier === 'plus' ? 'Plus' : 'Pro') + (info?.isSandbox ? ' · TestFlight sandbox' : ''));
       try {
@@ -52,7 +53,7 @@ export default function MoreScreen() {
     } catch {
       if (activeOrg.current?.id === id) setBillingLabel('Could not refresh status · check Manage subscription');
     }
-  }, [supabase]);
+  }, [supabase, accountType]);
   useFocusEffect(useCallback(() => {
     setBillingLabel('Checking Apple subscription…');
     void refreshBilling();
@@ -102,7 +103,8 @@ export default function MoreScreen() {
   const handleRestore = async () => {
     try {
       if (!organization?.id) return;
-      await restorePurchases(organization.id);
+      if(!organization.canPurchase)throw new Error('Only the workspace billing owner can restore purchases.');
+      await restorePurchases(organization.billingCustomerId,accountType);
       const restoredPlan = await syncSubscription(supabase);
       await organization.reload();
       await refreshBilling();
@@ -117,7 +119,7 @@ export default function MoreScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     Alert.alert(
       'Delete account',
-      'This permanently deletes your account. Restaurants where you are the only member, including invoice and recipe photos, will be erased. Shared restaurant records stay with the remaining members. Apple subscriptions are not cancelled by account deletion: cancel first in Manage subscription. This cannot be undone.',
+      'This permanently deletes your account. Your household and businesses where you are the only member, including receipt, invoice and recipe photos, will be erased. Shared restaurant records stay with the remaining members. Apple subscriptions are not cancelled by account deletion: cancel first in Manage subscription. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -150,22 +152,28 @@ export default function MoreScreen() {
 
   type Row = { label: string; detail?: string; onPress?: () => void; accent?: boolean; stacked?: boolean };
   const sections: { header: string; rows: Row[] }[] = [
+    {header:'Workspaces',rows:[
+      {label:isPersonal?'Personal · household':'Business · restaurant',detail:'Current'},
+      ...(!isPersonal&&personalId?[{label:'Switch to Personal',onPress:()=>{void select(personalId).catch(e=>showToast(e.message));}}]:[]),
+      ...(isPersonal?(user?.organizationMemberships??[]).map(m=>({label:`Switch to ${m.organization.name}`,onPress:()=>{void select(m.organization.id).catch(e=>showToast(e.message));}})):[]),
+      {label:'Add or switch workspace',onPress:()=>router.push({pathname:'/onboarding/organization',params:{add:'1'}})},
+    ]},
     {
       header: 'Intelligence',
       rows: [
-        {
+        ...(!isPersonal?[{
           label: 'Recipe costing',
           detail: isPaid ? 'New' : 'Pro',
           accent: !isPaid,
           onPress: () => router.push(isPaid ? '/recipes' : '/paywall'),
-        },
+        }]:[]),
         { label: 'Export to CSV', detail: exporting ? 'Exporting…' : undefined, onPress: handleExport },
       ],
     },
     {
-      header: 'Organization',
+      header: isPersonal?'Household':'Business',
       rows: [
-        { label: 'Restaurant name', detail: restaurantName },
+        { label: isPersonal?'Household name':'Business name', detail: restaurantName },
         { label: 'Email', detail: email || 'you@restaurant.com' },
         {
           label: 'Plan',
@@ -190,7 +198,7 @@ export default function MoreScreen() {
           label: 'Privacy & data',
           onPress: () => openLegalUrl(PRIVACY_POLICY_URL, () => showToast('Privacy policy coming soon')),
         },
-        { label: 'Replay product tour', onPress: () => { router.push('/(tabs)'); startTour(); } },
+        ...(!isPersonal?[{ label: 'Replay product tour', onPress: () => { router.push('/(tabs)'); startTour(); } }]:[]),
       ],
     },
     // Dev-only QA tier-switcher — overrides the effective plan client-side so

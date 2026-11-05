@@ -1,3 +1,4 @@
+import { useWorkspace } from './workspaceContext';
 import { useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@clerk/clerk-expo';
 import { createClient } from '@supabase/supabase-js';
@@ -27,7 +28,7 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
  * called setState inside that effect. The ref always calls the latest
  * getToken without the client itself needing to change identity.
  */
-export function useSupabase() {
+export function useSupabaseForWorkspace(workspaceId?: string | null) {
   const { getToken, userId, orgId, sessionId } = useAuth();
   const getTokenRef = useRef(getToken);
   useEffect(() => { getTokenRef.current = getToken; }, [getToken]);
@@ -36,12 +37,15 @@ export function useSupabase() {
     () => {
       const identity = { userId, orgId, sessionId };
       return createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: workspaceId ? {'x-sift-workspace':workspaceId} : {} },
         accessToken: async () => {
           if (!identity.userId || !identity.sessionId) return null;
           return (await getTokenRef.current()) ?? null;
         },
       });
     },
-    [userId, orgId, sessionId]
+    [userId, orgId, sessionId, workspaceId]
   );
 }
+
+export function useSupabase(){ const {organization}=useWorkspace(); return useSupabaseForWorkspace(organization?.id); }

@@ -9,13 +9,15 @@ async function allMemberships(path: string) {
     if (result.data.length < 100) return rows;
   }
 }
-export async function requestDeletion(userId: string) {
+export async function requestDeletion(userId: string, issuer:string) {
   const db = adminClient();
   const { data: existing, error } = await db.from('account_deletions').select('*').eq('user_id', userId).maybeSingle();
   if (error) throw new Error('Could not check deletion status.');
   if (existing) return existing;
   const memberships = await allMemberships(`/users/${encodeURIComponent(userId)}/organization_memberships`);
-  const eraseOrgs: string[] = [];
+  const {data:personal,error:personalError}=await db.from('personal_workspaces').select('id').eq('owner_user_id',userId).eq('owner_issuer',issuer);
+  if(personalError)throw new Error('Could not check household ownership.');
+  const eraseOrgs: string[] = (personal??[]).map(p=>p.id);
   for (const membership of memberships) {
     const orgId = membership.organization.id;
     const members = await allMemberships(`/organizations/${encodeURIComponent(orgId)}/memberships`);
@@ -24,7 +26,7 @@ export async function requestDeletion(userId: string) {
       throw new Error('Make another member an administrator or remove other members before deleting the only administrator account. Contact chimpchamp92@gmail.com for help.');
     }
   }
-  const { data, error: insertError } = await db.from('account_deletions').insert({ user_id: userId, organization_ids: eraseOrgs }).select().single();
+  const { data, error: insertError } = await db.from('account_deletions').insert({ user_id: userId, owner_issuer:issuer, organization_ids: eraseOrgs }).select().single();
   if (insertError) throw new Error('Could not start account deletion. Please retry.');
   return data;
 }
@@ -52,15 +54,25 @@ export async function runDeletion(job: any) {
     await removeFolder('invoice-images', orgId);
     await removeFolder('recipe-images', orgId);
     // Remove child records first; each deletion is idempotent and checked.
-    for (const table of ['recipe_ingredients','recipes','price_alerts','delivery_disputes','invoice_line_items','invoices','insight_briefings','vendors','items','extraction_usage','ai_jobs','billing_sync_locks']) {
+    for (const table of ['recipe_ingredients','recipes','price_alerts','delivery_disputes','invoice_line_items','invoices','insight_briefings','vendors','items','extraction_usage','ai_jobs','billing_sync_locks','ai_model_usage']) {
       const { error } = await db.from(table).delete().eq('organization_id', orgId);
       if (error) throw new Error('Data deletion is delayed. Please retry.');
     }
-    const revenueKey = Deno.env.get('REVENUECAT_SECRET_API_KEY');
-    if (!revenueKey) throw new Error('Purchase record deletion needs support. Your deletion remains queued.');
-    const revenueResponse = await fetch(`https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(orgId)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${revenueKey}` }, signal: AbortSignal.timeout(15000) });
-    if (!revenueResponse.ok && revenueResponse.status !== 404) throw new Error('Purchase record deletion is delayed. Please retry.');
-    await clerk(`/organizations/${encodeURIComponent(orgId)}`, 'DELETE');
+    const {data:link,error:linkError}=await db.from('workspace_billing_links').select('customer_id').eq('workspace_id',orgId).maybeSingle();
+    if(linkError)throw new Error('Purchase record deletion is delayed.');
+    const customer=link?.customer_id??orgId;
+    const {count:otherLinks,error:countError}=await db.from('workspace_billing_links').select('workspace_id',{count:'exact',head:true}).eq('customer_id',customer).not('workspace_id','in',`(${job.organization_ids.join(',')})`);
+    if(countError)throw new Error('Purchase record deletion is delayed.');
+    if(!otherLinks){
+      const revenueKey=Deno.env.get('REVENUECAT_SECRET_API_KEY');
+      if(!revenueKey)throw new Error('Purchase record deletion needs support. Your deletion remains queued.');
+      const response=await fetch(`https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(customer)}`,{method:'DELETE',headers:{Authorization:`Bearer ${revenueKey}`},signal:AbortSignal.timeout(15000)});
+      if(!response.ok&&response.status!==404)throw new Error('Purchase record deletion is delayed. Please retry.');
+    }
+    const {error:unlinkError}=await db.from('workspace_billing_links').delete().eq('workspace_id',orgId);
+    if(unlinkError)throw new Error('Purchase record deletion is delayed.');
+    if(orgId.startsWith('pws_')){const {error}=await db.from('personal_workspaces').delete().eq('id',orgId);if(error)throw new Error('Household deletion is delayed.');}
+    else await clerk(`/organizations/${encodeURIComponent(orgId)}`, 'DELETE');
   }
   const { error: consentError } = await db.from('ai_consents').delete().eq('user_id', job.user_id);
   if (consentError) throw new Error('Permission record deletion is delayed. Please retry.');

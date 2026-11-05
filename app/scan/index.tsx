@@ -1,3 +1,4 @@
+import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { ensureAiConsent } from '../../lib/aiConsent';
 import { useEffect, useRef, useState } from 'react';
@@ -10,7 +11,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as Haptics from 'expo-haptics';
-import { useOrganization } from '@clerk/clerk-expo';
+
 import { useNetworkState } from 'expo-network';
 import Svg, { Path } from 'react-native-svg';
 import Animated, {
@@ -34,7 +35,7 @@ export default function ScanScreen() {
   const [elapsed, setElapsed] = useState(0);
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
-  const { organization } = useOrganization();
+  const { organization, isPersonal } = useWorkspace();
   const supabase = useSupabase();
   const network = useNetworkState();
   const cameraRef = useRef<CameraView>(null);
@@ -140,7 +141,7 @@ export default function ScanScreen() {
     // Client-side pre-check: orgs already over their tier's monthly cap go
     // straight to the paywall, so we don't waste an upload. The edge function
     // enforces the same limit server-side, so this is UX, not the security
-    // boundary. `remaining` is tier-aware (Free 10 / Plus 300 / Pro 150).
+    // boundary. `remaining` uses the active workspace’s plan allowance.
     if (remaining <= 0) {
       router.push('/paywall');
       return;
@@ -380,7 +381,7 @@ export default function ScanScreen() {
           >
             <CloseIcon />
           </TouchableOpacity>
-          <Text style={styles.topTitle}>Scan invoice</Text>
+          <Text style={styles.topTitle}>Scan {isPersonal?'receipt':'invoice'}</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 20 }}>
@@ -417,7 +418,7 @@ export default function ScanScreen() {
         >
           <CloseIcon />
         </TouchableOpacity>
-        <Text style={styles.topTitle}>Scan invoice</Text>
+        <Text style={styles.topTitle}>Scan {isPersonal?'receipt':'invoice'}</Text>
         <View style={{ width: 40 }} />
       </View>
 

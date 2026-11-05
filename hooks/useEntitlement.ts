@@ -1,4 +1,5 @@
-import { useOrganization } from '@clerk/clerk-expo';
+import { useWorkspace } from '../lib/workspaceContext';
+
 import { planFromOrg, isPaidPlan, invoiceCapForPlan, type Plan } from '../lib/entitlements';
 import { useStore } from '../store/useStore';
 
@@ -13,13 +14,13 @@ export interface Entitlement {
   invoiceCap: number;
 }
 
-function entitlementFor(plan: Plan): Entitlement {
+function entitlementFor(plan: Plan, type: 'personal'|'business'): Entitlement {
   return {
     plan,
     isPaid: isPaidPlan(plan),
     isPlus: plan === 'plus',
     isPro: plan === 'pro',
-    invoiceCap: invoiceCapForPlan(plan),
+    invoiceCap: invoiceCapForPlan(plan,type),
   };
 }
 
@@ -31,11 +32,11 @@ function entitlementFor(plan: Plan): Entitlement {
 //   - demoMode — the product tour presents the full Pro experience.
 //   - debugPlan — the __DEV__ QA tier-switcher, to verify gating at each level.
 export function useEntitlement(): Entitlement {
-  const { organization } = useOrganization();
+  const { organization, accountType } = useWorkspace();
   const demoMode = useStore((s) => s.demoMode);
   const debugPlan = useStore((s) => s.debugPlan);
 
-  if (demoMode) return entitlementFor('pro');
-  if (debugPlan) return entitlementFor(debugPlan);
-  return entitlementFor(planFromOrg(organization));
+  if (demoMode) return entitlementFor('pro',accountType);
+  if (debugPlan) return entitlementFor(debugPlan,accountType);
+  return entitlementFor(planFromOrg(organization),accountType);
 }

@@ -6,7 +6,7 @@ export default function LaunchFilm() {
       <div className="mb-8 text-center">
         <p className="feature-eyebrow text-xs font-bold uppercase tracking-[0.16em] text-brand-dark">The Sift launch film</p>
         <h2 id="film-title" className="mt-4 text-balance text-4xl font-extrabold tracking-[-0.03em] sm:text-5xl">See Sift in action.</h2>
-        <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-muted">From supplier invoices to a clearer view of your kitchen. A 45-second introduction.</p>
+        <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-muted">A 45-second introduction to the Business workspace, from supplier invoices to a clearer view of your kitchen.</p>
       </div>
       <figure id="film" className="scroll-mt-24">
         <div className="overflow-hidden rounded-2xl border border-border bg-brand-dark shadow-xl shadow-black/10 sm:rounded-3xl">
@@ -17,7 +17,7 @@ export default function LaunchFilm() {
             Your browser does not support embedded video. <a href={media.film.src}>Watch the Sift film</a>.
           </video>
         </div>
-        <figcaption id="film-caption" className="mt-4 text-center text-sm leading-relaxed text-muted">Fictional sample data. Price alerts and recipe costing are Pro features.</figcaption>
+        <figcaption id="film-caption" className="mt-4 text-center text-sm leading-relaxed text-muted">Business workspace preview · fictional sample data. Price alerts and recipe costing are Business Pro features.</figcaption>
       </figure>
       <details className="mx-auto mt-5 max-w-2xl rounded-2xl border border-border px-5">
         <summary className="cursor-pointer py-3 text-sm font-semibold">Read the film description</summary>

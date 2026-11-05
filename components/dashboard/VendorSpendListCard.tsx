@@ -1,3 +1,4 @@
+import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../ui/MotionTouchable';
 import { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
@@ -23,6 +24,7 @@ export default function VendorSpendListCard({
   vendors, period, onChangePeriod, yearsBack, onChangeYears, maxYears,
   periodBarData, onPressVendor, isLoading,
 }: VendorSpendListCardProps) {
+  const {isPersonal}=useWorkspace();
   const shortLabel = spendPeriodShortLabel(period, yearsBack);
   const totalInvoices = vendors.reduce((sum, v) => sum + v.invoiceCount, 0);
 
@@ -39,11 +41,11 @@ export default function VendorSpendListCard({
       <View style={styles.headerRow}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={styles.titleRow}>
-            <Text style={styles.title}>Total Invoices</Text>
+            <Text style={styles.title}>{isPersonal?'Receipt history':'Total Invoices'}</Text>
             {isLoading && <Spinner size={12} color={Colors.textSecondary} />}
           </View>
           <Text style={styles.subtitle}>
-            {vendors.length} vendor{vendors.length === 1 ? '' : 's'}, {totalInvoices} invoice{totalInvoices === 1 ? '' : 's'}
+            {vendors.length} {isPersonal?'store':'vendor'}{vendors.length === 1 ? '' : 's'}, {totalInvoices} {isPersonal?'receipt':'invoice'}{totalInvoices === 1 ? '' : 's'}
           </Text>
         </View>
         <SpendPeriodPicker
@@ -70,7 +72,7 @@ export default function VendorSpendListCard({
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={styles.vendorName} numberOfLines={1}>{v.name}</Text>
                 <Text style={styles.invoiceCount}>
-                  {v.invoiceCount} invoice{v.invoiceCount === 1 ? '' : 's'} total
+                  {v.invoiceCount} {isPersonal?'receipt':'invoice'}{v.invoiceCount === 1 ? '' : 's'} total
                 </Text>
                 {/* proportional spend bar — share of the top vendor's spend
                     for the selected period, colored by the vendor */}

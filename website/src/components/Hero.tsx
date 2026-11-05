@@ -26,9 +26,9 @@ export default function Hero() {
           transition={{ duration: 0.8, ease: easeOut, delay: 0.05 }}
           className="text-balance text-4xl font-extrabold leading-[1.04] tracking-[-0.035em] sm:text-6xl md:text-7xl"
         >
-          Your invoices,
+          Every purchase,
           <br />
-          turned into decisions.
+          a little clearer.
         </motion.h1>
 
         <motion.p
@@ -37,8 +37,8 @@ export default function Hero() {
           transition={{ duration: 0.8, ease: easeOut, delay: 0.15 }}
           className="mx-auto mt-6 max-w-2xl text-balance text-lg leading-relaxed text-muted sm:text-xl"
         >
-          Scan supplier invoices, review your spending, and see your kitchen clearly.
-          Pro adds price-change insights and recipe costing from your invoice history.
+          Groceries at home. Purchasing at work. Scan your receipts or supplier invoices,
+          understand your spending, and keep both worlds in their own workspace.
         </motion.p>
 
         <motion.div

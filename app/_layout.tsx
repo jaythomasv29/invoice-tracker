@@ -1,3 +1,4 @@
+import { WorkspaceProvider } from '../components/WorkspaceProvider';
 import { useReducedMotion } from 'react-native-reanimated';
 import { SessionScope } from '../components/SessionScope';
 import { useEffect } from 'react';
@@ -69,7 +70,7 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={clerkTokenCache}>
-        {fontsLoaded ? <SessionScope><AppContent /></SessionScope> : <LoadingScreen />}
+        {fontsLoaded ? <WorkspaceProvider><SessionScope><AppContent /></SessionScope></WorkspaceProvider> : <LoadingScreen />}
       </ClerkProvider>
     </ErrorBoundary>
   );

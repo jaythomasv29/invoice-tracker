@@ -1,3 +1,4 @@
+import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -5,9 +6,9 @@ import {
   type NativeScrollEvent, type NativeSyntheticEvent,
 } from 'react-native';
 import SafeAreaView from '../../components/ui/Screen';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { Redirect, useRouter, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useOrganization } from '@clerk/clerk-expo';
+
 import { Colors } from '../../constants/Colors';
 import { useSupabase } from '../../lib/supabase';
 import { fetchRecipes, RecipeListItem } from '../../lib/recipeCosting';
@@ -64,8 +65,9 @@ function CostMarginBar({ pct }: { pct: number }) {
 export default function RecipesTabScreen() {
   const router = useRouter();
   const supabase = useSupabase();
-  const { organization } = useOrganization();
-  const { isPaid } = useEntitlement();
+  const { organization, isPersonal } = useWorkspace();
+  const { isPaid: paidPlan } = useEntitlement();
+  const isPaid=paidPlan&&!isPersonal;
   const demoMode = useStore((s) => s.demoMode);
   const [recipes, setRecipes] = useState<RecipeListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,6 +103,7 @@ export default function RecipesTabScreen() {
     router.push('/recipes/new');
   };
 
+  if(isPersonal)return <Redirect href="/(tabs)"/>;
   // Free orgs get the pitch instead of an empty list.
   if (!isPaid) {
     return (

@@ -1,3 +1,4 @@
+import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from './MotionTouchable';
 import { printedCatchWeight } from '../../lib/linePricing';
 import { useState } from 'react';
@@ -27,6 +28,7 @@ interface LineItemDisplayProps {
 export default function LineItemDisplay({
   item, onToggleExpand, onConfirm, onToggleMissing, onChangeNote, onEdit, onToggleVoid,
 }: LineItemDisplayProps) {
+  const {isPersonal}=useWorkspace();
   const [noteOpen, setNoteOpen] = useState(false);
   const isMissing = item.verification === 'missing';
   const catchWeight = printedCatchWeight(item.rawDesc ?? item.desc);
@@ -95,7 +97,7 @@ export default function LineItemDisplay({
             </View>
           )}
 
-          <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12}}><TouchableOpacity
+          <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12}}>{!isPersonal&&<TouchableOpacity
             accessibilityRole="button" accessibilityLabel={`${isMissing ? 'Mark received' : 'Mark missing'}: ${item.desc}`}
             style={[styles.missingBtn, isMissing && styles.missingBtnActive]}
             onPress={onToggleMissing}
@@ -104,7 +106,7 @@ export default function LineItemDisplay({
             <Text style={[styles.missingBtnText, isMissing && styles.missingBtnTextActive]}>
               {isMissing ? '✓ Marked missing' : 'Mark missing'}
             </Text>
-          </TouchableOpacity>
+          </TouchableOpacity>}
 
           {!noteOpen && !item.note && <TouchableOpacity onPress={() => setNoteOpen(true)} style={{minHeight:44,justifyContent:'center'}} accessibilityRole="button" accessibilityLabel={`Add a note for ${item.desc}`}><Text style={{fontFamily:'Manrope_600SemiBold',fontSize:12,color:Colors.textSecondary}}>+ Add note</Text></TouchableOpacity>}
           </View>

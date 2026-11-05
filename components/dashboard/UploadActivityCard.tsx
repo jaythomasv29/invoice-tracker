@@ -1,3 +1,4 @@
+import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../ui/MotionTouchable';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
@@ -9,6 +10,7 @@ interface UploadActivityCardProps {
 }
 
 export default function UploadActivityCard({ entries, onPressInvoice }: UploadActivityCardProps) {
+  const {isPersonal}=useWorkspace();
   const backdatedCount = entries.filter((e) => e.isBackdated).length;
 
   return (
@@ -19,7 +21,7 @@ export default function UploadActivityCard({ entries, onPressInvoice }: UploadAc
           <Text style={styles.subtitle} numberOfLines={2}>
             {backdatedCount > 0
               ? `${backdatedCount} recent upload${backdatedCount === 1 ? '' : 's'} dated in a past week — see where they landed`
-              : 'Invoices added to your account, most recent first'}
+              : `${isPersonal?'Receipts':'Invoices'} added to your account, most recent first`}
           </Text>
         </View>
       </View>

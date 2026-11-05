@@ -1,17 +1,15 @@
+import { useWorkspace } from '../lib/workspaceContext';
 import { useEffect, useRef } from 'react';
-import { useOrganization } from '@clerk/clerk-expo';
+
 import { AppState } from 'react-native';
 import { useSupabase } from '../lib/supabase';
 import { syncSubscription } from '../lib/subscriptionSync';
 import { identifyOrg, signOutPurchases } from '../lib/purchases';
 
-// Keeps the RevenueCat identity bound to the active Clerk organization. The Pro
-// plan is org-scoped, so RevenueCat's App User ID must be the org id — that's
-// what the entitlement attaches to and what the revenuecat-webhook keys the
-// plan flag on (see IAP_MIGRATION_PLAN.md). No-ops until purchases are
-// configured (off iOS / no SDK key). Mount once from the authenticated shell.
+// Keep one verified billing-owner identity across Personal and Business.
+// Mode-specific entitlements are reconciled independently by the server.
 export function useRevenueCatSync(): void {
-  const { organization } = useOrganization();
+  const { organization } = useWorkspace();
   const orgId = organization?.id;
   const supabase = useSupabase();
   const currentOrg = useRef(organization);
@@ -19,14 +17,14 @@ export function useRevenueCatSync(): void {
 
   useEffect(() => {
     if (orgId) {
-      identifyOrg(orgId).catch(() => {
+      identifyOrg(organization!.billingCustomerId).catch(() => {
         // Best-effort — a failed logIn shouldn't break the app shell. The next
         // purchase attempt will surface any real problem.
       });
     } else {
       signOutPurchases().catch(() => {});
     }
-  }, [orgId]);
+  }, [orgId, organization?.billingCustomerId]);
 
   // Refresh authoritative access on cold launch and return from Apple settings.
   // Cancellation alone does not revoke access; the server checks paid-through expiry.

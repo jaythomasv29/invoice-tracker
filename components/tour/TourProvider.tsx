@@ -1,3 +1,4 @@
+import { useWorkspace } from '../../lib/workspaceContext';
 import {
   createContext, useContext, useCallback, useEffect, useRef, useState,
   type ReactNode,
@@ -5,7 +6,7 @@ import {
 import { View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useOrganization } from '@clerk/clerk-expo';
+
 import { useStore } from '../../store/useStore';
 import { hasSeenTour, markTourSeen } from '../../lib/tourFlag';
 import { TOUR_STEPS, type TourStep, type TourTabId } from './TourTypes';
@@ -47,7 +48,7 @@ function tabHref(tab: TourTabId): string {
 
 export function TourProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { organization } = useOrganization();
+  const { organization, isPersonal } = useWorkspace();
   const { height: screenH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [active, setActive] = useState(false);
@@ -120,23 +121,24 @@ export function TourProvider({ children }: { children: ReactNode }) {
   }, [active, stepIndex, router, measureActive]);
 
   const start = useCallback(() => {
+    if(isPersonal)return;
     useStore.getState().startDemo();
     activeStep.current = TOUR_STEPS[0] ?? null;
     setStepIndex(0);
     setMeasuredRect(null);
     setActive(true);
-  }, []);
+  }, [isPersonal]);
 
   // First-run trigger: once an org exists, start the tour if it hasn't been seen.
   useEffect(() => {
     if (startedRef.current) return;
-    if (!organization?.id) return;
+    if (!organization?.id||isPersonal) return;
     startedRef.current = true;
     (async () => {
       const seen = await hasSeenTour();
       if (!seen) start();
     })();
-  }, [organization?.id, start]);
+  }, [organization?.id, start,isPersonal]);
 
   const next = useCallback(() => {
     const step = TOUR_STEPS[stepIndex];

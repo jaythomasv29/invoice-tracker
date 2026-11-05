@@ -1,3 +1,4 @@
+import { useWorkspace } from '../../lib/workspaceContext';
 import Touch from '../ui/MotionTouchable';
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, LayoutChangeEvent } from 'react-native';
@@ -68,6 +69,7 @@ function Bar({
 export default function SpendTrendCard({
   period, yearsBack, periodTotal, periodPctChange, barData, isLoading, onOpenDetails,
 }: SpendTrendCardProps) {
+  const {isPersonal}=useWorkspace();
   const compare = spendPeriodCompareLabel(period, yearsBack);
   const hasData = barData.some((d) => d.total > 0);
   const maxBar = Math.max(1, ...barData.map((d) => d.total));
@@ -111,7 +113,7 @@ export default function SpendTrendCard({
         <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroWash)" />
       </Svg>
 
-      <Touch onPress={onOpenDetails} disabled={!onOpenDetails} accessibilityRole="button" accessibilityLabel="Open supplier purchasing trends" style={styles.headerRow}>
+      <Touch onPress={onOpenDetails} disabled={!onOpenDetails} accessibilityRole="button" accessibilityLabel={isPersonal?'Open store spending trends':'Open supplier purchasing trends'} style={styles.headerRow}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={styles.labelRow}>
             <Text style={styles.label}>{spendPeriodLabel(period, yearsBack)}</Text>

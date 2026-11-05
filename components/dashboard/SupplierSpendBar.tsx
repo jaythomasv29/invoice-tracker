@@ -1,3 +1,4 @@
+import { useWorkspace } from '../../lib/workspaceContext';
 import Touch from '../ui/MotionTouchable';
 import { View, Text, StyleSheet } from 'react-native';
 import Animated, { LinearTransition, ReduceMotion } from 'react-native-reanimated';
@@ -9,6 +10,7 @@ const transition = LinearTransition.duration(360).reduceMotion(ReduceMotion.Syst
 export default function SupplierSpendBar({ totals, vendors, onPressVendor }: {
   totals: [string, number][]; vendors: { id: string; name: string }[]; onPressVendor?:(id:string)=>void;
 }) {
+  const {isPersonal}=useWorkspace();
   // The full supplier registry keeps colors stable when switching periods.
   const ids = [...new Set([...vendors.map(v => v.id), ...totals.map(([id]) => id)])].sort();
   const color = (id: string) => { const i = ids.indexOf(id); return palette[i] ?? `hsl(${(i * 137.508) % 360}, 60%, 73%)`; };
@@ -17,7 +19,7 @@ export default function SupplierSpendBar({ totals, vendors, onPressVendor }: {
   const credits = totals.some(([, value]) => value < 0);
   if (!totals.length) return null;
   return <View style={s.container}>
-    <Text style={s.title}>Spending by supplier</Text>
+    <Text style={s.title}>Spending by {isPersonal?'store':'supplier'}</Text>
     {total > 0 && <View style={s.track} accessible accessibilityLabel={positive.map(([id, value]) => `${vendors.find(v => v.id === id)?.name ?? 'Unknown supplier'}: ${(value / total * 100).toFixed(1)} percent`).join('. ')}>
       {positive.map(([id, value]) => <Animated.View key={id} layout={transition} style={{ flexBasis: 0, flexGrow: value / total, backgroundColor: color(id), height: '100%' }} />)}
     </View>}

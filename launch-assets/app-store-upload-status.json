@@ -37,26 +37,34 @@
       "id": "ffc00019-5234-87ba-8036-f883f5722ea8",
       "sha256": "a03ba51c6f3eb1ed89ecb314587d79c0c246afd89d59949294f607d9500ecf13",
       "state": "COMPLETE"
+    },
+    {
+      "file": "screenshots/app-store/07-personal.png",
+      "id": "87400019-5234-87ba-8037-00ec4851940c",
+      "sha256": "06a883edf3ecb3f387f87800e9982c0587d4fb6a018ee8f7afc57ac2763757c4",
+      "state": "UPLOAD_COMPLETE"
     }
   ],
   "creative": [
     {
       "file": "creative/product-page-header-3840x1646.png",
-      "id": "ec400019-5234-87ba-8021-55e8a7ae589c",
-      "sha256": "faa4a20caa967224fcb3255bfede24243e6047bea5a203153d212de7027bcb9b",
-      "state": "PREPARE_FOR_SUBMISSION",
-      "placement": "32800019-5234-87ba-8f32-d4030de233c1",
-      "orderingRequest": "9d2b4ee6-d131-445c-b21a-22af20b37f79"
+      "id": "24400019-5234-87ba-802b-0855af2749f4",
+      "sha256": "1cfadb62afb1ecbba48b9ad686d3958ab3022314b786181429710305cde4c723",
+      "state": "UPLOAD_COMPLETE",
+      "placement": "e6c00019-5234-87ba-8f19-122e059ea356",
+      "previousAssetId": "ec400019-5234-87ba-8021-55e8a7ae589c",
+      "previousPlacement": "32800019-5234-87ba-8f32-d4030de233c1",
+      "orderingRequest": "77081466-85ac-432f-8609-221096da199b"
     },
     {
       "file": "creative/search-results-3840x2560.png",
-      "id": "5b800019-5234-87ba-801d-dc3578e63d0c",
-      "sha256": "d3050e919f0ec9d1a72b87b148996771905ea2de24da759f492bd0b96f21c228",
-      "state": "PREPARE_FOR_SUBMISSION",
-      "placement": "3bc00019-5234-87ba-8f29-a759a6dfe891",
-      "previousAssetId": "c0000019-5234-87ba-800e-646cb74f1355",
-      "previousPlacement": "3f400019-5234-87ba-8f00-96fb3c89aab6",
-      "orderingRequest": "d85b3f05-93a6-4ced-8043-cc03b66718a9"
+      "id": "00c00019-5234-87ba-8032-25760892e22d",
+      "sha256": "923fc6f679877a52f1c426c31789d433a509ee077f71b37a19b41a3153a47e51",
+      "state": "UPLOAD_COMPLETE",
+      "placement": "79400019-5234-87ba-8f34-c99ecd874d98",
+      "previousAssetId": "5b800019-5234-87ba-801d-dc3578e63d0c",
+      "previousPlacement": "3bc00019-5234-87ba-8f29-a759a6dfe891",
+      "orderingRequest": "cb70dc23-fcf5-4661-a5dc-36f8a24e3c84"
     }
   ],
   "previews": [

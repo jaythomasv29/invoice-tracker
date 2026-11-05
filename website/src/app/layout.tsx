@@ -3,23 +3,23 @@ import "./globals.css";
 import MotionProvider from "@/components/MotionProvider";
 
 export const metadata: Metadata = {
-  title: "Sift — Invoice intelligence for restaurants",
+  title: "Sift — Shopping clarity for home and business",
   description:
-    "Scan supplier invoice photos and Sift turns it into tracked spend, price-creep alerts, and live recipe costs — priced from your own paperwork.",
+    "Grocery receipts and restaurant invoices, organized in separate Personal and Business workspaces. Track spending, compare prices, and see the bigger picture.",
   metadataBase: new URL("https://siftcosts.com"),
   openGraph: {
-    title: "Sift — Invoice intelligence for restaurants",
+    title: "Sift — Shopping clarity for home and business",
     description:
-      "Scan supplier invoice photos and Sift turns it into tracked spend, price-creep alerts, and live recipe costs.",
+      "Grocery receipts and restaurant invoices, organized in separate Personal and Business workspaces.",
     type: "website",
-    images: [{url:"/social-card.png",width:1200,height:630,alt:"Sift — your kitchen, in the clear"}],
+    images: [{url:"/social-card.png",width:1200,height:630,alt:"Sift — every purchase, a little clearer"}],
   },
   twitter: {
     card: "summary_large_image",
     images: ["/social-card.png"],
-    title: "Sift — Invoice intelligence for restaurants",
+    title: "Sift — Shopping clarity for home and business",
     description:
-      "Scan supplier invoice photos and Sift turns it into tracked spend, price-creep alerts, and live recipe costs.",
+      "Grocery receipts and restaurant invoices, organized in separate Personal and Business workspaces.",
   },
 };
 

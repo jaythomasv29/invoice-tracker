@@ -1,9 +1,10 @@
+import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
 import SafeAreaView from '../../components/ui/Screen';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useOrganization } from '@clerk/clerk-expo';
+
 import { Colors } from '../../constants/Colors';
 import { useStore, type Invoice, type LineItem } from '../../store/useStore';
 import { useSupabase } from '../../lib/supabase';
@@ -19,7 +20,7 @@ import Toast from '../../components/ui/Toast';
 export default function InvoiceDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { organization } = useOrganization();
+  const { organization } = useWorkspace();
   const supabase = useSupabase();
 
   const demoMode = useStore(s => s.demoMode);

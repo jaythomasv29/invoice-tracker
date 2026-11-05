@@ -1,3 +1,4 @@
+import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { ensureAiConsent } from '../../lib/aiConsent';
 import { useState } from 'react';
@@ -9,7 +10,7 @@ import SafeAreaView from '../../components/ui/Screen';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import { useOrganization } from '@clerk/clerk-expo';
+
 import { Colors } from '../../constants/Colors';
 import { useSupabase } from '../../lib/supabase';
 import { createDraftDish, uploadRecipePhoto, draftRecipe } from '../../lib/recipeCosting';
@@ -19,7 +20,7 @@ import BackButton from '../../components/ui/BackButton';
 export default function NewRecipeScreen() {
   const router = useRouter();
   const supabase = useSupabase();
-  const { organization } = useOrganization();
+  const { organization } = useWorkspace();
   const [name, setName] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [busy, setBusy] = useState<false | 'ai' | 'manual'>(false);

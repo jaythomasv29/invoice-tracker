@@ -51,6 +51,13 @@
       "height": 2868,
       "sha256": "419699b4aaf4c60627c32ca0cc4a36623d3cda3ef895a90c891c43a76af87a57",
       "rawSha256": "09956884ad0366e610679c966d90d1add4e428fed193640b990d5c1e65957c7b"
+    },
+    "personal": {
+      "src": "/screens/personal-home-ce0ac249b4.webp",
+      "width": 1320,
+      "height": 2868,
+      "data": "Actual native Personal UI; fictional isolated QA household.",
+      "sha256": "ce0ac249b409bbc31507993ef0056669f0a9dbd294092bb7c8664fdb49bfb1f2"
     }
   },
   "film": {

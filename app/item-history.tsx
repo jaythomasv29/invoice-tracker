@@ -1,8 +1,11 @@
+import { useEntitlement } from '../hooks/useEntitlement';
+import ProLockCard from '../components/ui/ProLockCard';
+import { useWorkspace } from '../lib/workspaceContext';
 import { useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
 import SafeAreaView from '../components/ui/Screen';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useOrganization } from '@clerk/clerk-expo';
+
 import Svg, { Polyline, Circle, Line } from 'react-native-svg';
 import { Colors } from '../constants/Colors';
 import { useSupabase } from '../lib/supabase';
@@ -22,23 +25,24 @@ const CHART_PAD_Y = 16;
 export default function ItemHistoryScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const { itemName, vendorId } = useLocalSearchParams<{ itemName: string; vendorId?: string }>();
-  const { organization } = useOrganization();
+  const { itemName, vendorId, comparisonKey } = useLocalSearchParams<{ itemName: string; vendorId?: string; comparisonKey?:string }>();
+  const { organization, isPersonal } = useWorkspace();
   const supabase = useSupabase();
+  const {isPaid}=useEntitlement();
 
   const [points, setPoints] = useState<ItemPricePoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
-    if (!organization?.id || !itemName) return;
+    if (!organization?.id || !itemName || (isPersonal&&!isPaid)) return;
     setLoading(true);
     setLoadError('');
-    fetchItemPriceHistory(supabase, organization.id, itemName, vendorId || null)
+    fetchItemPriceHistory(supabase, organization.id, itemName, vendorId || null,isPersonal,comparisonKey)
       .then(setPoints)
       .catch((err: any) => setLoadError(err?.message ?? 'Could not load price history'))
       .finally(() => setLoading(false));
-  }, [organization?.id, supabase, itemName, vendorId]);
+  }, [organization?.id, supabase, itemName, vendorId,isPersonal,comparisonKey,isPaid]);
 
   const chartW = width - 32 - CHART_PAD_X * 2;
   const prices = points.map((p) => p.unitPrice);
@@ -69,7 +73,7 @@ export default function ItemHistoryScreen() {
         </View>
       </View>
 
-      {loading ? (
+      {isPersonal&&!isPaid?<View style={{padding:20}}><ProLockCard title="Follow repeat-item prices" body="Personal Pro compares reliable product matches and package sizes using the net prices you paid."/></View>:loading ? (
         <View style={styles.centerFill}>
           <Spinner size={20} color={Colors.textSecondary} />
         </View>
@@ -80,7 +84,7 @@ export default function ItemHistoryScreen() {
       ) : points.length === 0 ? (
         <View style={styles.centerFill}>
           <Text style={styles.emptyTitle}>No purchase history yet</Text>
-          <Text style={styles.emptySub}>This item has not appeared on a saved invoice.</Text>
+          <Text style={styles.emptySub}>No reliably comparable purchases yet. For groceries, Sift requires a printed product identity, matching package size and clear item discounts.</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -88,7 +92,7 @@ export default function ItemHistoryScreen() {
             <View style={styles.chartHeaderRow}>
               <View>
                 <Text style={styles.chartLabel}>Latest unit price</Text>
-                <Text style={styles.chartPrice}>${latest.unitPrice.toFixed(2)}/{latest.unit}</Text>
+                <Text style={styles.chartPrice}>${latest.unitPrice.toFixed(isPersonal?4:2)}/{latest.unit}</Text>
               </View>
               {points.length > 1 && (
                 <View style={[styles.changePill, changePct > 0 ? styles.changePillUp : styles.changePillDown]}>
@@ -130,7 +134,7 @@ export default function ItemHistoryScreen() {
                   <Text style={styles.rowVendor} numberOfLines={1}>{p.vendorName}</Text>
                   <Text style={styles.rowDate}>{p.dateLabel}</Text>
                 </View>
-                <Text style={styles.rowPrice}>${p.unitPrice.toFixed(2)}/{p.unit}</Text>
+                <Text style={styles.rowPrice}>${p.unitPrice.toFixed(isPersonal?4:2)}/{p.unit}</Text>
               </View>
             ))}
           </View>

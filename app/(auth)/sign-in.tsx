@@ -116,7 +116,7 @@ export default function SignInScreen() {
           <Text style={styles.headline}>Sift</Text>
           <Text style={styles.sub}>
             Sign in with your email — no password needed.
-            Built for independent restaurant operators.
+            For household shopping and business purchasing.
           </Text>
 
           <View style={styles.inputGroup}>
@@ -126,7 +126,7 @@ export default function SignInScreen() {
                 style={styles.input}
                 value={email}
                 onChangeText={handleChange}
-                placeholder="you@restaurant.com"
+                placeholder="you@example.com"
                 placeholderTextColor={Colors.textTertiary}
                 keyboardType="email-address"
                 autoCapitalize="none"

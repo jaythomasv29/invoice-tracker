@@ -1,5 +1,6 @@
+import { useWorkspace } from '../lib/workspaceContext';
 import { useCallback, useEffect, useState } from 'react';
-import { useOrganization } from '@clerk/clerk-expo';
+
 import { useSupabase } from '../lib/supabase';
 import { useStore } from '../store/useStore';
 import { DEMO_PRICE_ALERT_COUNT } from '../lib/demoData';
@@ -10,7 +11,7 @@ import { DEMO_PRICE_ALERT_COUNT } from '../lib/demoData';
 // the store's fetchPriceAlerts.
 export function usePriceAlertCount() {
   const supabase = useSupabase();
-  const { organization } = useOrganization();
+  const { organization } = useWorkspace();
   const demoMode = useStore((s) => s.demoMode);
   const [count, setCount] = useState<number | null>(null);
 

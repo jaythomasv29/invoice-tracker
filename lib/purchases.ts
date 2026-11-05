@@ -1,3 +1,4 @@
+import { WORKSPACE_PLANS, type AccountType } from '../shared/workspacePolicy.ts';
 // RevenueCat / Apple IAP client wrapper — replaces the Stripe web-checkout path
 // in lib/billing.ts (see IAP_MIGRATION_PLAN.md).
 //
@@ -61,13 +62,9 @@ export function configurePurchases(): void {
   configured = true;
 }
 
-// Bind the RevenueCat identity to the Clerk *organization* id. The Pro plan is
-// org-scoped (a restaurant subscribes, not a person), so the entitlement and
-// the fulfillment webhook both key off the org id. Call whenever the active org
-// changes; call signOutPurchases() when there's no org (signed out).
-//
-// See the org-vs-Apple-ID caveat in IAP_MIGRATION_PLAN.md — restore is per
-// Apple ID, which is acceptable for the current owner-only model.
+// Bind RevenueCat to the canonical billing customer from the verified workspace
+// profile. Existing business owners retain their original organization ID; both
+// modes share that customer while separate products unlock their own workspace.
 export async function identifyOrg(orgId: string): Promise<CustomerInfo | null> {
   return serializeIdentity(async () => {
     if (!configured) throw new Error('Purchases are unavailable on this build.');
@@ -87,8 +84,9 @@ export async function signOutPurchases(): Promise<void> {
 
 // Resolves the effective plan from RevenueCat entitlements. `pro` wins over
 // `plus` if somehow both are active; no paid entitlement → 'free'.
-export function planFromCustomerInfo(info: CustomerInfo | null | undefined): Plan {
+export function planFromCustomerInfo(info: CustomerInfo | null | undefined, type: AccountType = 'business'): Plan {
   const active = info?.entitlements.active ?? {};
+  if(type==='personal')return active.personal_pro?.productIdentifier==='sift_personal_pro_monthly'?'pro':'free';
   if (active['pro']) return 'pro';
   if (active['plus']) return 'plus';
   return 'free';
@@ -112,7 +110,7 @@ function findByProductId(offering: PurchasesOffering, productId: string): Purcha
 // 3.1.2), so prefer `pkg.product.priceString` over any hardcoded label. Matched
 // by product id against PAID_TIERS, falling back to RevenueCat's `.monthly`
 // accessor for whichever tier the dashboard put in that standard slot.
-export async function getTierPackages(): Promise<TierPackages> {
+export async function getTierPackages(type: AccountType = 'business'): Promise<TierPackages> {
   configurePurchases();
   if (!configured) throw new Error('Subscriptions are unavailable on this device.');
   let offerings;
@@ -125,13 +123,13 @@ export async function getTierPackages(): Promise<TierPackages> {
   }
   const current: PurchasesOffering | null = offerings.current;
   if (!current) throw new Error('Subscriptions are temporarily unavailable. Please retry shortly.');
-  if (!findByProductId(current, 'sift_pro_monthly')) {
+  if (!findByProductId(current, WORKSPACE_PLANS[type].product)) {
     Sentry.captureException(new Error('Pro StoreKit product missing from offering'), { tags: { iap_error_code: 'missing_pro_product' } });
     throw new Error('The App Store is not returning the Pro price yet. Please retry shortly.');
   }
   return {
     plus: findByProductId(current, 'sift_plus_monthly'),
-    pro: findByProductId(current, 'sift_pro_monthly'),
+    pro: findByProductId(current, WORKSPACE_PLANS[type].product),
   };
 }
 
@@ -144,7 +142,7 @@ export interface PurchaseResult {
 // success RevenueCat reports the entitlement immediately; the *server* gate
 // (extract-invoice reads the Clerk plan flag) catches up once the
 // revenuecat-webhook lands — the paywall's poll-Clerk-org loop bridges that gap.
-export async function purchaseTier(pkg: PurchasesPackage, orgId: string): Promise<PurchaseResult> {
+export async function purchaseTier(pkg: PurchasesPackage, orgId: string, type: AccountType = 'business'): Promise<PurchaseResult> {
   if (!configured) throw new Error('Purchases not configured');
   return serializeIdentity(async () => {
   try {
@@ -153,7 +151,7 @@ export async function purchaseTier(pkg: PurchasesPackage, orgId: string): Promis
     if (!identified) throw new Error('Could not verify restaurant identity.');
     if (identifiedOrg !== orgId) throw new Error('Restaurant changed. Please retry.');
     const { customerInfo } = await Purchases.purchasePackage(pkg);
-    return { plan: planFromCustomerInfo(customerInfo), cancelled: false };
+    return { plan: planFromCustomerInfo(customerInfo,type), cancelled: false };
   } catch (e: any) {
     // User backing out of the sheet is a normal outcome, not an error to alert.
     if (e?.userCancelled || e?.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) {
@@ -166,13 +164,13 @@ export async function purchaseTier(pkg: PurchasesPackage, orgId: string): Promis
 
 // Apple requires a Restore Purchases action. Re-syncs entitlements for the
 // signed-in Apple ID and returns the resulting plan.
-export async function restorePurchases(orgId: string): Promise<Plan> {
+export async function restorePurchases(orgId: string, type: AccountType = 'business'): Promise<Plan> {
   if (!configured) throw new Error('Purchases not configured');
   return serializeIdentity(async () => {
     await Purchases.logIn(orgId);
     identifiedOrg = orgId;
     const info = await Purchases.restorePurchases();
-    return planFromCustomerInfo(info);
+    return planFromCustomerInfo(info,type);
   });
 }
 
@@ -184,13 +182,14 @@ export async function manageSubscription(): Promise<void> {
 }
 
 // Fresh, restaurant-scoped display information. It never changes server access.
-export async function getSubscriptionEntitlement(orgId: string) {
+export async function getSubscriptionEntitlement(orgId: string, type: AccountType = 'business') {
   return serializeIdentity(async () => {
     if (!configured) throw new Error('Purchases are unavailable on this build.');
     await Purchases.logIn(orgId);
     identifiedOrg = orgId;
     await Purchases.invalidateCustomerInfoCache();
     const info = await Purchases.getCustomerInfo();
+    if(type==='personal')return info.entitlements.active.personal_pro??info.entitlements.all.personal_pro??null;
     return info.entitlements.active.pro ?? info.entitlements.active.plus ?? info.entitlements.all.pro ?? info.entitlements.all.plus ?? null;
   });
 }

@@ -448,3 +448,9 @@ verify_jwt = false
 verify_jwt = false
 [functions.maintenance]
 verify_jwt = false
+
+[functions.workspace-profile]
+verify_jwt = false
+
+[functions.refresh-household-insights]
+verify_jwt = false

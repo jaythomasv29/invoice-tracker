@@ -1,3 +1,6 @@
+import type { RetailProduct } from '../../../shared/receiptComparison.ts';
+import { detectPriceCreep } from '../_shared/priceAlerts.ts';
+import { scanCap, accountTypeForId } from '../../../shared/workspacePolicy.ts';
 import { compareInvoiceIdentity } from '../_shared/invoiceIdentity.ts';
 import { getOrganization } from '../_shared/clerkAuth.ts';
 // Invoice extraction pipeline — PRD section 6.3 / 9.
@@ -35,7 +38,7 @@ const MODEL_HAIKU = 'claude-haiku-4-5-20251001';
 // Monthly invoice cap per tier. Every tier is capped now (Pro is not unlimited).
 // Keep in sync with PLAN_INVOICE_CAPS in lib/entitlements.ts (RN bundle).
 type Plan = 'free' | 'plus' | 'pro';
-const PLAN_INVOICE_CAPS: Record<Plan, number> = { free: 10, plus: 300, pro: 150 };
+
 
 // Reads the org's plan from Clerk publicMetadata. Authoritative (can't be
 // spoofed by the client) and always fresh. Fails safe to 'free' if the secret
@@ -63,7 +66,7 @@ function normalizeVendorName(name: string): string {
 // Strict schema for the extraction tool call — see PRD 6.3 for the field list.
 const EXTRACTION_TOOL = {
   name: 'record_invoice_extraction',
-  description: 'Record structured data extracted from a restaurant distributor invoice image.',
+  description: 'Record structured data from a grocery/household receipt or restaurant distributor invoice, following the account-specific instructions.',
   input_schema: {
     type: 'object',
     properties: {
@@ -98,7 +101,8 @@ const EXTRACTION_TOOL = {
             extended_price: { type: 'number' },
             line_item_type: { type: 'string', enum: ['charge', 'credit'] },
             category: { type: 'string', description: 'protein | produce | dairy | dry_goods | seafood | other' },
-            confidence: { type: 'number', description: '0-1 confidence for this line item as a whole' },
+            retail_product: {type:'object',properties:{barcode:{type:'string'},store_sku:{type:'string'},brand:{type:'string'},variant:{type:'string'},package_quantity:{type:'number'},package_count:{type:'number'},package_unit:{type:'string',enum:['g','kg','oz','lb','ml','l','fl_oz','count','each']},net_line_total:{type:'number'},discount_complete:{type:'boolean'},identity_confident:{type:'boolean'}}},
+            confidence: { type: 'number' , description: '0-1 confidence for this line item as a whole' },
             low_confidence_fields: { type: 'array', items: { type: 'string' } },
           },
           required: ['description', 'clean_name', 'quantity', 'unit_of_measure', 'unit_price', 'extended_price', 'line_item_type', 'confidence'],
@@ -131,6 +135,11 @@ Examples from a real invoice:
 
 Call record_invoice_extraction with the complete result.`;
 
+const HOUSEHOLD_PROMPT = `Extract a grocery or household shopping receipt. Preserve every printed item and amount, credits/returns, coupons, deposits and taxes. Never invent a number or identity. Receipt date is the purchase date, not today. Read store name and transaction/reference number only if actually printed. Never use a generic terminal/store number as the unique receipt number.
+Keep brand, variant/flavor, and package size in clean_name; abbreviated product codes alone do NOT establish a human-readable identity. Categories: produce, meat_seafood, dairy_eggs, bakery, pantry, frozen, beverages, cleaning, toiletries, household, other. Non-item adjustments/discounts belong in other; keep negative amounts negative. Extended amounts are exactly printed; do not subtract a coupon twice. Do not misinterpret quantity purchased as package size.
+For retail_product include barcode or store_sku ONLY when explicitly printed. identity_confident=true only if that printed product identity, package size and purchase quantity are unambiguous. package_quantity and package_unit describe ONE package; package_count is its multipack count, never number purchased. Printed 2 x 12 oz means two packages purchased with quantity=2 and package_quantity=12, package_count=1. Uncertain size/identity must stay absent and identity_confident=false.
+net_line_total is the attributable net item charge after explicit item-specific discounts, before tax. discount_complete=true ONLY if this is known, no ambiguous receipt-wide coupons apply, and all product fields are unambiguous. Otherwise discount_complete=false. Coupons or loyalty adjustments not allocated to a specific product must not become invented unit savings. Never allocate blanket coupons proportionally. Weighted produce can use explicitly printed measured weight and rate; otherwise omit package details. Low confidence fields must be flagged. Call record_invoice_extraction with the complete result.`;
+
 interface ExtractionResult {
   vendor: { name: string; contact_name?: string; contact_phone?: string; account_number?: string };
   invoice_number?: string;
@@ -149,6 +158,7 @@ interface ExtractionResult {
     category?: string;
     confidence: number;
     low_confidence_fields?: string[];
+    retail_product?: RetailProduct;
   }>;
 }
 
@@ -172,7 +182,7 @@ async function storagePathToBase64(
 
 async function extractWithModel(
   model: string,
-  images: { data: string; mediaType: string }[]
+  images: { data: string; mediaType: string }[], personal = false, jobId?: string, workspaceId?:string
 ): Promise<ExtractionResult> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -195,7 +205,7 @@ async function extractWithModel(
               type: 'image',
               source: { type: 'base64', media_type: img.mediaType, data: img.data },
             })),
-            { type: 'text', text: EXTRACTION_PROMPT },
+            { type: 'text', text: personal ? HOUSEHOLD_PROMPT : EXTRACTION_PROMPT },
           ],
         },
       ],
@@ -208,6 +218,7 @@ async function extractWithModel(
   }
 
   const json = await res.json();
+  if(jobId&&workspaceId&&json.usage){await adminClient().from('ai_model_usage').insert({job_id:jobId,organization_id:workspaceId,model,input_tokens:json.usage.input_tokens??0,output_tokens:json.usage.output_tokens??0});}
   const toolUse = json.content?.find((b: any) => b.type === 'tool_use');
   if (!toolUse) throw new Error('Model did not return a structured extraction.');
   return toolUse.input as ExtractionResult;
@@ -254,7 +265,7 @@ interface FingerprintResult {
 
 async function fingerprintWithModel(
   model: string,
-  images: { data: string; mediaType: string }[]
+  images: { data: string; mediaType: string }[], personal = false, jobId?: string, workspaceId?:string
 ): Promise<FingerprintResult> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -277,7 +288,7 @@ async function fingerprintWithModel(
               type: 'image',
               source: { type: 'base64', media_type: img.mediaType, data: img.data },
             })),
-            { type: 'text', text: FINGERPRINT_PROMPT },
+            { type: 'text', text: personal ? 'Read only the store name, unique transaction/receipt number, purchase date and grand total of this grocery or household receipt. Never use a store or terminal number as a receipt number. Omit unclear fields. Call record_invoice_fingerprint.' : FINGERPRINT_PROMPT },
           ],
         },
       ],
@@ -290,6 +301,7 @@ async function fingerprintWithModel(
   }
 
   const json = await res.json();
+  if(jobId&&workspaceId&&json.usage){await adminClient().from('ai_model_usage').insert({job_id:jobId,organization_id:workspaceId,model,input_tokens:json.usage.input_tokens??0,output_tokens:json.usage.output_tokens??0});}
   const toolUse = json.content?.find((b: any) => b.type === 'tool_use');
   if (!toolUse) throw new Error('Model did not return a structured fingerprint.');
   return toolUse.input as FingerprintResult;
@@ -325,60 +337,6 @@ const PRICE_ALERT_THRESHOLD_PCT = 3;
 // exact match) against the item's own most recent prior invoice from the
 // same vendor; the canonical cross-vendor items catalog (item_id) is a
 // separate, not-yet-built follow-up (see file header).
-async function detectPriceCreep(
-  supabase: any,
-  organizationId: string,
-  vendorId: string,
-  invoiceId: string,
-  lineItems: any[]
-): Promise<void> {
-  const eligible = lineItems.filter(
-    (li) => li.line_item_type === 'charge' && li.clean_name && li.unit_of_measure && li.unit_price > 0
-  );
-
-  await Promise.all(eligible.map(async (li) => {
-    try {
-      const { data: priorRows } = await supabase
-        .from('invoice_line_items')
-        .select('unit_price, invoices!inner(vendor_id, invoice_date, created_at)')
-        .eq('organization_id', organizationId)
-        .eq('invoices.vendor_id', vendorId)
-        .ilike('clean_name', li.clean_name)
-        .ilike('unit_of_measure', li.unit_of_measure)
-        .is('voided_at', null)
-        .neq('invoice_id', invoiceId);
-
-      if (!priorRows?.length) return;
-
-      const mostRecent = priorRows.reduce((latest: any, row: any) => {
-        const rowDate = row.invoices?.invoice_date ?? row.invoices?.created_at ?? '';
-        const latestDate = latest.invoices?.invoice_date ?? latest.invoices?.created_at ?? '';
-        return rowDate > latestDate ? row : latest;
-      });
-
-      const previousPrice = Number(mostRecent.unit_price);
-      const newPrice = Number(li.unit_price);
-      if (!previousPrice || previousPrice <= 0) return;
-
-      const pctChange = ((newPrice - previousPrice) / previousPrice) * 100;
-      if (pctChange <= PRICE_ALERT_THRESHOLD_PCT) return;
-
-      await supabase.from('price_alerts').insert({
-        organization_id: organizationId,
-        vendor_id: vendorId,
-        line_item_id: li.id,
-        item_name: li.clean_name,
-        previous_price: previousPrice,
-        new_price: newPrice,
-        unit: li.unit_of_measure,
-        pct_change: Math.round(pctChange * 100) / 100,
-      });
-    } catch {
-      // Best-effort — a failed comparison for one item shouldn't fail the
-      // whole extraction the client is waiting on.
-    }
-  }));
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -398,7 +356,7 @@ Deno.serve(async (req) => {
     if (!authHeader) throw new Error('Missing Authorization header');
 
     supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
+      global: { headers: { Authorization: authHeader, "x-sift-workspace": req.headers.get("x-sift-workspace") ?? "" } },
     });
 
     const { data: invoice, error: fetchErr } = await supabase
@@ -416,7 +374,7 @@ Deno.serve(async (req) => {
     // monthly cap (Free 10 / Plus 300 / Pro 150). Over the cap, return 402 with
     // a code the client maps to the paywall (rather than a generic error toast).
     const plan = await getOrgPlan(invoice.organization_id);
-    const cap = PLAN_INVOICE_CAPS[plan];
+    const cap = scanCap(plan,accountTypeForId(invoice.organization_id));
     {
       const reservation = await beginAiJob(invoice.organization_id, invoiceId, 'invoice', cap);
       const { allowed, used } = reservation;
@@ -465,7 +423,7 @@ Deno.serve(async (req) => {
       // Layer 2 — cheap Haiku fingerprint. Catches the same paper invoice
       // re-photographed (different bytes, so layer 1 missed it) by reading only
       // vendor/number/date/total and matching against existing invoices.
-      const fp = await fingerprintWithModel(MODEL_HAIKU, images);
+      const fp = await fingerprintWithModel(MODEL_HAIKU, images, invoice.organization_id.startsWith('pws_'), jobId, invoice.organization_id);
       const normalizedFpVendor = normalizeVendorName(fp.vendor_name ?? '');
       if (normalizedFpVendor) {
         const { data: candidates } = await supabase
@@ -485,7 +443,7 @@ Deno.serve(async (req) => {
     }
 
     await setAiJobPhase(jobId, 'reading');
-    const result = await extractWithModel(MODEL_SONNET, images);
+    const result = await extractWithModel(MODEL_SONNET, images, invoice.organization_id.startsWith('pws_'), jobId, invoice.organization_id);
     await setAiJobPhase(jobId, 'saving');
 
     // Resolve or create the vendor. OCR reads of the same vendor's name
@@ -546,6 +504,7 @@ Deno.serve(async (req) => {
       confidence: li.confidence,
       low_confidence_fields: li.low_confidence_fields ?? [],
       reconciliation_status: 'pending',
+      retail_product: invoice.organization_id.startsWith('pws_') ? li.retail_product ?? null : null,
     }));
 
     const { error: commitErr } = await adminClient().rpc('complete_invoice_extraction', {
@@ -573,7 +532,7 @@ Deno.serve(async (req) => {
     // Pro-gated in the UI. Detection is cheap SQL (no AI spend), so running it
     // for everyone is fine — and it means a converting user immediately sees the
     // alerts that were already waiting for them.
-    if (vendorId) {
+    if (vendorId && !invoice.organization_id.startsWith('pws_')) {
       try { await detectPriceCreep(supabase, invoice.organization_id, vendorId, invoiceId, insertedLineItems ?? []); } catch { console.error('Price alert refresh failed'); }
     }
 

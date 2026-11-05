@@ -1,3 +1,4 @@
+import { useWorkspace } from '../../../lib/workspaceContext';
 import TouchableOpacity from '../../../components/ui/MotionTouchable';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -5,7 +6,7 @@ import {
 } from 'react-native';
 import SafeAreaView from '../../../components/ui/Screen';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useOrganization } from '@clerk/clerk-expo';
+
 import { Colors } from '../../../constants/Colors';
 import { useSupabase } from '../../../lib/supabase';
 import { useStore } from '../../../store/useStore';
@@ -72,7 +73,7 @@ function ghostLabel(ing: RecipeIngredient): string | null {
 export default function RecipeReviewScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { organization } = useOrganization();
+  const { organization } = useWorkspace();
   const supabase = useSupabase();
   const showToast = useStore((s) => s.showToast);
 

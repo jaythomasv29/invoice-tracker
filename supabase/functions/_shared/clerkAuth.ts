@@ -3,6 +3,7 @@
 // for the plan flag). CLERK_SECRET_KEY is a function secret — never
 // EXPO_PUBLIC_. Set with: npx supabase secrets set CLERK_SECRET_KEY=sk_...
 
+import { adminClient } from './aiControls.ts';
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
 const CLERK_API = 'https://api.clerk.com/v1';
@@ -43,12 +44,12 @@ export function getUserId(authHeader: string | null): string | null {
 // against Clerk's JWKS, so a forged token yields no org id here rather than an
 // attacker-chosen one. Use this (not the JWT claim) anywhere an org_id drives
 // a privileged action, e.g. issuing Stripe billing-portal/checkout sessions.
-export async function getVerifiedOrgId(authHeader: string | null): Promise<string | null> {
+export async function getVerifiedOrgId(authHeader: string | null, workspace: string | null = null): Promise<string | null> {
   if (!authHeader) return null;
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
   const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader } },
+    global: { headers: { Authorization: authHeader, ...(workspace ? {"x-sift-workspace":workspace} : {}) } },
   });
   const { data, error } = await supabase.rpc('current_org_id');
   if (error) return null;
@@ -75,9 +76,19 @@ export async function clerkRequest(path: string, method = 'GET', body?: unknown)
   throw new ClerkNotFoundError('Account or restaurant was not found.');
 }
 export async function getOrganization(orgId: string): Promise<any> {
+  if(orgId.startsWith('pws_')) {
+    const {data,error}=await adminClient().from('personal_workspaces').select('*').eq('id',orgId).single();
+    if(error||!data) throw new ClerkNotFoundError('Workspace was not found.');
+    return {...data,public_metadata:{plan:data.plan}};
+  }
   return clerkRequest(`/organizations/${encodeURIComponent(orgId)}`);
 }
 export async function updateOrgMetadata(orgId: string, body: { public_metadata?: Record<string, unknown>; private_metadata?: Record<string, unknown> }): Promise<void> {
+  if(orgId.startsWith('pws_')) {
+    const plan=body.public_metadata?.plan;
+    if(plan!==undefined){if(plan!=='free'&&plan!=='pro')throw new Error('Invalid plan');const {error}=await adminClient().from('personal_workspaces').update({plan}).eq('id',orgId);if(error)throw error;}
+    return;
+  }
   await clerkRequest(`/organizations/${encodeURIComponent(orgId)}/metadata`, 'PATCH', body);
 }
 

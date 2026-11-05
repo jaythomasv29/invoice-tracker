@@ -1,170 +1,297 @@
 import TouchableOpacity from '../../components/ui/MotionTouchable';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, StyleSheet,
-  KeyboardAvoidingView, Platform,
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import SafeAreaView from '../../components/ui/Screen';
-import { useRouter } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useOrganizationList, useUser } from '@clerk/clerk-expo';
+import { useWorkspace } from '../../lib/workspaceContext';
+import { useSupabaseForWorkspace } from '../../lib/supabase';
 import { Colors } from '../../constants/Colors';
 import Spinner from '../../components/ui/Spinner';
-
-// Functional placeholder for the Owner path of PRD section 6.1 ("Create or
-// join an organization"). The polished, animated onboarding experience is a
-// separate, later phase — this screen exists so a brand-new Clerk user has
-// somewhere to create their org before RLS-scoped data can load. Staff
-// joining via invitation is a different flow (Clerk org invitations), not
-// this screen.
-const copy = {
-  title: 'Set up your restaurant',
-  subtitle: "This becomes your workspace — you'll invite your team to it next.",
-  label: 'Restaurant name',
-  placeholder: "Rosa's Kitchen",
-  errorLabel: 'Enter your restaurant name.',
-};
-
-export default function CreateOrganizationScreen() {
+export default function CreateWorkspace() {
   const router = useRouter();
+  const { add } = useLocalSearchParams<{ add?: string }>();
   const { user, isLoaded: userLoaded } = useUser();
-  const { createOrganization, setActive, isLoaded, userMemberships } =
-    useOrganizationList({ userMemberships: true });
+  const { createOrganization, isLoaded } = useOrganizationList();
+  const {
+    organization,
+    select,
+    personalId,
+    ready,
+    error: workspaceError,
+    refresh,
+  } = useWorkspace();
+  const raw = useSupabaseForWorkspace();
+  const [type, setType] = useState<'personal' | 'business'>('personal');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const activatingRef = useRef(false);
-
-  // A returning member is routed here with no *active* organization: Clerk does
-  // not auto-activate an existing membership on a fresh session, and the
-  // 'choose-organization' task lands everyone on this screen. Rather than force
-  // a duplicate org (this screen can't select an existing one), activate the
-  // one they already belong to and send them into the app. This is the "sign in
-  // bounces me back to onboarding, not my dashboard" bug.
-  //
-  // Detect membership from user.organizationMemberships FIRST: it's a plain,
-  // non-paginated array embedded in the user resource, populated the moment the
-  // user loads — even during the pending task. The paginated `userMemberships`
-  // list (below) can still read empty here, which is why activation never fired.
-  const existingOrgId =
-    user?.organizationMemberships?.[0]?.organization?.id ??
-    userMemberships?.data?.[0]?.organization?.id ??
-    null;
-
+  const [busy, setBusy] = useState(false);
+  const memberships = user?.organizationMemberships ?? [];
   useEffect(() => {
-    if (!existingOrgId || activatingRef.current || !setActive) return;
-    activatingRef.current = true;
-    (async () => {
-      try {
-        await setActive({ organization: existingOrgId });
-        router.replace('/(tabs)');
-      } catch (e) {
-        // Don't strand the user on a spinner: log it and let a later render retry.
-        console.warn('[org-activate] failed to activate existing org', e);
-        activatingRef.current = false;
+    if (!add && ready && organization) router.replace('/(tabs)');
+  }, [add, ready, organization, router]);
+  const choose = async (id: string) => {
+    setBusy(true);
+    setError('');
+    try {
+      await select(id);
+      router.replace('/(tabs)');
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const create = async () => {
+    if (busy || !isLoaded) return;
+    setError('');
+    setBusy(true);
+    try {
+      let id: string;
+      if (type === 'personal') {
+        const { data, error: e } = await raw.rpc('create_personal_workspace', {
+          p_name: name.trim() || 'My household',
+        });
+        if (e || !data)
+          throw new Error('Could not create your household. Please retry.');
+        id = data;
+      } else {
+        if (name.trim().length < 2)
+          throw new Error('Enter your business name.');
+        id = (await createOrganization({ name: name.trim() })).id;
       }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [existingOrgId, isLoaded]);
-
-  // Don't flash the create-org form while membership state is still resolving,
-  // or while we're activating an existing org — a returning user should see
-  // only a brief loader before their dashboard.
-  if (!userLoaded || !isLoaded || existingOrgId) {
+      await select(id);
+      router.replace('/(tabs)');
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!userLoaded || !isLoaded || !ready)
     return (
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <View style={[styles.content, { alignItems: 'center', justifyContent: 'center' }]}>
+      <SafeAreaView style={s.safe}>
+        <View style={s.content}>
           <Spinner size={28} color={Colors.primary} />
         </View>
       </SafeAreaView>
     );
-  }
-
-  const handleCreate = async () => {
-    Haptics.selectionAsync();
-    if (!isLoaded) return;
-    const trimmed = name.trim();
-    if (trimmed.length < 2) {
-      setError(copy.errorLabel);
-      return;
-    }
-    setError('');
-    setSubmitting(true);
-    try {
-      const org = await createOrganization({ name: trimmed });
-      await setActive({ organization: org.id });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace('/(tabs)');
-    } catch (err: any) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setError(err?.errors?.[0]?.message ?? 'Could not create your workspace. Try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.content}>
-          <Text style={styles.title}>{copy.title}</Text>
-          <Text style={styles.subtitle}>{copy.subtitle}</Text>
-
-          <Text style={styles.label}>{copy.label}</Text>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={s.content}
+        >
+          {add && (
+            <TouchableOpacity onPress={() => router.back()} style={s.back}>
+              <Text style={s.link}>Back</Text>
+            </TouchableOpacity>
+          )}
+          <Text style={s.eyebrow}>YOUR SIFT, YOUR WAY</Text>
+          <Text style={s.title}>{'A little clarity.\nFor home or work.'}</Text>
+          <Text style={s.subtitle}>
+            Keep household shopping and business purchasing in separate spaces.
+            One login, clear boundaries.
+          </Text>
+          {!!personalId && (
+            <TouchableOpacity
+              style={s.existing}
+              disabled={busy}
+              onPress={() => choose(personalId)}
+            >
+              <Text style={s.link}>Open my household →</Text>
+            </TouchableOpacity>
+          )}
+          {memberships.map((m) => (
+            <TouchableOpacity
+              key={m.organization.id}
+              style={s.existing}
+              disabled={busy}
+              onPress={() => choose(m.organization.id)}
+            >
+              <Text style={s.link}>Open {m.organization.name} →</Text>
+            </TouchableOpacity>
+          ))}
+          <View style={s.options}>
+            {(['personal', 'business'] as const).map((t) => (
+              <TouchableOpacity
+                key={t}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: type === t }}
+                style={[s.option, type === t && s.selected]}
+                disabled={busy}
+                onPress={() => {
+                  setType(t);
+                  setError('');
+                  setName('');
+                }}
+              >
+                <Text style={s.optionTitle}>
+                  {t === 'personal' ? 'Personal' : 'Business'}
+                </Text>
+                <Text style={s.optionText}>
+                  {t === 'personal'
+                    ? 'Groceries & household essentials'
+                    : 'Invoices & food costs'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={s.label}>
+            {type === 'personal'
+              ? 'Household name (optional)'
+              : 'Business name'}
+          </Text>
           <TextInput
-            style={[styles.input, !!error && styles.inputError]}
+            style={s.input}
             value={name}
-            onChangeText={(v) => { setName(v); setError(''); }}
-            placeholder={copy.placeholder}
+            onChangeText={setName}
+            editable={!busy}
+            maxLength={80}
+            placeholder={
+              type === 'personal' ? 'My household' : 'Rosa’s Kitchen'
+            }
             placeholderTextColor={Colors.textTertiary}
-            autoFocus
             returnKeyType="done"
-            onSubmitEditing={handleCreate}
+            onSubmitEditing={create}
           />
-          {!!error && <Text style={styles.errorText}>{error}</Text>}
-
+          {!!(error || workspaceError) && (
+            <Text accessibilityRole="alert" style={s.error}>
+              {error || workspaceError}
+            </Text>
+          )}
+          {workspaceError && (
+            <TouchableOpacity
+              onPress={() => refresh().catch((e) => setError(e.message))}
+              style={s.back}
+            >
+              <Text style={s.link}>Retry loading workspaces</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
-            style={[styles.button, submitting && styles.buttonDisabled]}
-            onPress={handleCreate}
-            disabled={submitting}
-            activeOpacity={0.85}
+            disabled={busy}
+            onPress={create}
+            style={[s.button, busy && { opacity: 0.6 }]}
           >
-            {submitting ? (
-              <View style={styles.buttonContent}>
-                <Spinner size={18} color="#fff" />
-                <Text style={styles.buttonText}>Creating…</Text>
-              </View>
-            ) : (
-              <Text style={styles.buttonText}>Continue</Text>
-            )}
+            <Text style={s.buttonText}>
+              {busy
+                ? 'Setting up…'
+                : `Create ${type === 'personal' ? 'household' : 'business'}`}
+            </Text>
           </TouchableOpacity>
-        </View>
+          <Text style={s.note}>
+            Start free. Add the other workspace later from Profile.
+          </Text>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
-  content: { flex: 1, padding: 24, justifyContent: 'center' },
-  title: { fontSize: 26, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, letterSpacing: -0.5 },
-  subtitle: { fontSize: 14, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary, marginTop: 8, lineHeight: 20 },
-  label: { fontSize: 13, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary, marginTop: 32, marginBottom: 8 },
+  content: { flexGrow: 1, padding: 24, justifyContent: 'center' },
+  back: { minHeight: 44, justifyContent: 'center' },
+  eyebrow: {
+    fontFamily: 'Manrope_800ExtraBold',
+    fontSize: 11,
+    color: Colors.primary,
+    letterSpacing: 1.5,
+    marginBottom: 14,
+  },
+  title: {
+    fontFamily: 'Manrope_800ExtraBold',
+    fontSize: 32,
+    lineHeight: 40,
+    color: Colors.textPrimary,
+    letterSpacing: -1,
+  },
+  subtitle: {
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 15,
+    lineHeight: 23,
+    color: Colors.textSecondary,
+    marginTop: 12,
+    marginBottom: 20,
+  },
+  options: { flexDirection: 'row', gap: 10, marginVertical: 14 },
+  option: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    minHeight: 112,
+  },
+  selected: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
+  optionTitle: {
+    fontFamily: 'Manrope_800ExtraBold',
+    fontSize: 17,
+    color: Colors.textPrimary,
+  },
+  optionText: {
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 13,
+    lineHeight: 20,
+    color: Colors.textSecondary,
+    marginTop: 8,
+  },
+  existing: { minHeight: 48, justifyContent: 'center' },
+  link: { fontFamily: 'Manrope_700Bold', fontSize: 14, color: Colors.primary },
+  label: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 13,
+    color: Colors.textPrimary,
+    marginTop: 10,
+    marginBottom: 8,
+  },
   input: {
-    borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface,
-    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 16, fontFamily: 'Manrope_600SemiBold', color: Colors.textPrimary,
+    borderRadius: 14,
+    padding: 16,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 16,
+    color: Colors.textPrimary,
   },
-  inputError: { borderColor: Colors.danger },
-  errorText: { fontSize: 12.5, fontFamily: 'Manrope_600SemiBold', color: Colors.danger, marginTop: 8 },
   button: {
-    backgroundColor: Colors.primary, borderRadius: 14, height: 54,
-    alignItems: 'center', justifyContent: 'center', marginTop: 24,
+    minHeight: 54,
+    borderRadius: 16,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 22,
   },
-  buttonDisabled: { opacity: 0.6 },
-  buttonContent: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  buttonText: { fontSize: 15.5, fontFamily: 'Manrope_700Bold', color: '#fff' },
+  buttonText: {
+    fontFamily: 'Manrope_800ExtraBold',
+    fontSize: 16,
+    color: '#fff',
+  },
+  error: {
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 13,
+    lineHeight: 20,
+    color: Colors.danger,
+    marginTop: 12,
+  },
+  note: {
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 12,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 16,
+  },
 });

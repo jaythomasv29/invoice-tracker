@@ -20,9 +20,9 @@ export default function ClosingCTA() {
         className="mx-auto max-w-3xl px-6 text-center"
       >
         <h2 className="text-balance text-4xl font-extrabold leading-[1.08] tracking-[-0.03em] sm:text-6xl">
-          Stop guessing what
+          Make sense of
           <br />
-          your food costs.
+          what you spend.
         </h2>
         <p className="mx-auto mt-6 max-w-xl text-balance text-lg text-muted sm:text-xl">
           Join the waitlist and be first in when Sift launches on the App Store.

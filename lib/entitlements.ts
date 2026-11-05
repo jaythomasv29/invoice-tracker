@@ -1,36 +1,13 @@
-// Plan / entitlement model.
-//
-// The plan lives on the Clerk *organization* (a restaurant), in
-// `organization.publicMetadata.plan` — one of 'free' | 'plus' | 'pro' (anything
-// unrecognized is treated as 'free'). publicMetadata is readable client-side for
-// UI gating, and the extract-invoice edge function reads the same flag
-// server-side (via the Clerk Backend API) to enforce the per-tier extraction cap
-// where it actually costs money. Keep PLAN_INVOICE_CAPS in sync with the copy in
-// supabase/functions/extract-invoice/index.ts.
-//
-// Three tiers at launch, monthly only (annual deferred). Paid tiers currently
-// share the same feature set and differ only by monthly invoice cap — see
-// PLAN_INVOICE_CAPS. If a feature should become Pro-only later, gate it on
-// `plan === 'pro'` (isPro) rather than `isPaid`, and update constants/plans.ts.
-
+import { scanCap, type AccountType } from "../shared/workspacePolicy.ts";
 export type Plan = 'free' | 'plus' | 'pro';
 
 // Invoices each tier may extract per calendar month; resets on the 1st. Every
 // tier is capped now (Pro is no longer unlimited). Mirror any change in the
 // server copy in supabase/functions/extract-invoice/index.ts.
-export const PLAN_INVOICE_CAPS: Record<Plan, number> = {
-  free: 10,
-  plus: 300,
-  pro: 150,
-};
+export const PLAN_INVOICE_CAPS: Record<Plan, number> = { free: 10, plus: 300, pro: 100 };
+export function invoiceCapForPlan(plan: Plan, type: AccountType = 'business'): number { return scanCap(plan,type); }
 
-export function invoiceCapForPlan(plan: Plan): number {
-  return PLAN_INVOICE_CAPS[plan];
-}
-
-// A paid plan unlocks the premium features (price alerts, spend trends, category
-// spend, top items, missing-invoice alerts, recipe costing). Both Plus and Pro
-// qualify — they differ by volume, not features.
+// Paid insights follow the selected workspace. Recipe and delivery tools are Business-only.
 export function isPaidPlan(plan: Plan): boolean {
   return plan !== 'free';
 }

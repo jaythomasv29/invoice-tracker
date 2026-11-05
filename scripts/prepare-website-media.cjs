@@ -15,6 +15,12 @@ const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
   fs.writeFileSync(publicRoot+'/screens/'+filename,image);fs.writeFileSync(source+'/'+filename,image);
   manifest.screens[name]={src:'/screens/'+filename,width:meta.width,height:meta.height,sha256:hash(image),rawSha256:hash(raw)};
  }
+ const personal=path.join(root,'launch-assets/personal/2026-11-04/raw/personal-home.png');
+ if(fs.existsSync(personal)){
+  const raw=fs.readFileSync(personal);const image=await sharp(raw).webp({quality:95,effort:6}).toBuffer();const filename='personal-home-'+hash(image).slice(0,10)+'.webp';
+  fs.writeFileSync(publicRoot+'/screens/'+filename,image);
+  manifest.screens.personal={src:'/screens/'+filename,width:1320,height:2868,sha256:hash(image),rawSha256:hash(raw),data:'Actual native Personal UI; fictional isolated household fixture.'};
+ }
  const original=fs.readFileSync(source+'/video/Sift-launch-film-1920x1080-original.mp4');
  const video=fs.readFileSync(source+'/video/Sift-launch-film-web-1920x1080.mp4');
  const poster=fs.readFileSync(source+'/video/launch-film-poster.jpg');

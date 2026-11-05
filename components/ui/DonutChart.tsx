@@ -1,3 +1,4 @@
+import { useReducedMotion } from 'react-native-reanimated';
 import { useEffect, useRef } from 'react';
 import { View, Animated } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
@@ -18,11 +19,12 @@ interface DonutChartProps {
 }
 
 export default function DonutChart({ segments, size = 60, strokeWidth = 10 }: DonutChartProps) {
+  const reducedMotion=useReducedMotion();
   const r = (size - strokeWidth) / 2;
   const cx = size / 2;
   const cy = size / 2;
   const circumference = 2 * Math.PI * r;
-  const total = segments.reduce((a, s) => a + s.value, 0);
+  const total = segments.reduce((a, s) => a + Math.max(0,s.value), 0);
 
   // Reveal progress for the "draw in" animation — replayed whenever the
   // underlying values change (e.g. a live Supabase fetch resolves), so the
@@ -36,8 +38,8 @@ export default function DonutChart({ segments, size = 60, strokeWidth = 10 }: Do
 
   useEffect(() => {
     progress.setValue(0);
-    Animated.timing(progress, { toValue: 1, duration: 650, useNativeDriver: false }).start();
-  }, [segmentsKey, total, progress]);
+    Animated.timing(progress, { toValue: 1, duration: reducedMotion?0:650, useNativeDriver: false }).start();
+  }, [segmentsKey, total, progress,reducedMotion]);
 
   if (total === 0) {
     return (

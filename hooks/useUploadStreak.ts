@@ -1,5 +1,6 @@
+import { useWorkspace } from '../lib/workspaceContext';
 import { useCallback, useEffect, useState } from 'react';
-import { useOrganization } from '@clerk/clerk-expo';
+
 import { useSupabase } from '../lib/supabase';
 import { localDateFromTimestamp } from '../lib/invoicePipeline';
 import { useStore } from '../store/useStore';
@@ -40,7 +41,7 @@ function localToday(): number {
 // via `localDateFromTimestamp` so a late-night scan counts for the right day.
 export function useUploadStreak(): UploadStreak {
   const supabase = useSupabase();
-  const { organization } = useOrganization();
+  const { organization } = useWorkspace();
   const demoMode = useStore((s) => s.demoMode);
   const [streak, setStreak] = useState(0);
   const [loggedToday, setLoggedToday] = useState(false);

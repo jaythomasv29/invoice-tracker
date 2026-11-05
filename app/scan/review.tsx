@@ -1,3 +1,4 @@
+import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { useEffect, useState } from 'react';
 import {
@@ -6,7 +7,7 @@ import {
 import SafeAreaView from '../../components/ui/Screen';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useOrganization } from '@clerk/clerk-expo';
+
 import { Colors } from '../../constants/Colors';
 import { useStore } from '../../store/useStore';
 import { useSupabase } from '../../lib/supabase';
@@ -20,7 +21,7 @@ import LineItemDisplay from '../../components/ui/LineItemDisplay';
 export default function ReviewScreen() {
   const router = useRouter();
   const supabase = useSupabase();
-  const { organization } = useOrganization();
+  const { organization, isPersonal } = useWorkspace();
   const [isSaving, setIsSaving] = useState(false);
   // Set right after a successful save, while `currentInvoice` has already
   // gone null (saveCurrentInvoice clears it) but we're still holding on this
@@ -51,7 +52,7 @@ export default function ReviewScreen() {
             <View style={styles.savedCheckCircle}>
               <Text style={styles.savedCheckMark}>✓</Text>
             </View>
-            <Text style={styles.savedText}>Invoice saved</Text>
+            <Text style={styles.savedText}>{isPersonal?'Receipt':'Invoice'} saved</Text>
           </View>
         </SafeAreaView>
       );
@@ -74,6 +75,7 @@ export default function ReviewScreen() {
     setIsSaving(true);
     try {
       await saveCurrentInvoice(supabase);
+      if(isPersonal){void supabase.functions.invoke('refresh-household-insights',{body:{invoiceId:currentInvoice.id}}).catch(()=>{});}
       setJustSaved(true);
       setTimeout(() => router.replace('/(tabs)'), 900);
     } catch (err: any) {
@@ -90,7 +92,7 @@ export default function ReviewScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.vendorName}>{vendorName}</Text>
           <View style={styles.invoiceMetaRow}>
-            <Text style={styles.invoiceMeta}>Invoice #{invoiceNumber} · </Text>
+            <Text style={styles.invoiceMeta}>{isPersonal?'Receipt':'Invoice'} #{invoiceNumber} · </Text>
             <TouchableOpacity onPress={() => setDatePickerOpen(true)} activeOpacity={0.7}>
               <Text style={[styles.invoiceMeta, styles.dateEditable]}>
                 {date || 'Add date'}
@@ -117,7 +119,7 @@ export default function ReviewScreen() {
             <View style={styles.imageThumbnail} />
           )}
           <View>
-            <Text style={styles.imageTitle}>Original invoice · {pageCount} page{pageCount !== 1 ? 's' : ''}</Text>
+            <Text style={styles.imageTitle}>Original {isPersonal?'receipt':'invoice'} · {pageCount} page{pageCount !== 1 ? 's' : ''}</Text>
             {!!imageUris?.length && <Text style={styles.imageLink}>tap to view full image</Text>}
           </View>
         </TouchableOpacity>
@@ -167,7 +169,7 @@ export default function ReviewScreen() {
               <Text style={styles.saveBtnText}>Saving…</Text>
             </View>
           ) : (
-            <Text style={styles.saveBtnText}>Save invoice</Text>
+            <Text style={styles.saveBtnText}>Save {isPersonal?'receipt':'invoice'}</Text>
           )}
         </TouchableOpacity>
       </View>

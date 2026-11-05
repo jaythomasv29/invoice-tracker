@@ -1,3 +1,4 @@
+import { useWorkspace } from '../../lib/workspaceContext';
 import { filterInvoiceLibrary } from '../../lib/invoiceLibrary';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -5,7 +6,7 @@ import { View, Text, ScrollView, StyleSheet, Linking, TextInput } from 'react-na
 import SafeAreaView from '../../components/ui/Screen';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useOrganization } from '@clerk/clerk-expo';
+
 import { buildDemoInvoices } from '../../lib/demoData';
 import { Colors } from '../../constants/Colors';
 import { useStore, Vendor, Invoice, vendorAmountFromBars } from '../../store/useStore';
@@ -37,7 +38,7 @@ export default function VendorsScreen() {
   const router = useRouter();
   const params=useLocalSearchParams<{view?:string;from?:string;to?:string;entry?:string}>();
   const supabase = useSupabase();
-  const { organization } = useOrganization();
+  const { organization, isPersonal } = useWorkspace();
   const { vendors, selectedDay, selectDay, fetchDashboardSummary, demoMode } = useStore();
   const {
     spendView, setSpendView, yearsBack, setYearsBack, maxYears,
@@ -106,11 +107,11 @@ export default function VendorsScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={styles.title}>{tab === 'vendors' ? 'Your suppliers' : 'Invoice library'}</Text>
+          <Text style={styles.title}>{tab === 'vendors' ? (isPersonal?'Your stores':'Your suppliers') : (isPersonal?'Receipt library':'Invoice library')}</Text>
           <Text style={styles.subtitle}>
             {tab === 'vendors'
               ? `${activeCount} active ${shortLabel}`
-              : hasRange?`${filteredInvoices.length} saved invoices in this period`:`${allInvoices.length} invoice${allInvoices.length === 1 ? '' : 's'} captured`}
+              : hasRange?`${filteredInvoices.length} saved ${isPersonal?'receipts':'invoices'} in this period`:`${allInvoices.length} ${isPersonal?'receipt':'invoice'}${allInvoices.length === 1 ? '' : 's'} captured`}
           </Text>
         </View>
         {tab === 'invoices' && allInvoices.length > 0 && (
@@ -126,7 +127,7 @@ export default function VendorsScreen() {
           onPress={() => { Haptics.selectionAsync(); setTab('vendors'); router.setParams({view:'vendors'}); }}
           activeOpacity={0.8}
         >
-          <Text style={[styles.segmentText, tab === 'vendors' && styles.segmentTextActive]}>Vendors</Text>
+          <Text style={[styles.segmentText, tab === 'vendors' && styles.segmentTextActive]}>{isPersonal?'Stores':'Vendors'}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           accessibilityRole="button" accessibilityState={{selected: tab === 'invoices'}}
@@ -134,7 +135,7 @@ export default function VendorsScreen() {
           onPress={() => { Haptics.selectionAsync(); setTab('invoices'); router.setParams({view:'invoices'}); }}
           activeOpacity={0.8}
         >
-          <Text style={[styles.segmentText, tab === 'invoices' && styles.segmentTextActive]}>All Invoices</Text>
+          <Text style={[styles.segmentText, tab === 'invoices' && styles.segmentTextActive]}>All {isPersonal?'Receipts':'Invoices'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -170,7 +171,7 @@ export default function VendorsScreen() {
       ) : (
         <View style={{ flex: 1 }}>
           {!invoicesLoading && allInvoices.length === 0 ? (
-            <OnboardingExplainer config={INVOICE_EXPLAINER} onCta={goToScan} />
+            <OnboardingExplainer config={isPersonal?{...INVOICE_EXPLAINER,title:'Your shopping,\nall in one place',subtitle:'Scan and review a grocery or household receipt. Saved purchases build your spending history by store and purchase date.',ctaLabel:'Scan a receipt'}:INVOICE_EXPLAINER} onCta={goToScan} />
           ) : (
             <>
               <View style={styles.searchWrap}>
@@ -213,7 +214,7 @@ export default function VendorsScreen() {
 
       <OnboardingExplainerSheet
         visible={infoOpen}
-        config={INVOICE_EXPLAINER}
+        config={isPersonal?{...INVOICE_EXPLAINER,title:'Your shopping,\nall in one place',subtitle:'Scan and review a grocery or household receipt. Saved purchases build your spending history by store and purchase date.',ctaLabel:'Scan a receipt'}:INVOICE_EXPLAINER}
         onClose={() => setInfoOpen(false)}
         onCta={goToScan}
       />

@@ -1,23 +1,22 @@
-# Launch pricing decision — November 1, 2026
+# Personal + Business launch pricing — November 4, 2026
 
-The owner delegated choosing price/limits for attractiveness, scalability and profitability. Adopt Free (10 successful invoice scans/month) and Pro ($19.99/month, 150 successful invoice scans and 25 AI recipe draft attempts/month). Paid features remain included. Manual edits do not spend AI attempts. Keep the Apple product a draft until phone/StoreKit and accuracy tests pass.
+Owner-approved monthly launch hypothesis. This replaces the $19.99 / 150-scan / 25-draft draft. It is not a measured optimum or a promise of profitability.
 
-This replaces the earlier provisional $24.99 / 500-scan / 50-recipe proposal. The lower entry price targets a small restaurant; 150 invoices is roughly five per day. This is a product positioning assumption, not measured customer demand. Do not promise profit or savings.
+| Workspace | Free scans/month | Pro/month (US) | Pro scans/month | AI recipe draft attempts |
+|---|---:|---:|---:|---:|
+| Personal | 5 | $4.99 | 40 | Not available |
+| Business | 10 | $9.99 | 100 | 10 |
 
-## Cost sensitivity
+Personal focuses on groceries and household shopping: store/date spending, saved receipts, and Pro category/store trends and reliable repeat-product comparisons. Business retains supplier invoices, delivery checks, purchasing intelligence and Pro recipe costing. Saved records/basic spending/CSV remain accessible after cancellation or expiry. Calendar-month allowances reset in UTC, separately from Apple's renewal date. Failed/duplicate scans release successful-scan quota; attempt/rate limits still apply. Recipe limits count attempts. Annual plans, pantry management, shopping lists and household sharing remain deferred.
 
-The current extraction model is Sonnet 5, listed at $2 per million input tokens and $10 per million output tokens in [Anthropic's model documentation](https://platform.claude.com/docs/en/models/sonnet-5/overview), checked November 1. Per-request base model cost is input_tokens*0.000002 + output_tokens*0.000010. Duplicate-header prechecks, retries and infrastructure add cost.
+Each purchasing owner can link one Personal and one Business workspace, with separate Apple subscriptions/RevenueCat entitlements. Existing restaurant IDs, invoices and legacy Apple SKU `sift_pro_monthly` are retained. Personal uses `sift_personal_pro_monthly` / `personal_pro`. Both modes share an owner-verified RevenueCat customer identity to avoid restoring the Apple receipt between two competing identities. The billing customer cannot be shared across different Sift owners. Additional business memberships can be browsed; purchasing another Business subscription from the same owner is not supported in this release. A retired Business Plus product keeps its 300-scan allowance.
 
-Illustrative assumptions, not observed averages:
+Personal workspaces live in Supabase and use verified Clerk user/issuer ownership, avoiding a Clerk organization for every household. Business membership stays with Clerk. Server-side workspace policy is shared with the client; client flags never authorize paid AI usage.
 
-- A 5,000-input / 1,500-output scan costs $0.025; 150 such successful scans cost $3.75.
-- A heavy 15,000-input / 4,096-output scan costs about $0.071; 150 cost about $10.64.
-- Recipe output is capped at 2,048 tokens; 25 drafts at 5,000 input / 2,048 output would cost about $0.76.
+## Cost validation
 
-Apple's [standard subscription proceeds](https://developer.apple.com/app-store/subscriptions/) are 70% initially and 85% after one paid year; enrolled Small Business Program members receive 85%, before applicable taxes. At $19.99 that is approximately $13.99 or $16.99 before taxes and other costs. Enrollment is not confirmed. Actual agreements, taxes, refunds, RevenueCat fees, hosting, storage, support and acquisition costs reduce the remainder.
+The current extraction model remains Sonnet 5. Do not replace it with a cheaper model without benchmark accuracy evidence. Official pricing checked during the pricing discussion: [Sonnet 5](https://platform.claude.com/docs/en/models/sonnet-5/overview), $2/M input and $10/M output. Model usage is recorded server-side in `ai_model_usage` without receipt text, images or account email. Fingerprint and recipe usage are recorded as well. Failed HTTP requests without a returned token count are not measurable from this table; reconcile provider invoices.
 
-Monthly invoice attempt budgets include failed attempts: successful-scan cap plus the greater of 10 or 20% of the cap (Free 20, Pro 180). Existing hourly/daily request limits remain. Recipe limits count attempts, including failed ones. These bounds control repeated-failure exposure; an abuse spike across many accounts can still cost money. Monitor service spend and use the AI_PROCESSING_ENABLED kill switch if needed.
+Illustrative $0.025 per successful scan (5,000 input / 1,500 output tokens): Personal's full allowance costs $1; Business's costs $2.50 before fingerprints, retries, drafts, infrastructure, support and acquisition. At standard initial 70% Apple proceeds, $4.99 yields about $3.49 and $9.99 about $6.99 before taxes/other costs. At eligible 85% proceeds they yield about $4.24/$8.49. Confirm actual agreements/proceeds; Small Business Program enrollment is not assumed. RevenueCat fees and shared infrastructure also reduce margin. Heavy multi-page scans can exceed this illustrative cost substantially.
 
-## Required validation
-
-Measure token usage, latency, failed/duplicate attempt rates and operator corrections on at least 20 representative approved invoices (including long and multi-page examples). The single fictional fixture proves functionality only. Confirm margin after actual Apple proceeds and recurring service bills. Revisit the price/limit before public launch if heavy-use economics or customer demand differ from these assumptions. No annual plan or unlimited scanning is offered.
+Before public launch, measure at least 20 representative approved real receipts/invoices including multipage documents, unreadable fields, discounts and different package formats. Report token distributions, failures/retries, correction rates and actual recurring bills. Synthetic fixtures establish functionality only. Revisit caps or pricing if heavy-use economics fail; no annual/unlimited commitment is made.

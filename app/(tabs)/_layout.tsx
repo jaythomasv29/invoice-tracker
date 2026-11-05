@@ -1,3 +1,4 @@
+import { useWorkspace } from '../../lib/workspaceContext';
 import { useEffect } from "react";
 import { Tabs, useRouter } from "expo-router";
 import {
@@ -180,6 +181,7 @@ function ScanButton({
 }: {
   onPress?: (e: GestureResponderEvent) => void;
 }) {
+  const {isPersonal}=useWorkspace();
   const scale = useSharedValue(1);
   const pressStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -199,7 +201,7 @@ function ScanButton({
         scale.value = withSpring(1, { damping: 10, stiffness: 200 });
       }}
       accessibilityRole="button"
-      accessibilityLabel="Scan invoice"
+      accessibilityLabel={isPersonal?'Scan receipt':'Scan invoice'}
     >
       <Animated.View style={[styles.scanCircle, pressStyle]}>
         <CameraIcon />
@@ -246,24 +248,25 @@ export default function TabLayout() {
   // treatPendingAsSignedOut:false so a pending (choose-organization) session
   // isn't misread as signed-out here. Route on orgId (active org from the
   // session claims) — see app/index.tsx for the full rationale.
-  const { isLoaded, isSignedIn, orgId } = useAuth({ treatPendingAsSignedOut: false });
+  const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
+  const {organization,ready,isPersonal}=useWorkspace();
   const tabBarStyle = useTabBarStyle();
 
   // Bind RevenueCat's identity to the active org for the whole authenticated session.
   useRevenueCatSync();
 
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || !ready) return;
     if (!isSignedIn) {
       router.replace("/(auth)"); // no session at all
       return;
     }
-    if (!orgId) {
+    if (!organization?.id) {
       router.replace("/onboarding/organization"); // pending choose-org / no active org
       return;
     }
     // else: signed in with an active org — stay in the tabs.
-  }, [isLoaded, isSignedIn, orgId, router]);
+  }, [isLoaded, isSignedIn, ready, organization?.id, router]);
 
   return (
     <TourProvider>
@@ -306,6 +309,7 @@ export default function TabLayout() {
         name="recipes"
         options={{
           title: "Recipes",
+          href: isPersonal ? null : undefined,
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon focused={focused}>
               <RecipeIcon color={color} />
@@ -328,7 +332,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="vendors"
         options={{
-          title: "Invoices",
+          title: isPersonal ? "Receipts" : "Invoices",
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon focused={focused}>
               <InvoicesIcon color={color} />

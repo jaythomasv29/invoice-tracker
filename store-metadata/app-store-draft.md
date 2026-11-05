@@ -1,48 +1,37 @@
-# App Store listing draft — Sift
+# Sift — dual-workspace listing draft
 
-Status: draft; public submission requires phone, StoreKit and deletion tests plus final screenshots and privacy review.
+Status: beta implementation; public review remains gated on physical-phone dual-subscription testing, representative real receipt/invoice accuracy and final assets/privacy/listing validation.
 
-Name: Sift: Invoice & Recipe Costing
-Subtitle: Scan invoices. Track costs.
-Primary category: Business
-Language: English (US)
-Initial availability: United States
-Support URL: https://siftcosts.com/support
-Privacy URL: https://siftcosts.com/privacy
-Terms URL: https://siftcosts.com/terms
-Support email: chimpchamp92@gmail.com
+Name: Sift: Receipts & Food Costs
+Subtitle: Grocery & business insights
+Primary category: Finance
+Secondary category: Business
+Initial availability: United States / English
+Support: https://siftcosts.com/support · chimpchamp92@gmail.com
+Privacy: https://siftcosts.com/privacy
+Terms: https://siftcosts.com/terms
 
 ## Description
 
-Turn restaurant invoices into organized purchasing records with Sift. Photograph or import an invoice, review the extracted details, and save it for your restaurant.
+Make every purchase a little clearer. Sift organizes grocery receipts and restaurant invoices in separate Personal and Business workspaces under one login.
 
-• Review vendor names, dates, quantities and prices before saving.
-• Keep invoice photos alongside your records.
-• Follow ingredient prices and purchasing trends.
-• Build recipes and calculate ingredient costs with Pro.
+FOR YOUR HOUSEHOLD
+Scan groceries and household essentials, review the extracted details, and save your receipt. See spending by purchase date and store. Personal Pro adds category/store trends and repeat-item net price comparisons when product identity, package size and discounts reliably match. Buying more is different from paying more per unit; ambiguous comparisons are left out.
 
-Free includes up to 10 invoice scans per calendar month. Pro includes up to 150 invoice scans and 25 AI recipe draft attempts per calendar month. Review the current subscription price and terms in the app before purchasing.
+FOR YOUR BUSINESS
+Keep supplier invoices and photos together, explore daily/weekly/monthly spending, check deliveries, and follow purchasing patterns. Business Pro adds supplier price insights and recipe costing with clearly labeled estimates.
 
-AI processing requires your permission. Extracted details and recipe suggestions can contain errors; always check the source invoice and ingredient costs. Internet access is required.
+START FREE
+Personal Free: 5 successful receipt scans/month. Personal Pro: 40 scans/month.
+Business Free: 10 successful invoice scans/month. Business Pro: 100 scans and 10 AI recipe draft attempts/month.
+Allowances reset each UTC calendar month. Your saved history and basic spending remain available after paid access expires.
 
-Pro renews automatically unless canceled through your Apple account settings. Payment is charged to your Apple account. Manage or cancel subscriptions in iPhone Settings. Deleting a Sift account does not cancel an Apple subscription.
+Personal Pro and Business Pro are separate optional monthly subscriptions. The app displays the actual localized App Store price before purchase. Subscriptions renew automatically unless cancelled through Apple settings. Cancelling renewal preserves access until the paid-through expiry shown in Profile. Restore purchases using the same Sift owner and Apple account. Account deletion does not cancel Apple subscriptions.
 
-## Reviewer preparation
+AI processing requires your permission. Review extracted dates, quantities, discounts, prices and totals against the source document. Results and recipe drafts can contain errors. Internet access required. Sift does not guarantee savings or provide accounting/tax advice.
 
-Provide a working production review account and restaurant before submission, with a fictional invoice and a recipe available. Do not put credentials in this repository; add them directly to App Store Connect review information.
+## Reviewer access
 
-Steps: sign in using the provided account, open Scan, grant camera/photo and AI processing permission, scan the fictional invoice, review and save. Open Pro to view the monthly Apple subscription and Restore Purchases. Profile contains AI permission withdrawal, legal links, support and account deletion.
+Use the private App Store Connect reviewer credentials; never commit them. Existing fictional review restaurant remains available. Profile → Add or switch workspace → Personal creates a separate fictional household for consumer testing without changing the restaurant records. Personal and Business use separate Pro products; Restore/manage is in Profile. TestFlight/App Review sandbox access must be explicitly permitted for the review billing identity.
 
-TestFlight and App Review purchases use sandbox receipts. Explicitly allow the review restaurant in the server sandbox organization list before review. Confirm the reviewer account can complete sign-in without depending on an inaccessible email inbox; resolve a suitable review access method before submission.
-
-## Remaining store inputs
-
-- Real iPhone screenshots of the finished app; subscription review image must replace the catalog tool's placeholder.
-- Verify subscription metadata, all required territory prices and Apple product readiness.
-- Complete App Privacy from the data inventory below and verify each SDK's current disclosures.
-- Complete age rating and export compliance truthfully; verify Apple agreements/tax/banking with account owner.
-- Verify the listing name/subtitle availability and lengths in App Store Connect.
-
-## Privacy inventory for final questionnaire
-
-Authentication: email address, user and restaurant identifiers (Clerk). Invoices/photos and recipe inputs: user content stored in Supabase; sent to Anthropic only after affirmative permission. Purchases/subscription identifiers: Apple/RevenueCat. Diagnostics: Sentry with content redaction. Waitlist: submitted email address. No advertising or cross-app tracking is intentionally implemented. Confirm the applicable Apple data-type, purpose and linkage answers against production configuration and SDK behavior before submission.
+Refresh native screenshots/preview to cover both modes and the new plan copy before public submission. Existing restaurant screenshots are labeled Business examples; do not imply they show Personal. No public review submission is performed by the beta rollout.

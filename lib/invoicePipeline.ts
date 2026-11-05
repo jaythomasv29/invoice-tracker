@@ -1,3 +1,4 @@
+import { retailHistorySeries } from '../shared/receiptHistory.ts';
 import { validatedLineTotal } from './linePricing';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Invoice, LineItem, LineItemType, VerificationStatus } from '../store/useStore';
@@ -9,6 +10,7 @@ import {
 } from './entitlements';
 
 const CATEGORY_COLORS: Record<string, string> = {
+  meat_seafood:'#D77B68', dairy_eggs:'#7B8CCC', bakery:'#BF914F', pantry:'#A58D65', frozen:'#59A5B5', beverages:'#718E58', cleaning:'#8B83C3', toiletries:'#BD7E9F', household:'#6A8C96',
   protein: '#E07A30',
   produce: '#5DB075',
   dairy: '#5B7FD4',
@@ -416,22 +418,30 @@ export async function fetchItemPriceHistory(
   supabase: SupabaseClient,
   organizationId: string,
   itemName: string,
-  vendorId?: string | null
+  vendorId?: string | null,
+  personal = false, comparisonKey?:string
 ): Promise<ItemPricePoint[]> {
   let req = supabase
     .from('invoice_line_items')
-    .select('unit_price, unit_of_measure, invoices!inner(id, invoice_date, created_at, vendor_id, status, vendors(name))')
+    .select('unit_price, unit_of_measure, qty, extended_price, retail_product, invoices!inner(id, invoice_date, created_at, vendor_id, status, vendors(name))')
     .eq('organization_id', organizationId)
-    .eq('clean_name', itemName)
     .eq('line_item_type', 'charge')
     .is('voided_at', null)
     .eq('invoices.status', 'saved');
+  if(!personal||!comparisonKey)req=req.eq('clean_name',itemName);
   if (vendorId) req = req.eq('invoices.vendor_id', vendorId);
 
-  const { data, error } = await req;
-  if (error) throw new Error(error.message);
+  const data:any[]=[];
+  for(let offset=0;;offset+=1000){
+    const {data:page,error}=await req.order('id').range(offset,offset+999);
+    if(error)throw new Error(error.message);data.push(...page??[]);if((page??[]).length<1000)break;
+  }
 
-  return (data ?? [])
+  if(personal)return retailHistorySeries(data,comparisonKey).map(point=>{
+    const dateIso=point.dateIso??localDateFromTimestamp(point.createdAt)??null;
+    return {...point,dateIso,dateLabel:dateIso?formatDate(dateIso):'Undated'};
+  });
+  return data
     .map((row: any) => {
       const inv = row.invoices;
       const dateIso: string | null = inv?.invoice_date ?? localDateFromTimestamp(inv?.created_at) ?? null;

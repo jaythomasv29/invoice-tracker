@@ -1,5 +1,6 @@
+import { useWorkspace } from '../lib/workspaceContext';
 import { useCallback, useEffect, useState } from 'react';
-import { useOrganization } from '@clerk/clerk-expo';
+
 import { useSupabase } from '../lib/supabase';
 import { localDateFromTimestamp } from '../lib/invoicePipeline';
 import { useStore } from '../store/useStore';
@@ -44,7 +45,7 @@ function dayNumber(iso: string): number {
 // cadence-gap check, distinct from delivery reconciliation. Pro feature.
 export function useMissingInvoices(enabled = true) {
   const supabase = useSupabase();
-  const { organization } = useOrganization();
+  const { organization } = useWorkspace();
   const demoMode = useStore((s) => s.demoMode);
   const [flags, setFlags] = useState<MissingInvoiceFlag[]>([]);
   const [loading, setLoading] = useState(true);

@@ -97,7 +97,7 @@ interface RecipeDraft {
   draft_confidence: number;
 }
 
-async function draftWithModel(dishName: string, images: { data: string; mediaType: string }[]): Promise<RecipeDraft> {
+async function draftWithModel(dishName: string, images: { data: string; mediaType: string }[], jobId?:string,workspaceId?:string): Promise<RecipeDraft> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     signal: AbortSignal.timeout(75000),
@@ -130,6 +130,7 @@ async function draftWithModel(dishName: string, images: { data: string; mediaTyp
     throw new Error(`Anthropic API error (${res.status}): ${body}`);
   }
   const json = await res.json();
+  if(jobId&&workspaceId&&json.usage)await adminClient().from('ai_model_usage').insert({job_id:jobId,organization_id:workspaceId,model:MODEL_SONNET,input_tokens:json.usage.input_tokens??0,output_tokens:json.usage.output_tokens??0});
   const toolUse = json.content?.find((b: any) => b.type === 'tool_use');
   if (!toolUse) throw new Error('Model did not return a recipe draft.');
   return toolUse.input as RecipeDraft;
@@ -147,7 +148,7 @@ Deno.serve(async (req) => {
     if (!authHeader) throw new Error('Missing Authorization header');
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
+      global: { headers: { Authorization: authHeader, "x-sift-workspace": req.headers.get("x-sift-workspace") ?? "" } },
     });
 
     const { data: recipe, error: fetchErr } = await supabase
@@ -165,7 +166,7 @@ Deno.serve(async (req) => {
     } catch {
       isPro = false;
     }
-    if (!isPro) {
+    if (!isPro || recipe.organization_id.startsWith('pws_')) {
       return new Response(
         JSON.stringify({ error: 'Recipe costing is a Pro feature.', code: 'PRO_REQUIRED' }),
         { status: 403, headers: { ...corsHeaders, 'content-type': 'application/json' } }
@@ -173,14 +174,14 @@ Deno.serve(async (req) => {
     }
 
     await requireAiConsent(supabase);
-    const reservation = await beginAiJob(recipe.organization_id, recipeId, 'recipe', 25);
+    const reservation = await beginAiJob(recipe.organization_id, recipeId, 'recipe', 10);
     if (!reservation.allowed) throw new Error(reservation.code === 'AI_BUSY' ? 'This recipe is already processing.' : 'Recipe AI limit reached. Please try again later.');
     jobId = reservation.id;
     const images = recipe.source_photo_path
       ? [await storagePathToBase64(supabase, recipe.source_photo_path)]
       : [];
 
-    const draft = await draftWithModel(recipe.name ?? '', images);
+    const draft = await draftWithModel(recipe.name ?? '', images,jobId,recipe.organization_id);
 
     // Phase 1: every drafted ingredient is a plain item (no prep expansion yet).
     const ingredientRows = draft.ingredients.map((ing, i) => ({

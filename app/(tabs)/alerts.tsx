@@ -1,10 +1,11 @@
+import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, LayoutAnimation, Platform, UIManager } from 'react-native';
 import SafeAreaView from '../../components/ui/Screen';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useOrganization } from '@clerk/clerk-expo';
+
 import { Colors } from '../../constants/Colors';
 import { useStore, PriceAlert } from '../../store/useStore';
 import { useSupabase } from '../../lib/supabase';
@@ -20,7 +21,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 export default function AlertsScreen() {
   const router = useRouter();
   const supabase = useSupabase();
-  const { organization } = useOrganization();
+  const { organization } = useWorkspace();
   const { isPaid } = useEntitlement();
   const { priceAlerts, markAlertRead, fetchPriceAlerts } = useStore();
 

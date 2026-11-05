@@ -1,5 +1,6 @@
 import { syncBilling } from '../_shared/billingSync.ts';
-import { isOrgId } from '../_shared/billingState.ts';
+import { adminClient } from '../_shared/aiControls.ts';
+import { isWorkspaceId } from '../_shared/billingState.ts';
 Deno.serve(async req => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
   const secret = Deno.env.get('REVENUECAT_WEBHOOK_AUTH');
@@ -12,8 +13,15 @@ Deno.serve(async req => {
     if (event.app_id !== appId) return new Response('Unexpected app', { status: 400 });
     if (event.type === 'TEST') return Response.json({ received: true });
     // Events are wake-up signals only. Replay and ordering cannot directly grant/revoke plans.
-    const identities = new Set([event.app_user_id, ...(event.aliases ?? []), ...(event.transferred_from ?? []), ...(event.transferred_to ?? [])].filter(isOrgId));
-    for (const org of identities) await syncBilling(org);
+    const identities = new Set([event.app_user_id, ...(event.aliases ?? []), ...(event.transferred_from ?? []), ...(event.transferred_to ?? [])].filter(isWorkspaceId));
+    const workspaces=new Set<string>();
+    for(const customer of identities){
+      const {data:links,error}=await adminClient().from('workspace_billing_links').select('workspace_id').eq('customer_id',customer);
+      if(error)throw error;
+      if(links?.length)for(const link of links)workspaces.add(link.workspace_id);
+      if(!links?.length||customer.startsWith('org_'))workspaces.add(customer);
+    }
+    for(const workspace of workspaces)await syncBilling(workspace);
     return Response.json({ received: true });
   } catch {
     console.error('Subscription synchronization failed');

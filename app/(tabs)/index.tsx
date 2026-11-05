@@ -1,3 +1,5 @@
+import HouseholdInsightsCard from '../../components/dashboard/HouseholdInsightsCard';
+import { useWorkspace } from '../../lib/workspaceContext';
 import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { fetchInvoiceById, fetchInvoiceImageUrls } from '../../lib/invoicePipeline';
@@ -13,7 +15,7 @@ import {
 } from "react-native";
 import SafeAreaView from '../../components/ui/Screen';
 import { useRouter, useFocusEffect } from "expo-router";
-import { useOrganization } from "@clerk/clerk-expo";
+
 import { Colors } from "../../constants/Colors";
 import { useStore } from "../../store/useStore";
 import { useSpendPeriod } from "../../hooks/useSpendPeriod";
@@ -66,9 +68,9 @@ function getGreeting() {
 export default function HomeScreen() {
   const router = useRouter();
   const supabase = useSupabase();
-  const { organization } = useOrganization();
+  const { organization, isPersonal } = useWorkspace();
   const { isPaid } = useEntitlement();
-  const { flags: missingInvoices } = useMissingInvoices(isPaid);
+  const { flags: missingInvoices } = useMissingInvoices(isPaid && !isPersonal);
   const restaurantName = organization?.name ?? "";
   const userInitials = initialsFor(restaurantName);
   const {
@@ -198,8 +200,8 @@ export default function HomeScreen() {
         }}
       >
         <View style={styles.overviewHeading}>
-          <View style={{flex:1}}><Text style={styles.overviewTitle}>Kitchen overview</Text><Text style={styles.overviewSubtitle}>{getGreeting()}. Let’s make it a clear one.</Text></View>
-          <TouchableOpacity onPress={() => router.push('/scan')} accessibilityRole="button" accessibilityLabel="Scan a new invoice" style={styles.quickScan}><Text style={styles.quickScanText}>+ Scan</Text></TouchableOpacity>
+          <View style={{flex:1}}><Text style={styles.overviewTitle}>{isPersonal?'Household overview':'Kitchen overview'}</Text><Text style={styles.overviewSubtitle}>{getGreeting()}. Let’s make it a clear one.</Text></View>
+          <TouchableOpacity onPress={() => router.push('/scan')} accessibilityRole="button" accessibilityLabel={isPersonal?'Scan a new receipt':'Scan a new invoice'} style={styles.quickScan}><Text style={styles.quickScanText}>+ Scan</Text></TouchableOpacity>
         </View>
         <SpendOverviewCard invoices={spendInvoices} vendors={vendors} loading={isLoadingSummary} onOpenInvoices={openInvoices} onOpenSuppliers={openSuppliers} onOpenVendor={openVendor} />
         {awaitingReviewCount>0&&<View style={styles.reviewCard}>
@@ -212,29 +214,29 @@ export default function HomeScreen() {
 
 
         <View style={styles.intelligenceHeading}>
-          <View style={{flex:1}}><Text style={styles.intelligenceEyebrow}>THE BIGGER PICTURE</Text><Text style={styles.intelligenceTitle}>Purchasing intelligence</Text><Text style={styles.overviewSubtitle}>Build momentum. Spot changes. Know your next move.</Text></View>
+          <View style={{flex:1}}><Text style={styles.intelligenceEyebrow}>THE BIGGER PICTURE</Text><Text style={styles.intelligenceTitle}>{isPersonal?'Shopping intelligence':'Purchasing intelligence'}</Text><Text style={styles.overviewSubtitle}>{isPersonal?'Your stores. Your essentials. A little more perspective.':'Build momentum. Spot changes. Know your next move.'}</Text></View>
           {isPaid && <View style={styles.intelligenceBadge}><Text style={styles.intelligenceBadgeText}>PRO</Text></View>}
         </View>
         <Animated.View entering={FadeInDown.duration(240).reduceMotion(ReduceMotion.System)} style={{gap:16}}>
-          <TourTarget id="home-streak"><KitchenMomentumCard invoices={spendInvoices} pending={awaitingReviewCount} loading={isLoadingSummary} onInvoices={()=>openInvoices()} onReview={()=>{ if(awaitingReview[0]) void openReview(awaitingReview[0].id); else openInvoices(); }} onScan={()=>router.push('/scan')} /></TourTarget>
-          <RecipeCostingCard isPaid={isPaid} onPress={()=>router.push(isPaid?'/recipes':'/paywall')} />
+          {isPersonal?<HouseholdInsightsCard count={spendInvoices.length} isPaid={isPaid}/>:<TourTarget id="home-streak"><KitchenMomentumCard invoices={spendInvoices} pending={awaitingReviewCount} loading={isLoadingSummary} onInvoices={()=>openInvoices()} onReview={()=>{ if(awaitingReview[0]) void openReview(awaitingReview[0].id); else openInvoices(); }} onScan={()=>router.push('/scan')} /></TourTarget>}
+          {!isPersonal&&<RecipeCostingCard isPaid={isPaid} onPress={()=>router.push(isPaid?'/recipes':'/paywall')} />}
           {isPaid ? <>
-            <TourTarget id="home-alerts"><AIInsightCard priceAlerts={priceAlerts} onPress={()=>router.push('/(tabs)/alerts')} /></TourTarget>
-            <MissingInvoiceCard flags={missingInvoices} onPressVendor={openVendor} />
-            <View style={styles.patternHeading}><Text style={styles.patternTitle}>Your purchasing patterns</Text><TouchableOpacity onPress={openSuppliers} accessibilityRole="button" style={styles.sectionAction}><Text style={styles.insightsLink}>Suppliers ›</Text></TouchableOpacity></View>
+            {!isPersonal&&<TourTarget id="home-alerts"><AIInsightCard priceAlerts={priceAlerts} onPress={()=>router.push('/(tabs)/alerts')} /></TourTarget>}
+            {!isPersonal&&<MissingInvoiceCard flags={missingInvoices} onPressVendor={openVendor} />}
+            <View style={styles.patternHeading}><Text style={styles.patternTitle}>{isPersonal?'Your shopping patterns':'Your purchasing patterns'}</Text><TouchableOpacity onPress={openSuppliers} accessibilityRole="button" style={styles.sectionAction}><Text style={styles.insightsLink}>{isPersonal?'Stores':'Suppliers'} ›</Text></TouchableOpacity></View>
             <TourTarget id="home-spend"><SpendTrendCard period={spendView} yearsBack={yearsBack} periodTotal={periodTotal} periodPctChange={periodPctChange} barData={periodBarData} isLoading={isLoadingSummary} onOpenDetails={openSuppliers} /></TourTarget>
             <TourTarget id="home-vendors"><VendorSpendListCard vendors={vendors} period={spendView} onChangePeriod={setSpendView} yearsBack={yearsBack} onChangeYears={setYearsBack} maxYears={maxYears} periodBarData={periodBarData} onPressVendor={openVendor} isLoading={isLoadingSummary} /></TourTarget>
-            <DeliveryGapCard total={deliveryGapTotal} items={deliveryGapItems} onPressInvoice={id=>router.push(`/invoice/${id}`)} />
+            {!isPersonal&&<DeliveryGapCard total={deliveryGapTotal} items={deliveryGapItems} onPressInvoice={id=>router.push(`/invoice/${id}`)} />}
             {categorySpend.length>0 && <CategorySpendCard categorySpend={categorySpend} onOpenInvoices={()=>openInvoices()} />}
-            <TopItemsCard topItems={topItems} onPressItem={name=>router.push({pathname:'/item-history',params:{itemName:name}})} />
-          </> : <ProLockCard stat={monthTotal>0?`$${Math.round(monthTotal).toLocaleString('en-US')}`:undefined} statLabel={monthTotal>0?'spent this month':undefined} title="See the patterns behind your purchasing" body="Pro connects supplier trends, price-change alerts and recipe costing to your invoices." />}
+            {!isPersonal&&<TopItemsCard topItems={topItems} onPressItem={name=>router.push({pathname:'/item-history',params:{itemName:name}})} />}
+          </> : <ProLockCard stat={monthTotal>0?`$${Math.round(monthTotal).toLocaleString('en-US')}`:undefined} statLabel={monthTotal>0?'spent this month':undefined} title={isPersonal?'See the patterns behind your shopping':'See the patterns behind your purchasing'} body={isPersonal?'Personal Pro connects your store trends, category breakdowns and comparable item prices.':'Pro connects supplier trends, price-change alerts and recipe costing to your invoices.'} />}
         </Animated.View>
         {uploadActivity.length>0 && <UploadActivityCard entries={uploadActivity} onPressInvoice={id=>router.push(`/invoice/${id}`)} />}
       </ScrollView>
 
       <OnboardingExplainerSheet
         visible={infoOpen}
-        config={APP_EXPLAINER}
+        config={isPersonal?{...APP_EXPLAINER,title:'Every receipt,\nworking for you',subtitle:'Scan groceries and household essentials. Review your receipt, save it, and see spending by purchase date and store. Personal Pro adds category trends and reliable repeat-item price comparisons.',ctaLabel:'Scan a receipt'}:APP_EXPLAINER}
         onClose={() => setInfoOpen(false)}
         onCta={() => router.push("/scan")}
       />
