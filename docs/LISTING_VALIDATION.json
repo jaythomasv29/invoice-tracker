@@ -1,5 +1,5 @@
 {
-  "verifiedAt": "2026-11-04T01:32:46.520Z",
+  "verifiedAt": "2026-11-05T02:15:42.449Z",
   "screenshots": [
     {
       "file": "screenshots/app-store/01-overview.png",
@@ -30,6 +30,11 @@
       "file": "screenshots/app-store/06-suppliers.png",
       "state": "COMPLETE",
       "errors": []
+    },
+    {
+      "file": "screenshots/app-store/07-personal.png",
+      "state": "COMPLETE",
+      "errors": []
     }
   ],
   "previews": [
@@ -57,7 +62,7 @@
     "description": true,
     "supportUrl": "https://siftcosts.com/support",
     "marketingUrl": "https://siftcosts.com",
-    "keywordLength": 70
+    "keywordLength": 85
   },
   "build": "7",
   "reviewerCredentialsPresent": true,
@@ -70,21 +75,5 @@
   "ageRating": "SEVENTEEN_PLUS",
   "/privacy": 200,
   "/terms": 200,
-  "/support": 200,
-  "subscriptionReviewScreenshot": {
-    "productId": "sift_pro_monthly",
-    "state": "COMPLETE",
-    "visualValidation": "FAIL \u2014 existing image is blank; replace with actual native paywall capture"
-  },
-  "privacyDraft": {
-    "configuredDataTypes": 15,
-    "purpose": "APP_FUNCTIONALITY",
-    "linkedToIdentity": true,
-    "tracking": false,
-    "publishStatus": "PUBLISHED \u2014 owner confirmed legal attestation; browser verified publication by James Vongampai"
-  },
-  "ownerPhoneChecks": {
-    "build": "7",
-    "restorePurchases": "PASS \u2014 owner reports restore succeeded and Pro stayed unlocked"
-  }
+  "/support": 200
 }

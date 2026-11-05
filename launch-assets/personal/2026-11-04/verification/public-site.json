@@ -1,0 +1,16 @@
+{
+  "url": "https://siftcosts.com/#plans",
+  "status": 200,
+  "personalImageHashVerified": true,
+  "legalRoutes": [
+    200,
+    200,
+    200
+  ],
+  "prices": [
+    4.99,
+    9.99
+  ],
+  "data": "Fictional sample captures only",
+  "proof": "website-live-pricing.png"
+}

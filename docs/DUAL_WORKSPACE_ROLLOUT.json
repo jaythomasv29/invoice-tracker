@@ -1,0 +1,44 @@
+{
+  "verifiedAt": "2026-11-05T02:17:00.775Z",
+  "sourceCommit": "361d4bcf359eb9ac992952400957f9c94ddb6b77",
+  "channel": "beta",
+  "build": "1.0.0 (7)",
+  "updateId": "01a1a97e-c867-7262-a38d-641d4069673d",
+  "groupId": "2c99025a-bb39-498f-99f9-04ef662423fc",
+  "runtimeVersion": "062bedef39aff97c339accbe22183fe3470f622f",
+  "nativeBuildUsed": false,
+  "standaloneBackend": "hosted Supabase/Clerk/Anthropic/RevenueCat; no computer server",
+  "personal": {
+    "productId": "sift_personal_pro_monthly",
+    "monthlyUsd": 4.99,
+    "freeScans": 5,
+    "proScans": 40,
+    "appleState": "READY_TO_SUBMIT"
+  },
+  "business": {
+    "productId": "sift_pro_monthly",
+    "monthlyUsd": 9.99,
+    "freeScans": 10,
+    "proScans": 100,
+    "recipeDraftAttempts": 10
+  },
+  "preservation": "All 35 pre-existing invoices and every original line-item field unchanged",
+  "tests": {
+    "node": 33,
+    "denoBilling": 6,
+    "isolatedSql": "passed",
+    "hostedHouseholdDeletion": "passed",
+    "syntheticReceiptExtractionAndDuplicate": "passed"
+  },
+  "physicalPurchaseTests": "Required for the new dual-subscription flow before public submission",
+  "deliveryVerifiedAt": "2026-11-05T02:29:24.798332+00:00",
+  "website": "https://siftcosts.com/#plans",
+  "websiteProof": "launch-assets/personal/2026-11-04/verification/website-live-pricing.png",
+  "appStoreMedia": {
+    "screenshots": "7 COMPLETE",
+    "preview": "COMPLETE",
+    "headerAndSearchCreative": "uploaded to draft placements",
+    "reviewerCredentials": "preserved",
+    "publicSubmission": false
+  }
+}

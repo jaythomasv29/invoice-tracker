@@ -2,5 +2,6 @@
   "subscriptionId": "6830937359",
   "assetId": "92b769ba-a13d-4684-bb5b-5889fb24914c",
   "file": "launch-assets/personal/2026-11-04/raw/personal-home.png",
-  "state": "UPLOAD_COMPLETE"
+  "state": "COMPLETE",
+  "productState": "READY_TO_SUBMIT"
 }

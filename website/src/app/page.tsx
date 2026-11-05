@@ -22,17 +22,17 @@ export default function Home() {
       <main className="flex flex-col">
         <Hero />
         <section id="plans" className="scroll-mt-24 mx-auto w-full max-w-5xl px-6 pb-20">
-          <p className="text-center text-xs font-bold uppercase tracking-[.18em] text-brand">One app. Two clear spaces.</p>
+          <p className="text-center text-xs font-bold uppercase tracking-[.18em] text-brand-ink">One app. Two clear spaces.</p>
           <h2 className="mt-4 text-center text-3xl font-extrabold tracking-tight sm:text-5xl">For your household. For your business.</h2>
           <div className="mt-10 grid gap-5 md:grid-cols-2">
             <article className="rounded-3xl border border-border bg-surface p-7 sm:p-9">
-              <p className="text-sm font-semibold text-brand">PERSONAL</p><h3 className="mt-3 text-2xl font-bold">Everyday shopping, in perspective.</h3>
+              <p className="text-sm font-semibold text-brand-ink">PERSONAL</p><h3 className="mt-3 text-2xl font-bold">Everyday shopping, in perspective.</h3>
               <p className="mt-4 leading-relaxed text-muted">Groceries, cleaning supplies and household essentials. See where your money goes by store, week and month.</p>
               <p className="mt-6 text-sm text-muted">Free · 5 receipt scans/month</p><p className="mt-2 text-3xl font-extrabold">$4.99<span className="text-base font-medium text-muted"> / month for Pro</span></p>
               <p className="mt-4 leading-relaxed text-muted">40 scans, category and store trends, plus repeat-item net price comparisons when the printed product identity and package size reliably match.</p>
             </article>
             <article className="rounded-3xl border border-border bg-surface p-7 sm:p-9">
-              <p className="text-sm font-semibold text-brand">BUSINESS</p><h3 className="mt-3 text-2xl font-bold">A clearer view of your kitchen.</h3>
+              <p className="text-sm font-semibold text-brand-ink">BUSINESS</p><h3 className="mt-3 text-2xl font-bold">A clearer view of your kitchen.</h3>
               <p className="mt-4 leading-relaxed text-muted">Keep supplier invoices together, track food purchasing, and connect your ingredients to recipe costs.</p>
               <p className="mt-6 text-sm text-muted">Free · 10 invoice scans/month</p><p className="mt-2 text-3xl font-extrabold">$9.99<span className="text-base font-medium text-muted"> / month for Pro</span></p>
               <p className="mt-4 leading-relaxed text-muted">100 scans, supplier price alerts, spending intelligence and recipe costing with 10 AI recipe draft attempts each month.</p>

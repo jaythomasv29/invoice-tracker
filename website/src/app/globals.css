@@ -16,6 +16,7 @@
   --color-brand: #17624B;
   --color-brand-dark: #104B3A;
   --color-brand-light: #E7F1EB;
+  --brand-ink: #17624B;
 
   --background: #FAFAF6;
   --foreground: #172C25;
@@ -33,6 +34,7 @@
   --color-brand: var(--color-brand);
   --color-brand-dark: var(--color-brand-dark);
   --color-brand-light: var(--color-brand-light);
+  --color-brand-ink: var(--brand-ink);
   --font-sans: var(--font-system);
 }
 
@@ -43,6 +45,7 @@
     --muted: #B1BEB4;
     --surface: #1C2B23;
     --border: #35473B;
+    --brand-ink: #BDE3C9;
   }
 }
 

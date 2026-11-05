@@ -38,3 +38,7 @@ Synthetic Sonnet usage across the first three receipts averaged 3,195 input and 
 5. Build a production-channel App Store release candidate when ready; permission descriptions should explicitly include grocery/household receipts. Beta UI changes are delivered compatibly to build 7 by OTA, without another EAS native build. Do not submit the beta-channel binary as the final production release without reviewing channel/configuration.
 
 Source SVGs, raw Personal capture and exported artwork: launch-assets/personal/2026-11-04 and launch-assets/screenshots/app-store/07-personal.*. Original supplied film and pre-existing exports are retained.
+
+## Beta delivery
+
+Published source commit `361d4bc` to beta update `01a1a97e-c867-7262-a38d-641d4069673d`, group `2c99025a-bb39-498f-99f9-04ef662423fc`. The public Expo delivery manifest serves this exact update to iOS runtime `062bedef39aff97c339accbe22183fe3470f622f`, matching TestFlight 1.0.0 (7). No EAS native build was run. Open Sift online, allow its update to download, then force-quit and reopen. Profile → Add or switch workspace opens the Personal/Business chooser.
