@@ -1,0 +1,33 @@
+{
+  "verifiedAt": "2026-11-06T07:46:25.423274+00:00",
+  "sourceCommit": "6a14092d735052733f8fc3767ebb8cfd3ae8a3a1",
+  "channel": "beta",
+  "build": "1.0.0 (7)",
+  "updateId": "01a1afd1-f1b0-7291-83bf-a0ae6f8f9f07",
+  "groupId": "483b9c64-ddfe-400d-b216-1babc20b99c0",
+  "runtimeVersion": "062bedef39aff97c339accbe22183fe3470f622f",
+  "nativeBuildUsed": false,
+  "features": [
+    "Item search and saved products for Personal and Business",
+    "Read-only normalized invoice prices with explicit package measurements",
+    "Business Pro recipe yield, active labor, prep time and cook time"
+  ],
+  "excluded": [
+    "Gas and utilities",
+    "Personal recipe costing"
+  ],
+  "migration": "20261105010000_product_catalog_and_recipe_labor",
+  "verification": {
+    "nodeTests": 41,
+    "typescript": "passed",
+    "lint": "passed",
+    "freshDatabaseMigrationsAndScopeTests": "passed",
+    "authenticatedHostedBusinessAndPersonalChecks": "passed",
+    "nativeSimulatorCostBreakdown": "passed",
+    "preExistingInvoicesUnchanged": 39,
+    "preExistingLineRecordsUnchanged": 184,
+    "publicBetaDelivery": "verified"
+  },
+  "physicalDevicePass": "Still required for keyboard, compact/landscape, largest text and motion feel",
+  "publicAppStoreSubmission": false
+}
