@@ -40,6 +40,7 @@ test('recent purchase average is quantity weighted and unit compatible',()=>{
 });
 test('AI estimates remain correct after a compatible unit change and do not cross dimensions',()=>{
  close(ingredientCost(ingredient({qty:1,unit:'kg',aiUnit:'g',aiEstUnitCost:.01})).amount,10);
+ assert.equal(ingredientCost(ingredient({qty:1,unit:'kg',aiUnit:null,aiEstUnitCost:.01})).amount,null);
  assert.equal(ingredientCost(ingredient({qty:1,unit:'L',aiUnit:'g',aiEstUnitCost:.01})).amount,null);
  const cost=computeIngredientCosts([ingredient({unitCost:normalizePurchase(row())}),ingredient({unit:'each'})]);close(cost.estimate,5);assert.equal(cost.complete,false);assert.equal(cost.missingCount,1);
 });

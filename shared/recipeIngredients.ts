@@ -40,19 +40,15 @@ export function ingredientCost(ing: CostableIngredient): {
       return { amount: value, source: ing.manualPrice ? "manual" : "purchase" };
   }
   if (
+    ing.aiUnit != null &&
     ing.aiEstUnitCost != null &&
     Number.isFinite(ing.aiEstUnitCost) &&
     ing.aiEstUnitCost >= 0
   ) {
-    const converted = convertQuantity(
-      ing.qty,
-      ing.unit,
-      ing.aiUnit ?? ing.unit,
-    );
+    const converted = convertQuantity(ing.qty, ing.unit, ing.aiUnit);
     const q =
       converted ??
-      ((ing.aiUnit ?? ing.unit).trim().toLowerCase() ===
-      ing.unit.trim().toLowerCase()
+      (ing.aiUnit.trim().toLowerCase() === ing.unit.trim().toLowerCase()
         ? ing.qty
         : null);
     if (q != null) return { amount: q * ing.aiEstUnitCost, source: "ai" };

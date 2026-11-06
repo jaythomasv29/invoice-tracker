@@ -326,7 +326,7 @@ export async function searchItems(
   const label = (cost: NormalizedPurchase | null) => {
     if (!cost) return "Package size needed";
     const d = displayUnitCost(cost);
-    return `$${d.value.toFixed(3)}/${d.unit}`;
+    return `${cost.manual ? "Estimate " : ""}$${d.value.toFixed(3)}/${d.unit}`;
   };
   const keys = new Set(filtered.map((p) => p.product_key));
   return [
