@@ -186,3 +186,9 @@ export async function updateProduct(
     .eq("id", id);
   if (error) throw new Error("Could not save product. Please retry.");
 }
+
+export async function purchaseHistory(db: SupabaseClient, key: string, offset = 0): Promise<PurchaseObservation[]> {
+  const { data, error } = await db.rpc('purchase_product_history', { p_key: key, p_limit: 100, p_offset: offset });
+  if (error) throw new Error('Could not load purchase history. Please retry.');
+  return data ?? [];
+}

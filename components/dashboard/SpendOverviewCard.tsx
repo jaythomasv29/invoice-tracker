@@ -1,3 +1,4 @@
+import ProductCarousel from './ProductCarousel';
 import HistoryMilestone from './HistoryMilestone';
 import { RevealPanel } from './DashboardMotion';
 import { Design } from '../../constants/Design';
@@ -14,10 +15,11 @@ const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', curr
 export default function SpendOverviewCard({ invoices, vendors, loading, onOpenInvoices, onOpenSuppliers, onOpenVendor }: {
   invoices: SpendInvoice[]; vendors: { id: string; name: string }[]; loading: boolean; onOpenInvoices:(range?:{from:string;to:string})=>void; onOpenSuppliers:()=>void; onOpenVendor:(id:string)=>void;
 }) {
-  const {isPersonal}=useWorkspace();
+  const {isPersonal,organization}=useWorkspace();
   const receipt=isPersonal?'receipt':'invoice';
   const [period, setPeriod] = useState<SummaryPeriod>('month');
   const [offset, setOffset] = useState(0);
+  const [productView, setProductView] = useState(false);
   const data = summarizeSpend(invoices, period, offset);
   const label = period === 'month'
     ? data.start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
@@ -25,12 +27,12 @@ export default function SpendOverviewCard({ invoices, vendors, loading, onOpenIn
     : `${data.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${data.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
   const openPeriod=()=>onOpenInvoices({from:localDay(data.start),to:localDay(data.end)});
   return <View style={s.wrapper}>
-    <RevealPanel><View style={s.tabs}>
+    {!productView&&<RevealPanel><View style={s.tabs}>
       {(['day', 'week', 'month'] as const).map(p => <TouchableOpacity key={p} accessibilityRole="button" accessibilityState={{ selected: p === period }} onPress={() => { setPeriod(p); setOffset(0); }} style={[s.tab, p === period && s.selected]}>
         <Text style={[s.tabText, p === period && s.selectedText]}>{p === 'day' ? 'Day' : p === 'week' ? 'Week' : 'Month'}</Text>
       </TouchableOpacity>)}
-    </View></RevealPanel>
-    <RevealPanel delay={40}><View style={s.hero}>
+    </View></RevealPanel>}
+    <RevealPanel delay={40}><ProductCarousel key={organization?.id} onProductViewChange={setProductView}><View style={s.hero}>
       <View style={s.heroTop}><Text style={s.eyebrow}>TOTAL SPENDING</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel={`View ${receipt}s for ${label}`} onPress={openPeriod} style={s.savedPill}><Text style={s.savedText}>View {receipt}s ›</Text></TouchableOpacity></View>
       <View style={s.navigation}>
         <Text style={s.date}>{label}</Text>
@@ -48,9 +50,10 @@ export default function SpendOverviewCard({ invoices, vendors, loading, onOpenIn
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={`View ${receipt}s behind this average`} onPress={openPeriod} style={s.stat}><Text style={s.statNumber} numberOfLines={1} adjustsFontSizeToFit>{loading || !data.count ? '—' : money(data.total / data.count)}</Text><Text style={s.statLabel}>Avg. {receipt} ›</Text></TouchableOpacity>
       </View>
       <HistoryMilestone invoices={invoices} loading={loading} onPress={() => onOpenInvoices()} />
-    </View></RevealPanel>
+    </View></ProductCarousel></RevealPanel>
     <RevealPanel><View style={s.breakdown}>
       <View style={s.sectionRow}><Text style={s.heading}>Where it went</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel={isPersonal?'Browse all stores':'Browse all suppliers'} onPress={onOpenSuppliers} style={s.browse}><Text style={s.browseText}>{isPersonal?'Stores':'Suppliers'} ›</Text></TouchableOpacity></View>
+      <Text style={s.note}>{label}</Text>
       <SupplierSpendBar totals={data.vendors} vendors={vendors} onPressVendor={onOpenVendor} light variant="list" />
       {loading && data.vendors.length === 0 && <View style={s.breakdownLoading}><Text style={s.note}>Loading {isPersonal?'store':'supplier'} breakdown…</Text></View>}
       {!loading && data.count === 0 && <Text style={s.empty}>No saved {receipt}s in this period. Scan your first {receipt} or use the arrows to explore past spending.</Text>}

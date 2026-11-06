@@ -27,3 +27,7 @@ References: [Apple Materials](https://developer.apple.com/design/human-interface
 The green panel also carries a compact all-time saved-history milestone with an earned badge and progress toward the next saved-invoice/receipt target. Reuse kitchenProgress deduplication and thresholds; period changes must not change this all-time count. Its library action retains the existing destination.
 
 Owner space refinement: omit the large Kitchen/Household overview title. Use a compact status-and-Scan row under the workspace header so spending starts higher on the screen.
+
+Product carousel follow-up: the evergreen panel pages between Spending and every purchased product (catalog pagination, virtualized rendering). Keep the spending bar, legend and saved-history milestone on the Spending page. Product pages show recorded purchase date, quantity, price and same-product/supplier history. Hide spending-period controls in Products mode; product patterns use recent saved history across periods. Provide arrow controls as an alternative to swiping, preserve selected page on resize, and adjust panel height for content and large text.
+
+Pattern progress counts usable, distinct invoice dates; duplicates and same-day purchases do not inflate the four-date milestone. Show a stock-check window only for sufficiently regular, recent records with comparable order sizes and confident product identity. AI reviews are Pro, explicitly requested, permission-gated and separately budgeted. Never infer stock, consumption, exact order needs or missing dates. See docs/PRODUCT_CAROUSEL.md.

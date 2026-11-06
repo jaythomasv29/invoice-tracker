@@ -35,6 +35,8 @@ export function featuresFor(type: AccountType): PlanFeature[] {
       true,
     ),
     row('CSV export', true, true),
+    row('Product carousel & purchase history', true, true),
+    row('AI product reviews / month', false, '60', true),
     row('Item price alerts', false, true, true),
     row('Advanced spending trends', false, true, true),
     row('Category breakdowns', false, true),

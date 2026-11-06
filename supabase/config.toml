@@ -454,3 +454,6 @@ verify_jwt = false
 
 [functions.refresh-household-insights]
 verify_jwt = false
+
+[functions.product-reorder-insight]
+verify_jwt = false
