@@ -221,7 +221,7 @@ export default function HomeScreen() {
         onScroll={onScroll}
       >
         <RevealPanel><View style={styles.overviewHeading}>
-          <View style={{flex:1}}><Text style={styles.overviewTitle}>{isPersonal?'Household overview':'Kitchen overview'}</Text><Text style={styles.overviewSubtitle}>{isLoadingSummary ? 'Updating your overview…' : 'Your spending, in perspective.'}</Text></View>
+          <Text style={styles.overviewStatus}>{isLoadingSummary ? 'Updating your overview…' : 'Your spending, in perspective.'}</Text>
           <TouchableOpacity onPress={() => router.push('/scan')} accessibilityRole="button" accessibilityLabel={isPersonal?'Scan a new receipt':'Scan a new invoice'} style={styles.quickScan}><Text style={styles.quickScanText}>+ Scan</Text></TouchableOpacity>
         </View></RevealPanel>
 
@@ -285,8 +285,8 @@ const styles = StyleSheet.create({
   searchTitle: { fontFamily:'Manrope_700Bold', fontSize:15, color:Colors.primaryDark },
   searchCaption: { fontFamily:'Manrope_400Regular', fontSize:12, lineHeight:18, color:Colors.textSecondary, marginTop:3 },
   searchChevron: { fontSize:26, color:Colors.primaryDark },
-  overviewHeading: {flexDirection:'row',alignItems: 'flex-start',gap:12,marginBottom: 8},
-  overviewTitle:{fontFamily:'Manrope_800ExtraBold',fontSize: 30,letterSpacing: -1.2,color:Colors.textPrimary},
+  overviewHeading: {flexDirection:'row',alignItems:'center',gap:12},
+  overviewStatus: {flex:1,fontFamily:'Manrope_500Medium',fontSize:13,lineHeight:19,color:Colors.textSecondary},
   overviewSubtitle:{fontFamily:'Manrope_400Regular',fontSize: 14,lineHeight: 21,color:Colors.textSecondary,marginTop:3},
   quickScan:{minWidth:76,minHeight:44,paddingHorizontal:14,borderRadius: Design.radius.pill,alignItems:'center',justifyContent:'center',backgroundColor:Colors.primary},
   quickScanText:{fontFamily:'Manrope_700Bold',fontSize:14,color:Colors.textOnPrimary},

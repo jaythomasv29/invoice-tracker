@@ -25,3 +25,5 @@ See docs/STYLING_PASS.md. Browser fixtures verify layout and the web animation i
 References: [Apple Materials](https://developer.apple.com/design/human-interface-guidelines/materials), [Apple Motion](https://developer.apple.com/design/human-interface-guidelines/motion), [Expo BlurView](https://docs.expo.dev/versions/latest/sdk/blur-view/). UI/UX Pro Max glassmorphism navigation guidance was verified and adapted to the existing native stack.
 
 The green panel also carries a compact all-time saved-history milestone with an earned badge and progress toward the next saved-invoice/receipt target. Reuse kitchenProgress deduplication and thresholds; period changes must not change this all-time count. Its library action retains the existing destination.
+
+Owner space refinement: omit the large Kitchen/Household overview title. Use a compact status-and-Scan row under the workspace header so spending starts higher on the screen.
