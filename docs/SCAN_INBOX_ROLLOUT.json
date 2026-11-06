@@ -1,0 +1,40 @@
+{
+  "verifiedAt": "2026-11-06T23:26:59.819278+00:00",
+  "sourceCommit": "c6275b9501fdf60cf40b0d4e7e1226cb4dae9a93",
+  "channel": "beta",
+  "build": "1.0.0 (7)",
+  "updateId": "01a1b32f-84cc-7538-9830-7cbd3a0e5ae1",
+  "groupId": "728ffec7-5a2a-4d69-849c-b935be864c68",
+  "runtimeVersion": "062bedef39aff97c339accbe22183fe3470f622f",
+  "migration": "20261106020000_edit_invoice_details",
+  "nativeBuildUsed": false,
+  "verification": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "nodeTests": 51,
+    "sqlTests": "passed",
+    "hosted": {
+      "checks": [
+        "scanned invoice details corrected and existing vendor reused",
+        "other invoices keep original vendor",
+        "corrected date and totals persist",
+        "another workspace cannot edit invoice details",
+        "inbox restores pending and ready scans and omits saved invoices",
+        "inbox isolates workspaces",
+        "uploaded pending draft is retryable",
+        "another workspace cannot retry draft",
+        "synthetic active job reserved",
+        "active scan cannot restart",
+        "active scan cannot be discarded",
+        "interrupted scan is surfaced",
+        "interrupted scan safely unlocks",
+        "inactive draft can be discarded"
+      ],
+      "passed": true,
+      "cleanup": "complete"
+    },
+    "bundle": "passed",
+    "liveManifest": "passed",
+    "ui": "isolated real-component browser fixture; physical-phone keyboard/VoiceOver checks remain"
+  }
+}

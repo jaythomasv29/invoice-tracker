@@ -156,3 +156,7 @@ Validation: TypeScript/ESLint, 47 Node tests, Deno checks, all fresh-schema migr
 ### Smart Sift naming — verified beta OTA
 
 Published group `8bc8e32c-99b9-4062-95d8-b8a23344c73f`, iOS update `01a1b240-1ccf-7f4e-80d2-3e4bf05bb308`, matching TestFlight 1.0.0 (7) runtime. Live beta manifest verified. Product UI, recipes, plan labels, permission controls and service messages use Smart Sift. Anthropic provider disclosures remain explicit. No Apple Intelligence integration or native changes are included. Typecheck, lint, 47 tests, Deno checks and bundle source-map verification passed. Receipt: `SMART_SIFT_ROLLOUT.json`.
+
+### Editable invoice details and scan inbox — verified beta OTA
+
+Published group `728ffec7-5a2a-4d69-849c-b935be864c68`, iOS update `01a1b32f-84cc-7538-9830-7cbd3a0e5ae1`, matching TestFlight 1.0.0 (7). Exact live beta manifest verified. Migration `20261106020000_edit_invoice_details` applied. Editable vendor/date/number/totals and pre-save line corrections; extraction now moves from capture to a recoverable inbox after upload. Navigation stays available while Smart Sift works. Typecheck, lint, 51 Node tests, transactional SQL tests, 14 hosted synthetic-record checks and bundle checks passed. Hosted fixtures cleaned up. No native dependencies or background-execution guarantee added. See `SCAN_INBOX.md` and `SCAN_INBOX_ROLLOUT.json`.
