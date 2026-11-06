@@ -1,0 +1,28 @@
+{
+  "verifiedAt": "2026-11-06T10:25:23.539947+00:00",
+  "sourceCommit": "f36c3a726547072bc104c0ff49a956fe30ad3525",
+  "channel": "beta",
+  "build": "1.0.0 (7)",
+  "updateId": "01a1b063-a00d-7660-8cd1-003a09f720e7",
+  "groupId": "8f88a3bc-c289-4551-a46a-04f8c8c83da5",
+  "runtimeVersion": "062bedef39aff97c339accbe22183fe3470f622f",
+  "nativeBuildUsed": false,
+  "features": [
+    "Compact Home status row replacing large Kitchen/Household heading",
+    "Supplier bar and matching legend inside green spend panel",
+    "All-time saved-history milestone, earned badge and animated progress",
+    "Floating glass-inspired navigation and viewport-driven panel entrances"
+  ],
+  "verification": {
+    "node": "22.13.0",
+    "npm": "10.9.2",
+    "typescript": "passed",
+    "lint": "passed",
+    "nodeTests": 41,
+    "productionConfiguration": "passed",
+    "publicBetaManifest": "HTTP 200; exact update ID/runtime matched",
+    "exportedUI": "final compact header, legend, milestone and motion present; fixture and env sources absent"
+  },
+  "physicalDevicePass": "Not claimed; confirm native appearance and motion on phone",
+  "publicAppStoreSubmission": false
+}
