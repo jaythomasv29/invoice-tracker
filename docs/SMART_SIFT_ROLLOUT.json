@@ -1,0 +1,19 @@
+{
+  "verifiedAt": "2026-11-06T19:05:23.314149+00:00",
+  "sourceCommit": "56017b5983c2b739eef5f7164759656f7a2f31d5",
+  "channel": "beta",
+  "build": "1.0.0 (7)",
+  "updateId": "01a1b240-1ccf-7f4e-80d2-3e4bf05bb308",
+  "groupId": "8bc8e32c-99b9-4062-95d8-b8a23344c73f",
+  "runtimeVersion": "062bedef39aff97c339accbe22183fe3470f622f",
+  "provider": "Anthropic (Claude)",
+  "appleIntelligenceIntegrated": false,
+  "checks": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "tests": 47,
+    "deno": "passed",
+    "bundleBranding": "passed",
+    "liveManifest": "passed"
+  }
+}
