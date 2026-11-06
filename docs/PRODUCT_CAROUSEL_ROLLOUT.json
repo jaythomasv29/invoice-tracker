@@ -1,0 +1,53 @@
+{
+  "verifiedAt": "2026-11-06T11:00:26.156460+00:00",
+  "sourceCommit": "b766dbe9f544ea0e42798680ee9ba1ea44bd1657",
+  "channel": "beta",
+  "build": "1.0.0 (7)",
+  "updateId": "01a1b083-d5d0-7c24-b428-cdb36cf5bfe7",
+  "groupId": "b6e37737-09c9-473a-9a2c-ca05e6aa15ff",
+  "runtimeVersion": "062bedef39aff97c339accbe22183fe3470f622f",
+  "nativeBuildUsed": false,
+  "migration": "20261106010000_product_reorder_insights",
+  "functions": [
+    "product-reorder-insight",
+    "delete-account",
+    "maintenance"
+  ],
+  "verification": {
+    "typescript": "passed",
+    "eslint": "passed",
+    "nodeTests": 47,
+    "sqlAssertions": 12,
+    "freshSchemaMigrations": "passed",
+    "deno": "passed",
+    "hosted": {
+      "checks": [
+        "anonymous request rejected",
+        "forged request rejected",
+        "four synthetic saved purchases are visible to their workspace",
+        "another verified workspace cannot read product history",
+        "AI consent required before model work",
+        "real Anthropic review succeeds",
+        "AI response uses verified weekly history",
+        "AI recommends a stock check, without invented inventory",
+        "no invented reorder quantity",
+        "unchanged AI review served from cache",
+        "withdrawing consent blocks cached review too",
+        "Pro entitlement is enforced server-side"
+      ],
+      "passed": true,
+      "cleanup": "complete"
+    },
+    "betaManifest": "HTTP 200; exact update ID/runtime verified",
+    "releaseExport": "carousel, history, forecasts present; fixture/env/server sources absent"
+  },
+  "limits": {
+    "dailyAiAttempts": 10,
+    "monthlyAiAttempts": 60,
+    "minimumUsableDates": 4,
+    "inventoryKnown": false,
+    "recommendedQuantity": false
+  },
+  "physicalPhoneVerification": "Owner to confirm native swiping, large text and motion",
+  "publicAppStoreSubmission": false
+}
