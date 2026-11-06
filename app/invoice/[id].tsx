@@ -1,3 +1,5 @@
+import EditInvoiceDetailsModal from '../../components/ui/EditInvoiceDetailsModal';
+import EditDetailsButton from '../../components/ui/EditDetailsButton';
 import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { useEffect, useState } from 'react';
@@ -8,7 +10,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '../../constants/Colors';
 import { useStore, type Invoice, type LineItem } from '../../store/useStore';
 import { useSupabase } from '../../lib/supabase';
-import { fetchInvoiceById, fetchInvoiceImageUrls, updateLineItem, setLineItemVoided, deleteInvoice } from '../../lib/invoicePipeline';
+import { fetchInvoiceById, fetchInvoiceImageUrls, updateLineItem, setLineItemVoided, deleteInvoice, updateInvoiceDetails, formatDate } from '../../lib/invoicePipeline';
 import { buildDemoInvoices } from '../../lib/demoData';
 import Spinner from '../../components/ui/Spinner';
 import ImageViewerModal from '../../components/ui/ImageViewerModal';
@@ -36,6 +38,7 @@ export default function InvoiceDetailScreen() {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [voidingItemId, setVoidingItemId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [editingDetails, setEditingDetails] = useState(false);
   const showToast = useStore((s) => s.showToast);
 
   useEffect(() => {
@@ -168,10 +171,7 @@ export default function InvoiceDetailScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <BackButton onPress={() => router.back()} />
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={styles.headerTitle} numberOfLines={1}>{vendorName}</Text>
-          <Text style={styles.headerSub}>Invoice #{invoiceNumber} · {date}</Text>
-        </View>
+        <EditDetailsButton name={vendorName} subtitle={`Invoice #${invoiceNumber || '—'} · ${date || 'Add date'}`} onPress={() => setEditingDetails(true)} />
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -206,6 +206,13 @@ export default function InvoiceDetailScreen() {
         </TouchableOpacity>
       </ScrollView>
 
+      <EditInvoiceDetailsModal invoice={editingDetails ? invoice : null} onClose={() => setEditingDetails(false)} onSave={async details => {
+        const scope = useStore.getState().activeScope;
+        const vendorId = demoMode ? invoice.vendorId : await updateInvoiceDetails(supabase, invoice.id, details);
+        if (useStore.getState().activeScope !== scope) return;
+        setInvoice(previous => previous?.id === invoice.id ? { ...previous, ...details, vendorId, date: formatDate(details.dateIso) } : previous);
+        showToast('Invoice details updated');
+      }} />
       <ImageViewerModal
         visible={imageViewerOpen}
         uris={imageUris}

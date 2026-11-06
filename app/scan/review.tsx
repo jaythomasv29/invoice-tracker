@@ -1,3 +1,7 @@
+import EditLineItemModal from '../../components/ui/EditLineItemModal';
+import EditInvoiceDetailsModal from '../../components/ui/EditInvoiceDetailsModal';
+import EditDetailsButton from '../../components/ui/EditDetailsButton';
+import { updateInvoiceDetails, updateLineItem, formatDate } from '../../lib/invoicePipeline';
 import { Design } from '../../constants/Design';
 import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
@@ -10,12 +14,11 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
 import { Colors } from '../../constants/Colors';
-import { useStore } from '../../store/useStore';
+import { useStore, type LineItem } from '../../store/useStore';
 import { useSupabase } from '../../lib/supabase';
 import Toast from '../../components/ui/Toast';
 import Spinner from '../../components/ui/Spinner';
 import ImageViewerModal from '../../components/ui/ImageViewerModal';
-import DatePickerModal from '../../components/ui/DatePickerModal';
 import BackButton from '../../components/ui/BackButton';
 import LineItemDisplay from '../../components/ui/LineItemDisplay';
 
@@ -31,12 +34,14 @@ export default function ReviewScreen() {
   // that whole window instead of showing anything.
   const [justSaved, setJustSaved] = useState(false);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [editingDetails, setEditingDetails] = useState(false);
+  const [editingItem, setEditingItem] = useState<LineItem | null>(null);
+  const [savingItem, setSavingItem] = useState(false);
   const {
     currentInvoice,
     confirmItem, toggleItemExpand,
     setVerification, setItemNote,
-    saveCurrentInvoice, setCurrentInvoiceDate, showToast,
+    saveCurrentInvoice, showToast,
   } = useStore();
 
   useEffect(() => {
@@ -61,7 +66,7 @@ export default function ReviewScreen() {
     return null;
   }
 
-  const { vendorName, invoiceNumber, date, dateIso, lineItems, subtotal, tax, total, imageUris } = currentInvoice;
+  const { vendorName, invoiceNumber, date, lineItems, subtotal, tax, total, imageUris } = currentInvoice;
   const pageCount = imageUris?.length ?? 1;
 
   const missingTotal = lineItems
@@ -90,17 +95,7 @@ export default function ReviewScreen() {
       {/* Header */}
       <View style={styles.header}>
         <BackButton onPress={() => router.back()} />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.vendorName}>{vendorName}</Text>
-          <View style={styles.invoiceMetaRow}>
-            <Text style={styles.invoiceMeta}>{isPersonal?'Receipt':'Invoice'} #{invoiceNumber} · </Text>
-            <TouchableOpacity onPress={() => setDatePickerOpen(true)} activeOpacity={0.7}>
-              <Text style={[styles.invoiceMeta, styles.dateEditable]}>
-                {date || 'Add date'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <EditDetailsButton name={vendorName} subtitle={`${isPersonal ? 'Receipt' : 'Invoice'} #${invoiceNumber || '—'} · ${date || 'Add date'}`} onPress={() => setEditingDetails(true)} />
         <View style={styles.scannedBadge}>
           <Text style={styles.scannedText}>SCANNED</Text>
         </View>
@@ -130,6 +125,7 @@ export default function ReviewScreen() {
           <LineItemDisplay
             key={item.id}
             item={item}
+            onEdit={() => setEditingItem(item)}
             onToggleExpand={() => toggleItemExpand(item.id)}
             onConfirm={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); confirmItem(item.id); }}
             onToggleMissing={() => { Haptics.selectionAsync(); setVerification(item.id, 'missing'); }}
@@ -175,17 +171,28 @@ export default function ReviewScreen() {
         </TouchableOpacity>
       </View>
 
+      <EditLineItemModal item={editingItem} isSaving={savingItem} onCancel={() => setEditingItem(null)} onSave={async updates => {
+        if (!editingItem || savingItem) return;
+        setSavingItem(true); const scope = useStore.getState().activeScope;
+        try { const totals = await updateLineItem(supabase, currentInvoice.id, editingItem.id, updates);
+          if (useStore.getState().activeScope !== scope) return;
+          const latest = useStore.getState().currentInvoice;
+          if (latest?.id === currentInvoice.id) useStore.getState().setCurrentInvoice({...latest, subtotal:totals.subtotal, total:totals.total, lineItems:latest.lineItems.map(it=>it.id===editingItem.id ? {...it,desc:updates.desc,qty:updates.qty,unitPrice:updates.unitPrice,ext:totals.extendedPrice,normalizedCost:null,confirmed:true,needsConfirm:false} : it)});
+          setEditingItem(null);
+        } catch(e) { showToast((e as Error).message); } finally {setSavingItem(false);}
+      }} />
+      <EditInvoiceDetailsModal invoice={editingDetails ? currentInvoice : null} onClose={() => setEditingDetails(false)} onSave={async details => {
+        const scope = useStore.getState().activeScope;
+        const vendorId = await updateInvoiceDetails(supabase, currentInvoice.id, details);
+        if (useStore.getState().activeScope !== scope) return;
+        const latest = useStore.getState().currentInvoice;
+        if (latest?.id === currentInvoice.id) useStore.getState().setCurrentInvoice({ ...latest, ...details, vendorId, date: formatDate(details.dateIso) });
+        showToast('Invoice details updated');
+      }} />
       <ImageViewerModal
         visible={imageViewerOpen}
         uris={imageUris ?? []}
         onClose={() => setImageViewerOpen(false)}
-      />
-
-      <DatePickerModal
-        visible={datePickerOpen}
-        value={dateIso}
-        onSelect={setCurrentInvoiceDate}
-        onClose={() => setDatePickerOpen(false)}
       />
 
       <Toast />

@@ -1,3 +1,4 @@
+import ScanInboxCard from '../../components/ScanInboxCard';
 import { Design } from '../../constants/Design';
 import HouseholdInsightsCard from '../../components/dashboard/HouseholdInsightsCard';
 import { useWorkspace } from '../../lib/workspaceContext';
@@ -220,19 +221,14 @@ export default function HomeScreen() {
         scrollEventThrottle={16}
         onScroll={onScroll}
       >
+        <ScanInboxCard />
         <RevealPanel><View style={styles.overviewHeading}>
           <Text style={styles.overviewStatus}>{isLoadingSummary ? 'Updating your overview…' : 'Your spending, in perspective.'}</Text>
           <TouchableOpacity onPress={() => router.push('/scan')} accessibilityRole="button" accessibilityLabel={isPersonal?'Scan a new receipt':'Scan a new invoice'} style={styles.quickScan}><Text style={styles.quickScanText}>+ Scan</Text></TouchableOpacity>
         </View></RevealPanel>
 
         <RevealPanel animate={false}><SpendOverviewCard invoices={spendInvoices} vendors={vendors} loading={isLoadingSummary} onOpenInvoices={openInvoices} onOpenSuppliers={openSuppliers} onOpenVendor={openVendor} /></RevealPanel>
-        {awaitingReviewCount>0&&<RevealPanel><View style={styles.reviewCard}>
-          <Text style={styles.reviewTitle}>{awaitingReviewCount} {awaitingReviewCount===1?'invoice needs':'invoices need'} review</Text>
-          <Text style={styles.reviewBody}>These scans are ready. Review and save them to include them in your spending.</Text>
-          {awaitingReview.map(invoice=><TouchableOpacity key={invoice.id} disabled={openingReview} accessibilityRole="button" accessibilityLabel={`Review invoice from ${invoice.vendorName}`} onPress={()=>void openReview(invoice.id)} style={styles.reviewRow}>
-            <Text style={styles.reviewVendor} numberOfLines={1}>{invoice.vendorName}</Text><Text style={styles.reviewLink}>{openingReview?'Opening…':'Review →'}</Text>
-          </TouchableOpacity>)}
-        </View></RevealPanel>}
+
 
         <RevealPanel delay={40}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Search products and purchase prices" onPress={() => router.push('/products')} style={styles.searchAction}>

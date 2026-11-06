@@ -460,3 +460,9 @@ export async function fetchItemPriceHistory(
     .filter((p) => !!p.invoiceId)
     .sort((a, b) => (a.dateIso ?? '').localeCompare(b.dateIso ?? ''));
 }
+
+export async function updateInvoiceDetails(supabase: SupabaseClient, invoiceId: string, details: import('./invoiceDetails').InvoiceDetails): Promise<string> {
+  const { data, error } = await supabase.rpc('edit_invoice_details', { p_invoice: invoiceId, p_vendor_name: details.vendorName, p_number: details.invoiceNumber, p_date: details.dateIso, p_subtotal: details.subtotal, p_tax: details.tax, p_total: details.total });
+  if (error || !data) throw new Error('Could not save invoice details. Please retry.');
+  return data as string;
+}

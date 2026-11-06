@@ -1,3 +1,4 @@
+import { useScanQueue } from '../../components/ScanQueueProvider';
 import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { ensureAiConsent } from '../../lib/aiConsent';
@@ -20,8 +21,7 @@ import Animated, {
 import { Colors } from '../../constants/Colors';
 import { useStore } from '../../store/useStore';
 import { useSupabase } from '../../lib/supabase';
-import { createDraftInvoice, uploadInvoiceImages, extractInvoice, fetchInvoiceById, deleteInvoice, formatDate } from '../../lib/invoicePipeline';
-import { ExtractionLimitError, DuplicateInvoiceError } from '../../lib/entitlements';
+import { createDraftInvoice, uploadInvoiceImages } from '../../lib/invoicePipeline';
 import { useExtractionUsage } from '../../hooks/useExtractionUsage';
 import Toast from '../../components/ui/Toast';
 
@@ -29,7 +29,7 @@ export default function ScanScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const operation = useRef(false);
-  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { start: startScan } = useScanQueue();
   const [processingStep, setProcessingStep] = useState('Preparing photos');
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -39,10 +39,10 @@ export default function ScanScreen() {
   const supabase = useSupabase();
   const network = useNetworkState();
   const cameraRef = useRef<CameraView>(null);
-  const { remaining, refresh: refreshUsage } = useExtractionUsage();
+  const { remaining } = useExtractionUsage();
   const {
     scanStage, setScanStage,
-    setCurrentInvoice, showToast,
+    showToast,
   } = useStore();
 
   const [cameraReady, setCameraReady] = useState(false);
@@ -52,20 +52,6 @@ export default function ScanScreen() {
   // all of them (same multi-image path the library import uses). Empty means
   // no batch in progress — the UI shows the plain single-shot affordances.
   const [capturedPages, setCapturedPages] = useState<string[]>([]);
-  // Set when the edge function flags a likely duplicate (HTTP 409). Drives the
-  // "possible duplicate" confirmation modal — a warn-and-override, not a block.
-  // Carries the abandoned draft's id + images (needed to delete it or force it
-  // through) alongside the existing invoice's details to show/link.
-  const [duplicateInfo, setDuplicateInfo] = useState<{
-    draftInvoiceId: string;
-    jpegUris: string[];
-    existingInvoiceId: string;
-    canOverride: boolean;
-    vendorName: string | null;
-    invoiceDate: string | null;
-    total: number | null;
-  } | null>(null);
-
   const isOffline = network.isConnected === false || network.isInternetReachable === false;
   const processing = scanStage === 'processing';
   useEffect(() => {
@@ -75,33 +61,15 @@ export default function ScanScreen() {
     const timer = setInterval(() => setElapsed(startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0), 1000);
     return () => { back.remove(); clearInterval(timer); };
   }, [processing, startedAt, navigation]);
-  useEffect(() => () => { if (pollTimer.current) clearInterval(pollTimer.current); }, []);
-  const readInvoice = async (invoiceId: string, skipDuplicateCheck = false) => {
-    setProcessingStep('Checking for duplicates');
-    let polling = false;
-    let active = true;
-    pollTimer.current = setInterval(async () => {
-      if (polling) return;
-      polling = true;
-      try {
-        const { data } = await supabase.rpc('invoice_processing_status', { p_invoice: invoiceId });
-        if (!active) return;
-        if (data?.phase === 'reading') setProcessingStep('Reading invoice details');
-        if (data?.phase === 'saving' || data?.phase === 'complete') setProcessingStep('Preparing your review');
-      } catch { /* Progress is best effort; extraction keeps its own result. */ } finally { polling = false; }
-    }, 2000);
-    try { return await extractInvoice(supabase, invoiceId, { skipDuplicateCheck }); }
-    finally { active = false; if (pollTimer.current) clearInterval(pollTimer.current); pollTimer.current = null; }
-  };
   const renderProcessing = () => (
     <Modal visible={processing} transparent animationType="fade" onRequestClose={() => {}}>
       <View style={styles.busyBackdrop} accessibilityViewIsModal>
         <View style={styles.busyCard} accessibilityLiveRegion="polite">
           <ProcessingSpinner variant="light" style={spinnerStyle} />
           <Text style={styles.busyTitle}>{processingStep}</Text>
-          <Text style={styles.busyBody}>{elapsed >= 60 ? 'Still working. Larger invoices can take longer. Keep Sift open; there is no need to scan again.' : 'Keep Sift open while we check and read your invoice. You will review every detail before saving.'}</Text>
+          <Text style={styles.busyBody}>{elapsed >= 60 ? 'Still uploading. Keep Sift open until your photos are safely uploaded.' : 'Uploading your photos. You can continue using Sift as soon as the upload finishes.'}</Text>
           <Text style={styles.busyElapsed}>{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')} elapsed · Timing varies by invoice</Text>
-          <Text style={styles.busySteps}>Step {Math.max(1, ['Preparing photos','Uploading invoice photos','Checking for duplicates','Reading invoice details','Preparing your review'].indexOf(processingStep)+1)} of 5 · Prepare → Upload → Check → Read → Review</Text>
+          <Text style={styles.busySteps}>Prepare → Upload · Smart Sift will read the details in your scan inbox.</Text>
         </View>
       </View>
     </Modal>
@@ -149,8 +117,8 @@ export default function ScanScreen() {
     if (uris.length > 5) { showToast('Import up to 5 pages per invoice.'); return; }
     if (operation.current) return;
     operation.current = true;
-    // Hoisted so the catch block can reference the draft invoice / images when
-    // the server flags a duplicate (to delete it or force it through later).
+    const capturedScope = useStore.getState().activeScope;
+    // Upload before leaving the camera; extraction belongs to the app-level queue.
     let invoiceId: string | undefined;
     let jpegUris: string[] = [];
     try {
@@ -170,144 +138,19 @@ export default function ScanScreen() {
       setProcessingStep('Uploading invoice photos');
       invoiceId = await createDraftInvoice(supabase, organization.id);
       await uploadInvoiceImages(supabase, organization.id, invoiceId, jpegUris);
-      const invoice = await readInvoice(invoiceId);
-      refreshUsage();
-      setCurrentInvoice({ ...invoice, imageUris: jpegUris });
-      router.replace('/scan/review');
+      if (useStore.getState().activeScope !== capturedScope) return;
+      startScan(invoiceId);
+      setScanStage('idle');
+      router.replace({pathname:'/(tabs)/vendors',params:{view:'invoices'}});
     } catch (err: any) {
-      // Server said the free cap is used up (e.g. a teammate extracted since we
-      // loaded the meter) — send them to the paywall, not a dead-end toast.
-      // The draft invoice created above is abandoned either way (a retry after
-      // upgrading starts a fresh scan) — clean it up so it doesn't linger as an
-      // orphaned 'pending' row with uploaded images nothing ever revisits.
-      if (err instanceof ExtractionLimitError) {
-        if (invoiceId) deleteInvoice(supabase, invoiceId).catch(() => {});
-        router.push('/paywall');
-        return;
-      }
-      // Server thinks this is a duplicate — surface the confirm modal instead
-      // of a dead-end toast; the user decides whether to view or force it.
-      if (err instanceof DuplicateInvoiceError && invoiceId) {
-        setDuplicateInfo({
-          draftInvoiceId: invoiceId,
-          jpegUris,
-          existingInvoiceId: err.existingInvoiceId,
-          canOverride: err.canOverride,
-          vendorName: err.vendorName,
-          invoiceDate: err.invoiceDate,
-          total: err.total,
-        });
-        return;
-      }
-      // A lost response may follow a successful server commit. Recover it and
-      // never delete an invoice merely because the network outcome is unknown.
-      if (invoiceId) {
-        try {
-          const { data } = await supabase.from('invoices').select('status').eq('id', invoiceId).single();
-          if (data?.status === 'scanned') {
-            const recovered = await fetchInvoiceById(supabase, organization.id, invoiceId);
-            setCurrentInvoice({ ...recovered, imageUris: jpegUris });
-            router.replace('/scan/review');
-            return;
-          }
-        } catch { /* retain draft for server recovery/cleanup */ }
-      }
-      showToast(err?.message ?? 'Could not process invoice. Please try again.');
+      // Uploaded drafts are recoverable from the inbox. Never delete an uncertain result.
+      if (useStore.getState().activeScope === capturedScope) showToast(err?.message ?? 'Could not upload invoice. Please try again.');
     } finally {
       operation.current = false;
-      setScanStage('idle');
+      if (useStore.getState().activeScope === capturedScope) setScanStage('idle');
     }
   };
 
-  // "View existing invoice" — drop the abandoned draft, then navigate to the
-  // invoice this one duplicates.
-  const handleViewExisting = async () => {
-    const info = duplicateInfo;
-    setDuplicateInfo(null);
-    if (!info) return;
-    try {
-      await deleteInvoice(supabase, info.draftInvoiceId);
-    } catch {
-      // Best-effort cleanup — don't block navigation on a failed delete.
-    }
-    router.push(`/invoice/${info.existingInvoiceId}`);
-  };
-
-  // "Continue anyway" — force this scan through the full extraction, skipping
-  // both dedup layers, then proceed exactly like the normal success path.
-  const handleContinueAnyway = async () => {
-    const info = duplicateInfo;
-    setDuplicateInfo(null);
-    if (!info || operation.current) return;
-    operation.current = true; setStartedAt(Date.now()); setElapsed(0);
-    setScanStage('processing');
-    try {
-      const invoice = await readInvoice(info.draftInvoiceId, true);
-      refreshUsage();
-      setCurrentInvoice({ ...invoice, imageUris: info.jpegUris });
-      router.replace('/scan/review');
-    } catch (err: any) {
-      if (err instanceof ExtractionLimitError) {
-        router.push('/paywall');
-        return;
-      }
-      console.error('[scan] continue anyway failed:', err);
-      showToast(err?.message ?? 'Could not process invoice');
-    } finally {
-      operation.current = false;
-      setScanStage('idle');
-    }
-  };
-
-  // Cancel/close — discard the abandoned draft and return to the camera.
-  const handleDismissDuplicate = async () => {
-    const info = duplicateInfo;
-    setDuplicateInfo(null);
-    if (!info) return;
-    try {
-      await deleteInvoice(supabase, info.draftInvoiceId);
-    } catch {
-      // Best-effort cleanup.
-    }
-  };
-
-  const renderDuplicateModal = () => {
-    if (!duplicateInfo) return null;
-    const { vendorName, invoiceDate, total } = duplicateInfo;
-    const dateLabel = formatDate(invoiceDate);
-    const totalLabel = total != null ? `$${total.toFixed(2)}` : null;
-    const detail = [dateLabel, totalLabel].filter(Boolean).join(' · ');
-    return (
-      <Modal visible transparent animationType="fade" onRequestClose={handleDismissDuplicate}>
-        <View style={styles.dupBackdrop}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleDismissDuplicate} />
-          <View style={styles.dupCard}>
-            <Text style={styles.dupTitle}>{duplicateInfo.canOverride ? 'Possible duplicate' : 'Invoice already added'}</Text>
-            <Text style={styles.dupSubtitle}>
-              This looks like an invoice you already have:
-            </Text>
-            <View style={styles.dupExisting}>
-              <Text style={styles.dupVendor}>{vendorName ?? 'Unknown vendor'}</Text>
-              {!!detail && <Text style={styles.dupDetail}>{detail}</Text>}
-            </View>
-            <TouchableOpacity style={styles.dupPrimaryBtn} onPress={handleViewExisting} activeOpacity={0.85}>
-              <Text style={styles.dupPrimaryText}>View existing invoice</Text>
-            </TouchableOpacity>
-            {duplicateInfo.canOverride && <TouchableOpacity style={styles.dupSecondaryBtn} onPress={handleContinueAnyway} activeOpacity={0.85}>
-              <Text style={styles.dupSecondaryText}>Add as a different invoice</Text>
-            </TouchableOpacity>}
-            <TouchableOpacity style={styles.dupCancelBtn} onPress={handleDismissDuplicate} activeOpacity={0.7}>
-              <Text style={styles.dupCancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    );
-  };
-
-  // Shutter appends a page to the pending batch rather than processing
-  // immediately, so a multi-page invoice can be shot page-by-page. Nothing is
-  // uploaded or sent to the model until "Scan N pages" (handleProcessPages).
   const handleCapture = async () => {
     if (!cameraRef.current || !cameraReady || scanStage === 'processing') return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -323,7 +166,7 @@ export default function ScanScreen() {
   };
 
   // Send every captured page through as one invoice. processImages navigates
-  // away to review on success (this screen unmounts, discarding the batch); on
+  // away to the inbox after upload (this screen unmounts); on
   // failure it stays put and the batch is preserved so the user can retry.
   const handleProcessPages = async () => {
     if (capturedPages.length === 0 || scanStage === 'processing') return;
@@ -397,7 +240,6 @@ export default function ScanScreen() {
           </TouchableOpacity>
         </View>
         {renderProcessing()}
-        {renderDuplicateModal()}
         <Toast />
       </View>
     );
@@ -552,7 +394,6 @@ export default function ScanScreen() {
       </View>
 
       {renderProcessing()}
-      {renderDuplicateModal()}
       <Toast />
     </View>
   );

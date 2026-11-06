@@ -1,3 +1,4 @@
+import ScanInboxCard from '../../components/ScanInboxCard';
 import { Design } from '../../constants/Design';
 import { useWorkspace } from '../../lib/workspaceContext';
 import { filterInvoiceLibrary } from '../../lib/invoiceLibrary';
@@ -120,6 +121,7 @@ export default function VendorsScreen() {
         )}
       </View>
 
+      <ScanInboxCard />
       {tab==='invoices'&&hasRange&&<View style={{marginHorizontal:16,marginBottom:10,paddingHorizontal:12,borderRadius:12,backgroundColor:Colors.primaryLight,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8}}><Text style={{flex:1,fontFamily:'Manrope_600SemiBold',fontSize:12,color:Colors.primaryDark}}>{rangeFrom} — {rangeTo}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear invoice date filter" onPress={()=>router.setParams({from:'',to:''})} style={{minHeight:44,justifyContent:'center',paddingHorizontal:8}}><Text style={{fontFamily:'Manrope_700Bold',fontSize:12,color:Colors.primary}}>Clear</Text></TouchableOpacity></View>}
       <View style={styles.segmentRow}>
         <TouchableOpacity

@@ -1,3 +1,4 @@
+import { ScanQueueProvider } from '../components/ScanQueueProvider';
 import { WorkspaceProvider } from '../components/WorkspaceProvider';
 import { useReducedMotion } from 'react-native-reanimated';
 import { SessionScope } from '../components/SessionScope';
@@ -90,6 +91,7 @@ function AppContent() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StatusBar style="dark" />
+        <ScanQueueProvider>
         <Stack screenOptions={{ headerShown: false, animation: reducedMotion ? 'none' : 'default' }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
@@ -101,6 +103,7 @@ function AppContent() {
           <Stack.Screen name="invoice/[id]" options={{ animation: reducedMotion ? 'none' : 'slide_from_right' }} />
           <Stack.Screen name="item-history" options={{ animation: reducedMotion ? 'none' : 'slide_from_right' }} />
         </Stack>
+        </ScanQueueProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

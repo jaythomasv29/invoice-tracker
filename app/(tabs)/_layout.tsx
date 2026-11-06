@@ -1,3 +1,4 @@
+import { useScanQueue } from '../../components/ScanQueueProvider';
 import GlassSurface from '../../components/ui/GlassSurface';
 import { type BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 import { Design } from '../../constants/Design';
@@ -212,6 +213,7 @@ function useTabBarStyle() {
 }
 
 export default function TabLayout() {
+  const { tasks: scanTasks } = useScanQueue();
   const reducedMotion = useReducedMotion();
   const router = useRouter();
   // treatPendingAsSignedOut:false so a pending (choose-organization) session
@@ -301,6 +303,7 @@ export default function TabLayout() {
         name="vendors"
         options={{
           title: isPersonal ? "Receipts" : "Invoices",
+          tabBarBadge: scanTasks.length || undefined,
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon focused={focused}>
               <InvoicesIcon color={color} />
