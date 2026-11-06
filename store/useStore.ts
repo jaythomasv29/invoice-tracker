@@ -140,6 +140,7 @@ interface AppState {
   // Invoice
   currentInvoice: Invoice | null;
   scanStage: 'idle' | 'processing' | 'done';
+  dashboardError: string | null;
 
   // Dashboard
   spendInvoices: SpendInvoice[];
@@ -320,6 +321,7 @@ export const useStore = create<AppState>((set, get) => ({
   activeScope: '',
   currentInvoice: null,
   scanStage: 'idle',
+  dashboardError: null,
   selectedDay: null,
   spendInvoices: [],
   awaitingReview: [], awaitingReviewCount: 0,
@@ -349,6 +351,7 @@ export const useStore = create<AppState>((set, get) => ({
     const { dashboard, priceAlerts } = buildDemoState(new Date());
     set({
       demoMode: true,
+      dashboardError: null,
       spendInvoices: dashboard.spendInvoices,
       awaitingReview: [],
       awaitingReviewCount: 0,
@@ -491,7 +494,7 @@ export const useStore = create<AppState>((set, get) => ({
     // rendered (or the $0 initial state on first load) with no indication
     // anything failed — indistinguishable from "no spend yet." Surface it.
     if (vendorErr) {
-      get().showToast('Could not load dashboard data');
+      if(get().activeScope===scope)set({dashboardError:'Could not refresh your spending overview.'});
       return;
     }
 
@@ -502,7 +505,7 @@ export const useStore = create<AppState>((set, get) => ({
         .select('id, vendor_id, total, invoice_date, created_at, invoice_line_items(id, clean_name, category, extended_price, line_item_type, voided_at, reconciliation_status)')
         .eq('organization_id', organizationId).eq('status', 'saved')
         .order('created_at', { ascending: false }).order('id', { ascending: false }).range(offset, offset + 499);
-      if (error) { get().showToast('Could not load dashboard data'); return; }
+      if (error) { if(get().activeScope===scope)set({dashboardError:'Could not refresh your spending overview.'}); return; }
       for (const row of rows ?? []) invoiceMap.set(row.id,row);
       if (!rows || rows.length < 500) break;
     }
@@ -754,6 +757,7 @@ export const useStore = create<AppState>((set, get) => ({
     // not clobber the fixture with real data.
     if (get().demoMode || get().activeScope !== scope) return;
     set({
+      dashboardError: null,
       vendors,
       weekTotal: Math.round(weekTotal * 100) / 100, weekPctChange, dayData,
       monthTotal: Math.round(monthTotal * 100) / 100, monthPctChange, monthData,

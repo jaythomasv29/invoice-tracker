@@ -1,3 +1,4 @@
+import AnimatedNumber from '../ui/AnimatedNumber';
 import ProductCarousel from './ProductCarousel';
 import HistoryMilestone from './HistoryMilestone';
 import { RevealPanel } from './DashboardMotion';
@@ -5,15 +6,14 @@ import { Design } from '../../constants/Design';
 import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../ui/MotionTouchable';
 import SupplierSpendBar from './SupplierSpendBar';
-import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { summarizeSpend, type SpendInvoice, localDay, type SummaryPeriod } from '../../lib/spendSummary';
 const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
-export default function SpendOverviewCard({ invoices, vendors, loading, onOpenInvoices, onOpenSuppliers, onOpenVendor }: {
-  invoices: SpendInvoice[]; vendors: { id: string; name: string }[]; loading: boolean; onOpenInvoices:(range?:{from:string;to:string})=>void; onOpenSuppliers:()=>void; onOpenVendor:(id:string)=>void;
+export default function SpendOverviewCard({ invoices, vendors, loading, error, onOpenInvoices, onOpenSuppliers, onOpenVendor }: {
+  invoices: SpendInvoice[]; vendors: { id: string; name: string }[]; loading: boolean; error?: string | null; onOpenInvoices:(range?:{from:string;to:string})=>void; onOpenSuppliers:()=>void; onOpenVendor:(id:string)=>void;
 }) {
   const {isPersonal,organization}=useWorkspace();
   const receipt=isPersonal?'receipt':'invoice';
@@ -41,24 +41,24 @@ export default function SpendOverviewCard({ invoices, vendors, loading, onOpenIn
           <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Next ${period}`} accessibilityState={{ disabled: offset === 0 }} disabled={offset === 0} onPress={() => setOffset(x => Math.min(0, x + 1))} style={[s.arrow, offset === 0 && s.disabled]}><Text style={s.arrowText}>›</Text></TouchableOpacity>
         </View>
       </View>
-      <TouchableOpacity onPress={openPeriod} accessibilityRole="button" accessibilityLabel={`View ${receipt}s behind ${money(data.total)} spending for ${label}`}><Animated.Text key={`${period}:${offset}:${data.total}:${loading}`} entering={FadeIn.duration(220).reduceMotion(ReduceMotion.System)} style={s.amount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} accessibilityLiveRegion="polite">{loading ? 'Loading…' : money(data.total)}</Animated.Text></TouchableOpacity>
+      <TouchableOpacity onPress={openPeriod} accessibilityRole="button" accessibilityLabel={`View ${receipt}s behind ${money(data.total)} spending for ${label}`}><AnimatedNumber value={data.total} format={money} contextKey={`${organization?.id}:${period}:${offset}`} ready={!loading&&!error} placeholder={error?"Unavailable":"Loading…"} style={s.amount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} /></TouchableOpacity>
       <Text style={s.heroCaption}>Grouped by the date on each {receipt}</Text>
-      <SupplierSpendBar totals={data.vendors} vendors={vendors} variant="bar" />
+      <SupplierSpendBar contextKey={`${organization?.id}:${period}:${offset}`} ready={!loading&&!error} totals={data.vendors} vendors={vendors} variant="bar" />
       <View style={s.stats}>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`View ${receipt}s for this period`} onPress={openPeriod} style={s.stat}><Text style={s.statNumber}>{loading ? '—' : data.count}</Text><Text style={s.statLabel}>{isPersonal?'Receipts':'Invoices'} ›</Text></TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel={isPersonal?'Browse stores':'Browse suppliers'} onPress={onOpenSuppliers} style={s.stat}><Text style={s.statNumber}>{loading ? '—' : data.vendors.length}</Text><Text style={s.statLabel}>{isPersonal?'Stores':'Suppliers'} ›</Text></TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`View ${receipt}s behind this average`} onPress={openPeriod} style={s.stat}><Text style={s.statNumber} numberOfLines={1} adjustsFontSizeToFit>{loading || !data.count ? '—' : money(data.total / data.count)}</Text><Text style={s.statLabel}>Avg. {receipt} ›</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`View ${receipt}s for this period`} onPress={openPeriod} style={s.stat}><AnimatedNumber value={data.count} format={n=>Math.round(n).toLocaleString('en-US')} contextKey={`${organization?.id}:${period}:${offset}`} ready={!loading&&!error} style={s.statNumber} /><Text style={s.statLabel}>{isPersonal?'Receipts':'Invoices'} ›</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={isPersonal?'Browse stores':'Browse suppliers'} onPress={onOpenSuppliers} style={s.stat}><AnimatedNumber value={data.vendors.length} format={n=>Math.round(n).toLocaleString('en-US')} contextKey={`${organization?.id}:${period}:${offset}`} ready={!loading&&!error} style={s.statNumber} /><Text style={s.statLabel}>{isPersonal?'Stores':'Suppliers'} ›</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`View ${receipt}s behind this average`} onPress={openPeriod} style={s.stat}><AnimatedNumber value={data.count?data.total/data.count:0} format={money} contextKey={`${organization?.id}:${period}:${offset}`} ready={!loading&&!error} style={s.statNumber} numberOfLines={1} adjustsFontSizeToFit /><Text style={s.statLabel}>Avg. {receipt} ›</Text></TouchableOpacity>
       </View>
       <HistoryMilestone invoices={invoices} loading={loading} onPress={() => onOpenInvoices()} />
     </View></ProductCarousel></RevealPanel>
     <RevealPanel><View style={s.breakdown}>
       <View style={s.sectionRow}><Text style={s.heading}>Where it went</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel={isPersonal?'Browse all stores':'Browse all suppliers'} onPress={onOpenSuppliers} style={s.browse}><Text style={s.browseText}>{isPersonal?'Stores':'Suppliers'} ›</Text></TouchableOpacity></View>
       <Text style={s.note}>{label}</Text>
-      <SupplierSpendBar totals={data.vendors} vendors={vendors} onPressVendor={onOpenVendor} light variant="list" />
+      <SupplierSpendBar contextKey={`${organization?.id}:${period}:${offset}`} ready={!loading&&!error} totals={data.vendors} vendors={vendors} onPressVendor={onOpenVendor} light variant="list" />
       {loading && data.vendors.length === 0 && <View style={s.breakdownLoading}><Text style={s.note}>Loading {isPersonal?'store':'supplier'} breakdown…</Text></View>}
       {!loading && data.count === 0 && <Text style={s.empty}>No saved {receipt}s in this period. Scan your first {receipt} or use the arrows to explore past spending.</Text>}
       {data.fallbackCount > 0 && <Text style={s.note}>{data.fallbackCount} {data.fallbackCount === 1 ? `${receipt} uses` : `${receipt}s use`} upload date because the {receipt} date is missing.</Text>}
-      <TouchableOpacity accessibilityRole="button" accessibilityLabel={`View all saved ${receipt}s`} onPress={()=>onOpenInvoices()} style={s.footer}><Text style={s.note}>All time · {data.allCount} saved</Text><Text style={s.allTotal}>{money(data.allTotal)} ›</Text></TouchableOpacity>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={`View all saved ${receipt}s`} onPress={()=>onOpenInvoices()} style={s.footer}><Text style={s.note}>All time · {data.allCount} saved</Text><AnimatedNumber value={data.allTotal} format={n=>`${money(n)} ›`} contextKey={`${organization?.id}:all`} ready={!loading&&!error} style={s.allTotal} /></TouchableOpacity>
     </View></RevealPanel>
   </View>;
 }

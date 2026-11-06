@@ -1,3 +1,4 @@
+import AnimatedNumber from '../ui/AnimatedNumber';
 import { useWorkspace } from '../../lib/workspaceContext';
 import Touch from '../ui/MotionTouchable';
 import { View, Text, StyleSheet } from 'react-native';
@@ -7,8 +8,8 @@ const palette = ['#8ED8B5', '#F3BF77', '#9ABCF5', '#D6AEED', '#F49F97', '#80D7DD
 const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 const transition = LinearTransition.duration(360).reduceMotion(ReduceMotion.System);
 
-export default function SupplierSpendBar({ totals, vendors, onPressVendor, light = false, variant = 'full' }: {
-  totals: [string, number][]; vendors: { id: string; name: string }[]; onPressVendor?:(id:string)=>void; light?: boolean; variant?: 'full' | 'bar' | 'list';
+export default function SupplierSpendBar({ totals, vendors, onPressVendor, light = false, variant = 'full', contextKey='suppliers', ready=true }: {
+  contextKey?:string;ready?:boolean;totals: [string, number][]; vendors: { id: string; name: string }[]; onPressVendor?:(id:string)=>void; light?: boolean; variant?: 'full' | 'bar' | 'list';
 }) {
   const {isPersonal}=useWorkspace();
   // The full supplier registry keeps colors stable when switching periods.
@@ -32,7 +33,7 @@ export default function SupplierSpendBar({ totals, vendors, onPressVendor, light
     {variant !== 'bar' && totals.map(([id, value]) => <Touch key={id} onPress={()=>onPressVendor?.(id)} disabled={!onPressVendor} accessibilityRole="button" accessibilityLabel={`View ${vendors.find(v=>v.id===id)?.name??'supplier'} history`} style={s.row}>
       <View style={[s.dot, { backgroundColor: color(id) }]} />
       <Text style={[s.name, light && s.lightName]}>{vendors.find(v => v.id === id)?.name ?? 'Unknown supplier'}</Text>
-      <Text style={[s.amount, light && s.lightAmount]}>{money(value)} {onPressVendor?'›':''}</Text>
+      <AnimatedNumber value={value} format={n=>`${money(n)} ${onPressVendor?'›':''}`} contextKey={`${contextKey}:${id}`} ready={ready} style={[s.amount,light&&s.lightAmount]} />
     </Touch>)}
     {credits && variant !== 'list' && <Text style={[s.note, light && s.lightNote]}>Bar shows suppliers with positive net spending. Credits remain included in your total and supplier amounts.</Text>}
   </View>;

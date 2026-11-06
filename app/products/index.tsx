@@ -1,3 +1,6 @@
+import { useStore } from "../../store/useStore";
+import ProductGroupCard from "../../components/products/ProductGroupCard";
+import type { ProductGroup } from "../../lib/productGroups";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
@@ -22,6 +25,7 @@ import { useSupabase } from "../../lib/supabase";
 import { useWorkspace } from "../../lib/workspaceContext";
 import {
   searchPurchases,
+  searchProductGroups,
   fetchSavedProducts,
   productPrices,
   savePurchaseProduct,
@@ -37,10 +41,11 @@ import {
 export default function Products() {
   const db = useSupabase(),
     router = useRouter(),
-    { organization } = useWorkspace();
+    { organization, isPersonal } = useWorkspace();
   const [query, setQuery] = useState(""),
     [tab, setTab] = useState<"purchases" | "saved">("purchases"),
     [metric, setMetric] = useState(false);
+  const [groups, setGroups] = useState<ProductGroup[]>([]);
   const [purchases, setPurchases] = useState<PurchasedProduct[]>([]),
     [saved, setSaved] = useState<ProductRecord[]>([]),
     [prices, setPrices] = useState(new Map<string, ProductPricing>());
@@ -57,10 +62,17 @@ export default function Products() {
     setError("");
     try {
       if (tab === "purchases") {
-        const rows = await searchPurchases(db, query);
-        if (seq !== request.current) return;
-        setPurchases(rows);
-        setMore(rows.length === 200);
+        if (isPersonal) {
+          const rows = await searchPurchases(db, query);
+          if (seq !== request.current) return;
+          setPurchases(rows);
+          setMore(rows.length === 200);
+        } else {
+          const rows = await searchProductGroups(db, query);
+          if (seq !== request.current) return;
+          setGroups(rows);
+          setMore(rows.length === 200);
+        }
       } else {
         const rows = await fetchSavedProducts(db, organization.id);
         const values = await productPrices(
@@ -84,7 +96,7 @@ export default function Products() {
     } finally {
       if (seq === request.current) setLoading(false);
     }
-  }, [organization, db, tab, query]);
+  }, [organization, db, tab, query, isPersonal]);
   useFocusEffect(
     useCallback(() => {
       const timer = setTimeout(() => void load(), 250);
@@ -96,14 +108,17 @@ export default function Products() {
   );
   useEffect(() => {
     setPurchases([]);
+    setGroups([]);
     setSaved([]);
     setPrices(new Map());
   }, [organization?.id]);
   const open = async (row: PurchasedProduct) => {
     if (!organization || busy) return;
+    const scope = useStore.getState().activeScope;
     setBusy(true);
     try {
       const id = await savePurchaseProduct(db, organization.id, row);
+      if (useStore.getState().activeScope !== scope) return;
       router.push(`/products/${id}`);
     } catch (e) {
       Alert.alert(
@@ -116,6 +131,7 @@ export default function Products() {
   };
   const create = async () => {
     if (!organization || busy) return;
+    const scope = useStore.getState().activeScope;
     if (!query.trim()) {
       Alert.alert(
         "Name your product",
@@ -126,6 +142,7 @@ export default function Products() {
     setBusy(true);
     try {
       const id = await createManualProduct(db, organization.id, query);
+      if (useStore.getState().activeScope !== scope) return;
       router.push(`/products/${id}`);
     } catch (e) {
       Alert.alert(
@@ -141,13 +158,24 @@ export default function Products() {
     const seq = request.current;
     setLoadingMore(true);
     try {
-      const rows = await searchPurchases(db, query, purchases.length);
-      if (seq === request.current) {
-        setPurchases((prev) => [
-          ...prev,
-          ...rows.filter((r) => !prev.some((p) => p.key === r.key)),
-        ]);
-        setMore(rows.length === 200);
+      if (isPersonal) {
+        const rows = await searchPurchases(db, query, purchases.length);
+        if (seq === request.current) {
+          setPurchases((previous) => [
+            ...previous,
+            ...rows.filter((r) => !previous.some((p) => p.key === r.key)),
+          ]);
+          setMore(rows.length === 200);
+        }
+      } else {
+        const rows = await searchProductGroups(db, query, groups.length);
+        if (seq === request.current) {
+          setGroups((previous) => [
+            ...previous,
+            ...rows.filter((r) => !previous.some((p) => p.key === r.key)),
+          ]);
+          setMore(rows.length === 200);
+        }
       }
     } catch {
       setError("Could not load more products. Please retry.");
@@ -156,11 +184,14 @@ export default function Products() {
     }
   };
   const data: (
+    | { kind: "group"; row: ProductGroup }
     | { kind: "purchase"; row: PurchasedProduct }
     | { kind: "saved"; row: ProductRecord }
   )[] =
     tab === "purchases"
-      ? purchases.map((row) => ({ kind: "purchase", row }))
+      ? isPersonal
+        ? purchases.map((row) => ({ kind: "purchase" as const, row }))
+        : groups.map((row) => ({ kind: "group" as const, row }))
       : saved
           .filter((p) =>
             p.canonical_name.toLowerCase().includes(query.trim().toLowerCase()),
@@ -177,16 +208,18 @@ export default function Products() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <FlatList
-          data={loading || error ? [] : data}
+          data={loading ? [] : data}
           contentContainerStyle={ui.body}
           keyboardShouldPersistTaps="handled"
           keyExtractor={(item) =>
-            item.kind === "purchase" ? item.row.key : item.row.id
+            item.kind !== "saved" ? item.row.key : item.row.id
           }
           ListHeaderComponent={
             <View style={{ gap: 16 }}>
               <Text style={ui.hint}>
-                Find what you paid. Build a product list from your saved{" "}
+                {isPersonal
+                  ? "Find what you paid. Build a product list from your saved"
+                  : "One product, with separate supplier options. Matching names are grouped across your saved"}{" "}
                 {organization?.type === "personal" ? "receipts" : "invoices"}.
               </Text>
               <Field
@@ -212,7 +245,11 @@ export default function Products() {
                     }}
                   >
                     <Text style={[ui.label, tab === t && { color: "#fff" }]}>
-                      {t === "purchases" ? "Purchased" : "Saved products"}
+                      {t === "purchases"
+                        ? "Purchased"
+                        : isPersonal
+                          ? "Saved products"
+                          : "Saved supplier options"}
                     </Text>
                   </Touch>
                 ))}
@@ -235,6 +272,15 @@ export default function Products() {
             </View>
           }
           renderItem={({ item }) => {
+            if (item.kind === "group")
+              return (
+                <ProductGroupCard
+                  group={item.row}
+                  metric={metric}
+                  busy={busy}
+                  onOpen={(row) => void open(row)}
+                />
+              );
             const purchased = item.kind === "purchase" ? item.row : null;
             const product = item.kind === "saved" ? item.row : null;
             const source = purchased?.purchase;
@@ -287,12 +333,12 @@ export default function Products() {
                     : "Your product list starts here"}
                 </Text>
                 <Text style={ui.hint}>
-                  Search another name, scan a receipt, or add a product and
+                  Search another name, scan a purchase, or add a product and
                   enter its package size and price.
                 </Text>
                 <Action
                   secondary
-                  title="Scan a receipt"
+                  title={isPersonal ? "Scan a receipt" : "Scan an invoice"}
                   onPress={() => router.push("/scan")}
                 />
               </View>

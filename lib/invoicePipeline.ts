@@ -1,3 +1,4 @@
+import { collectInvoicePages } from './invoicePages';
 import {normalizePurchase,type PurchaseObservation} from '../shared/measurement';
 import { retailHistorySeries } from '../shared/receiptHistory.ts';
 import { validatedLineTotal } from './linePricing';
@@ -344,33 +345,20 @@ export async function fetchVendorInvoices(
   organizationId: string,
   vendorId: string
 ): Promise<Invoice[]> {
-  const { data: invoices, error } = await supabase
-    .from('invoices')
-    .select('*, vendors(name), invoice_line_items(*)')
-    .eq('organization_id', organizationId)
-    .eq('vendor_id', vendorId)
-    .eq('status', 'saved')
-    .order('invoice_date', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
-
-  return (invoices ?? []).map((inv: any) => mapInvoice(inv, inv.invoice_line_items ?? []));
+  const invoices = await collectInvoicePages<any>(async (offset,limit) => await supabase.from('invoices')
+    .select('*, vendors(name), invoice_line_items(*)').eq('organization_id',organizationId).eq('vendor_id', vendorId).eq('status','saved')
+    .order('invoice_date',{ascending:false,nullsFirst:false}).order('created_at',{ascending:false}).order('id',{ascending:false}).range(offset,offset+limit-1));
+  return invoices.map((inv:any)=>mapInvoice(inv,inv.invoice_line_items??[]));
 }
 
 export async function fetchAllInvoices(
   supabase: SupabaseClient,
   organizationId: string
 ): Promise<Invoice[]> {
-  const { data: invoices, error } = await supabase
-    .from('invoices')
-    .select('*, vendors(name), invoice_line_items(*)')
-    .eq('organization_id', organizationId)
-    .eq('status', 'saved')
-    .order('invoice_date', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
-
-  return (invoices ?? []).map((inv: any) => mapInvoice(inv, inv.invoice_line_items ?? []));
+  const invoices = await collectInvoicePages<any>(async (offset,limit) => await supabase.from('invoices')
+    .select('*, vendors(name), invoice_line_items(*)').eq('organization_id',organizationId).eq('status','saved')
+    .order('invoice_date',{ascending:false,nullsFirst:false}).order('created_at',{ascending:false}).order('id',{ascending:false}).range(offset,offset+limit-1));
+  return invoices.map((inv:any)=>mapInvoice(inv,inv.invoice_line_items??[]));
 }
 
 // Storage paths are private (RLS-scoped bucket) — resolve to short-lived

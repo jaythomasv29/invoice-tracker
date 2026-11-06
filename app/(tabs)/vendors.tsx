@@ -1,3 +1,4 @@
+import LoadFailure from '../../components/ui/LoadFailure';
 import ScanInboxCard from '../../components/ScanInboxCard';
 import { Design } from '../../constants/Design';
 import { useWorkspace } from '../../lib/workspaceContext';
@@ -41,7 +42,7 @@ export default function VendorsScreen() {
   const params=useLocalSearchParams<{view?:string;from?:string;to?:string;entry?:string}>();
   const supabase = useSupabase();
   const { organization, isPersonal } = useWorkspace();
-  const { vendors, selectedDay, selectDay, fetchDashboardSummary, demoMode } = useStore();
+  const { vendors, selectedDay, selectDay, fetchDashboardSummary, demoMode, dashboardError } = useStore();
   const {
     spendView, setSpendView, yearsBack, setYearsBack, maxYears,
     periodTotal, periodPctChange, periodBarData,
@@ -50,6 +51,9 @@ export default function VendorsScreen() {
   const [tab, setTab] = useState<Tab>(params.view==='vendors'?'vendors':'invoices');
   useEffect(()=>{if(params.view==='vendors'||params.view==='invoices')setTab(params.view);},[params.view]);
   const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
+  const [invoicesError,setInvoicesError]=useState('');
+  const [retrySummary,setRetrySummary]=useState(0);
+  const [retryInvoices,setRetryInvoices]=useState(0);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [search, setSearch] = useState('');
   useEffect(()=>{setSearch('');},[params.entry]);
@@ -67,9 +71,13 @@ export default function VendorsScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!organization?.id) return;
+      let live=true;const scope=useStore.getState().activeScope;
       setIsLoadingSummary(true);
-      fetchDashboardSummary(supabase, organization.id).finally(() => setIsLoadingSummary(false));
-    }, [organization?.id, supabase, fetchDashboardSummary])
+      void fetchDashboardSummary(supabase, organization.id).catch(()=>{if(live&&scope===useStore.getState().activeScope)useStore.setState({dashboardError:'Could not refresh your spending overview.'});}).finally(()=>{if(live&&scope===useStore.getState().activeScope)setIsLoadingSummary(false);});
+      return()=>{live=false;};
+    // Retry version intentionally reruns this focused fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [organization?.id, supabase, fetchDashboardSummary, retrySummary])
   );
 
   // Focus (not mount) effect — so coming back to this tab after deleting an
@@ -80,12 +88,16 @@ export default function VendorsScreen() {
       // Keep sample exploration entirely local, using the tour ledger.
       if (demoMode) { setAllInvoices(buildDemoInvoices()); setInvoicesLoading(false); return; }
       if (!organization?.id) return;
-      setInvoicesLoading(true);
+      let live=true; const scope=useStore.getState().activeScope;
+      setInvoicesLoading(true);setInvoicesError('');
       fetchAllInvoices(supabase, organization.id)
-        .then(setAllInvoices)
-        .catch(() => setAllInvoices([]))
-        .finally(() => setInvoicesLoading(false));
-    }, [tab, organization?.id, supabase, demoMode])
+        .then(rows=>{if(live&&scope===useStore.getState().activeScope)setAllInvoices(rows);})
+        .catch(()=>{if(live&&scope===useStore.getState().activeScope)setInvoicesError('Could not refresh your invoice library.');})
+        .finally(()=>{if(live&&scope===useStore.getState().activeScope)setInvoicesLoading(false);});
+      return()=>{live=false;};
+    // Retry version intentionally reruns this focused fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tab, organization?.id, supabase, demoMode, retryInvoices])
   );
 
   const shortLabel = spendPeriodShortLabel(spendView, yearsBack);
@@ -121,6 +133,7 @@ export default function VendorsScreen() {
         )}
       </View>
 
+      {tab==='vendors'&&dashboardError&&<LoadFailure message={dashboardError} hasData={vendors.length>0} onRetry={()=>setRetrySummary(n=>n+1)}/>}
       <ScanInboxCard />
       {tab==='invoices'&&hasRange&&<View style={{marginHorizontal:16,marginBottom:10,paddingHorizontal:12,borderRadius:12,backgroundColor:Colors.primaryLight,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8}}><Text style={{flex:1,fontFamily:'Manrope_600SemiBold',fontSize:12,color:Colors.primaryDark}}>{rangeFrom} — {rangeTo}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear invoice date filter" onPress={()=>router.setParams({from:'',to:''})} style={{minHeight:44,justifyContent:'center',paddingHorizontal:8}}><Text style={{fontFamily:'Manrope_700Bold',fontSize:12,color:Colors.primary}}>Clear</Text></TouchableOpacity></View>}
       <View style={styles.segmentRow}>
@@ -160,7 +173,7 @@ export default function VendorsScreen() {
             isLoading={isLoadingSummary}
           />
 
-          {sorted.length === 0 && (
+          {!dashboardError && sorted.length === 0 && (
             <View style={styles.empty}>
               <Text style={styles.emptyTitle}>No vendors yet</Text>
               <Text style={styles.emptySub}>Scan an invoice and the vendor will show up here automatically.</Text>
@@ -173,7 +186,8 @@ export default function VendorsScreen() {
         </ScrollView>
       ) : (
         <View style={{ flex: 1 }}>
-          {!invoicesLoading && allInvoices.length === 0 ? (
+          {invoicesError&&<LoadFailure message={invoicesError} hasData={allInvoices.length>0} onRetry={()=>setRetryInvoices(n=>n+1)}/>}
+          {!invoicesError && !invoicesLoading && allInvoices.length === 0 ? (
             <OnboardingExplainer config={isPersonal?{...INVOICE_EXPLAINER,title:'Your shopping,\nall in one place',subtitle:'Scan and review a grocery or household receipt. Saved purchases build your spending history by store and purchase date.',ctaLabel:'Scan a receipt'}:INVOICE_EXPLAINER} onCta={goToScan} />
           ) : (
             <>
@@ -191,7 +205,7 @@ export default function VendorsScreen() {
               </View>
 
               <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-                {invoicesLoading ? (
+                {invoicesLoading && !allInvoices.length ? (
                   <View style={styles.empty}><Spinner /></View>
                 ) : (
                   <>
@@ -201,7 +215,7 @@ export default function VendorsScreen() {
                         router.push(`/invoice/${inv.id}`);
                       }} />
                     ))}
-                    {filteredInvoices.length === 0 && (
+                    {!invoicesError && filteredInvoices.length === 0 && (
                       <View style={styles.empty}>
                         <Text style={styles.emptyTitle}>No matches</Text>
                         <Text style={styles.emptySub}>Try another search or clear the date filter.</Text>

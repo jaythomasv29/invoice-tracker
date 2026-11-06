@@ -1,3 +1,8 @@
+import { useWorkspace } from "../../lib/workspaceContext";
+import {
+  groupSupplierOptions,
+  type ProductGroup,
+} from "../../lib/productGroups";
 import {
   useCallback,
   useEffect,
@@ -17,6 +22,7 @@ import { Colors } from "../../constants/Colors";
 import { useSupabase } from "../../lib/supabase";
 import {
   searchPurchases,
+  searchProductGroups,
   purchaseHistory,
   type PurchasedProduct,
 } from "../../lib/products";
@@ -65,7 +71,7 @@ function demoCatalog() {
 }
 type Page =
   | { kind: "overview" }
-  | { kind: "product"; row: PurchasedProduct }
+  | { kind: "product"; group: ProductGroup }
   | { kind: "empty" };
 const money = (v: unknown) =>
   v != null && Number.isFinite(Number(v))
@@ -81,8 +87,10 @@ export default function ProductCarousel({
   const db = useSupabase(),
     router = useRouter(),
     reduced = useReducedMotion();
+  const { isPersonal } = useWorkspace();
+  const selectedKey = useRef<string | null>(null);
   const demo = useStore((s) => s.demoMode);
-  const [products, setProducts] = useState<PurchasedProduct[]>([]),
+  const [products, setProducts] = useState<ProductGroup[]>([]),
     [loaded, setLoaded] = useState(false),
     [loading, setLoading] = useState(false),
     [error, setError] = useState(""),
@@ -97,7 +105,7 @@ export default function ProductCarousel({
     busy = useRef(false),
     sequence = useRef(0),
     offset = useRef(0),
-    heights = useRef(new Map<number, number>()),
+    heights = useRef(new Map<string, number>()),
     historyCache = useRef(new Map<string, PurchaseObservation[]>()),
     loadedRef = useRef(false),
     activeRef = useRef(0);
@@ -111,10 +119,33 @@ export default function ProductCarousel({
       setError("");
       const id = sequence.current;
       try {
+        const optionGroups = (rows: PurchasedProduct[]) =>
+          rows.map((row) => ({
+            key: row.key,
+            name: row.purchase.clean_name || row.purchase.raw_description,
+            variants: [row],
+          }));
         const rows = demo
-          ? sample.map((p) => p.row)
-          : await searchPurchases(db, "", reset ? 0 : offset.current);
+          ? isPersonal
+            ? optionGroups(sample.map((p) => p.row))
+            : groupSupplierOptions(sample.map((p) => p.row))
+          : isPersonal
+            ? optionGroups(
+                await searchPurchases(db, "", reset ? 0 : offset.current),
+              )
+            : await searchProductGroups(db, "", reset ? 0 : offset.current);
         if (id !== sequence.current) return;
+        if (reset && activeRef.current > 0) {
+          const index = rows.findIndex(
+            (row) => row.key === selectedKey.current,
+          );
+          const next = index < 0 ? 0 : index + 1;
+          activeRef.current = next;
+          setActive(next);
+          selectedKey.current = index < 0 ? null : rows[index].key;
+          onProductViewChange?.(next > 0);
+
+        }
         offset.current = (reset ? 0 : offset.current) + rows.length;
         loadedRef.current = true;
         setProducts((old) =>
@@ -137,7 +168,7 @@ export default function ProductCarousel({
         }
       }
     },
-    [db, demo, sample],
+    [db, demo, sample, isPersonal, onProductViewChange],
   );
   useFocusEffect(
     useCallback(() => {
@@ -171,15 +202,16 @@ export default function ProductCarousel({
   const pages: Page[] = [
     { kind: "overview" },
     ...(products.length
-      ? products.map((row) => ({ kind: "product" as const, row }))
+      ? products.map((group) => ({ kind: "product" as const, group }))
       : [{ kind: "empty" as const }]),
   ];
   const select = (index: number) => {
     const n = Math.max(0, Math.min(pages.length - 1, index));
     activeRef.current = n;
+    selectedKey.current = n > 0 ? (products[n - 1]?.key ?? null) : null;
     setActive(n);
     onProductViewChange?.(n > 0);
-    setHeight(heights.current.get(n) ?? 620);
+    setHeight(heights.current.get(n===0?"overview":products[n-1]?.key??"empty") ?? 620);
     list.current?.scrollToOffset({ offset: n * width, animated: !reduced });
   };
   useEffect(() => {
@@ -187,12 +219,13 @@ export default function ProductCarousel({
       offset: activeRef.current * width,
       animated: false,
     });
-  }, [width]);
+  }, [width, products]);
   const onPage = (index: number) => {
     activeRef.current = index;
+    selectedKey.current = index > 0 ? (products[index - 1]?.key ?? null) : null;
     setActive(index);
     onProductViewChange?.(index > 0);
-    setHeight(heights.current.get(index) ?? 620);
+    setHeight(heights.current.get(index===0?"overview":products[index-1]?.key??"empty") ?? 620);
   };
   return (
     <Animated.View
@@ -257,7 +290,7 @@ export default function ProductCarousel({
           maxToRenderPerBatch={3}
           windowSize={3}
           removeClippedSubviews={false}
-          keyExtractor={(p) => (p.kind === "product" ? p.row.key : p.kind)}
+          keyExtractor={(p) => (p.kind === "product" ? p.group.key : p.kind)}
           getItemLayout={(_, index) => ({
             length: width,
             offset: width * index,
@@ -275,7 +308,7 @@ export default function ProductCarousel({
               style={{ width, alignSelf: "flex-start" }}
               onLayout={(e) => {
                 const value = e.nativeEvent.layout.height;
-                heights.current.set(index, value);
+                heights.current.set(item.kind==="product"?item.group.key:item.kind,value);
                 if (index === active && Math.abs(height - value) > 1)
                   setHeight(value);
               }}
@@ -283,17 +316,14 @@ export default function ProductCarousel({
               {item.kind === "overview" ? (
                 children
               ) : item.kind === "product" ? (
-                <ProductPage
-                  key={`${item.row.key}:${refresh}`}
-                  row={item.row}
+                <GroupedProductPage
+                  key={item.group.key}
+                  group={item.group}
+                  refresh={refresh}
                   active={active === index}
-                  demoHistory={
-                    demo
-                      ? sample.find((p) => p.row.key === item.row.key)?.history
-                      : undefined
-                  }
                   cache={historyCache.current}
-                  onHistory={() => setHistoryProduct(item.row)}
+                  sample={demo ? sample : undefined}
+                  onHistory={setHistoryProduct}
                 />
               ) : (
                 <View style={s.page}>
@@ -350,6 +380,85 @@ export default function ProductCarousel({
         }
       />
     </Animated.View>
+  );
+}
+function GroupedProductPage({
+  group,
+  refresh,
+  active,
+  cache,
+  sample,
+  onHistory,
+}: {
+  group: ProductGroup;
+  refresh:number;
+  active: boolean;
+  cache: Map<string, PurchaseObservation[]>;
+  sample?: ReturnType<typeof demoCatalog>;
+  onHistory: (row: PurchasedProduct) => void;
+}) {
+  const [selected, setSelected] = useState(group.variants[0]?.key);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const row =
+    group.variants.find((v) => v.key === selected) ?? group.variants[0];
+  if (!row) return null;
+  return (
+    <View>
+      {group.variants.length > 1 && (
+        <View style={[s.page, { paddingBottom: 0 }]}>
+          <Touch
+            accessibilityRole="button"
+            accessibilityState={{ expanded: optionsOpen }}
+            accessibilityLabel={`Choose supplier option for ${group.name}. ${group.variants.length} options`}
+            style={{ minHeight: 44, justifyContent: "center" }}
+            onPress={() => setOptionsOpen((open) => !open)}
+          >
+            <Text style={s.patternTitle}>
+              {group.variants.length} supplier options ·{" "}
+              {optionsOpen ? "Close −" : "Change +"}
+            </Text>
+          </Touch>
+          <Text style={s.note}>
+            Prices, packages and buying patterns stay separate for each option.
+          </Text>
+          {optionsOpen && (
+            <View style={{ gap: 8 }}>
+              {group.variants.map((variant, index) => (
+                <Touch
+                  key={variant.key}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: row.key === variant.key }}
+                  accessibilityLabel={`Supplier option ${index + 1}: ${variant.purchase.invoices.vendors?.name || "Unknown supplier"}, ${variant.purchase.raw_description}, ${variant.purchase.unit_of_measure || "unit unknown"}`}
+                  onPress={() => {
+                    setSelected(variant.key);
+                    setOptionsOpen(false);
+                  }}
+                  style={[
+                    s.option,
+                    row.key === variant.key && s.optionSelected,
+                  ]}
+                >
+                  <Text style={s.body}>
+                    {variant.purchase.invoices.vendors?.name ||
+                      "Unknown supplier"}{" "}
+                    · {variant.purchase.unit_of_measure || "unit unknown"}
+                  </Text>
+                  <Text style={s.note}>{variant.purchase.raw_description}</Text>
+                </Touch>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+      <ProductPage
+        key={`${row.key}:${refresh}`}
+        row={row}
+        active={active}
+        demoHistory={sample?.find((p) => p.row.key === row.key)?.history}
+        cache={cache}
+        onHistory={() => onHistory(row)}
+      />
+    </View>
   );
 }
 function ProductPage({
@@ -436,7 +545,8 @@ function ProductPage({
       if (!mounted.current || scope !== useStore.getState().activeScope) return;
       if (callError || data?.error)
         throw new Error(
-          data?.error || "Could not complete the Smart Sift review. Please retry.",
+          data?.error ||
+            "Could not complete the Smart Sift review. Please retry.",
         );
       setReview(data);
     } catch (e) {
@@ -544,8 +654,8 @@ function ProductPage({
         </Text>
       </Touch>
       <Text style={s.small}>
-        Smart Sift reviews send purchase dates, quantities and derived metrics to
-        Anthropic. Pro: 60 reviews/month, up to 10/day. Repeated unchanged
+        Smart Sift reviews send purchase dates, quantities and derived metrics
+        to Anthropic. Pro: 60 reviews/month, up to 10/day. Repeated unchanged
         reviews are cached.
       </Text>
       <Touch style={s.historyButton} onPress={onHistory}>
@@ -573,6 +683,18 @@ function ProductPage({
   );
 }
 const s = StyleSheet.create({
+  option: {
+    minHeight: 48,
+    padding: 12,
+    gap: 4,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.heroMuted,
+  },
+  optionSelected: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderColor: Colors.accent,
+  },
   shell: { backgroundColor: Colors.hero, borderRadius: 32, overflow: "hidden" },
   navigation: {
     paddingHorizontal: 16,

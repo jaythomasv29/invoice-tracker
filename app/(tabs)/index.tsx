@@ -1,3 +1,4 @@
+import LoadFailure from '../../components/ui/LoadFailure';
 import ScanInboxCard from '../../components/ScanInboxCard';
 import { Design } from '../../constants/Design';
 import HouseholdInsightsCard from '../../components/dashboard/HouseholdInsightsCard';
@@ -80,7 +81,7 @@ export default function HomeScreen() {
   const userInitials = initialsFor(restaurantName);
   const {
     vendors,
-    spendInvoices, awaitingReview, awaitingReviewCount,
+    spendInvoices, awaitingReview, awaitingReviewCount, dashboardError,
     categorySpend,
     topItems,
     uploadActivity,
@@ -102,6 +103,7 @@ export default function HomeScreen() {
     periodPctChange,
   } = useSpendPeriod();
 
+  const [retryOverview,setRetryOverview]=useState(0);
   const [isLoadingSummary, setIsLoadingSummary] = useState(true);
   const insets = useSafeAreaInsets();
   const scrollY = useSharedValue(0);
@@ -153,7 +155,7 @@ export default function HomeScreen() {
           fetchDashboardSummary(supabase, organization.id),
           isPaid ? fetchPriceAlerts(supabase, organization.id) : Promise.resolve(),
         ]).catch(() => {
-          if (active && current === request) useStore.getState().showToast('Could not refresh your overview. Please try again.');
+          if (active && current === request && scope === useStore.getState().activeScope) useStore.setState({dashboardError:'Could not refresh your spending overview.'});
         }).finally(() => {
           if (!active || current !== request || scope !== useStore.getState().activeScope) return;
           setIsLoadingSummary(false);
@@ -170,7 +172,9 @@ export default function HomeScreen() {
         appState = next;
       });
       return () => { active = false; subscription.remove(); };
-    }, [organization?.id, supabase, isPaid, fetchDashboardSummary, fetchPriceAlerts, epoch]),
+    // Retry version intentionally reruns this focused fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [organization?.id, supabase, isPaid, fetchDashboardSummary, fetchPriceAlerts, epoch, retryOverview]),
   );
 
   return (
@@ -221,13 +225,14 @@ export default function HomeScreen() {
         scrollEventThrottle={16}
         onScroll={onScroll}
       >
+        {dashboardError&&<LoadFailure message={dashboardError} hasData={spendInvoices.length>0} onRetry={()=>setRetryOverview(n=>n+1)}/>}
         <ScanInboxCard />
         <RevealPanel><View style={styles.overviewHeading}>
           <Text style={styles.overviewStatus}>{isLoadingSummary ? 'Updating your overview…' : 'Your spending, in perspective.'}</Text>
           <TouchableOpacity onPress={() => router.push('/scan')} accessibilityRole="button" accessibilityLabel={isPersonal?'Scan a new receipt':'Scan a new invoice'} style={styles.quickScan}><Text style={styles.quickScanText}>+ Scan</Text></TouchableOpacity>
         </View></RevealPanel>
 
-        <RevealPanel animate={false}><SpendOverviewCard invoices={spendInvoices} vendors={vendors} loading={isLoadingSummary} onOpenInvoices={openInvoices} onOpenSuppliers={openSuppliers} onOpenVendor={openVendor} /></RevealPanel>
+        <RevealPanel animate={false}><SpendOverviewCard invoices={spendInvoices} vendors={vendors} loading={isLoadingSummary} error={dashboardError} onOpenInvoices={openInvoices} onOpenSuppliers={openSuppliers} onOpenVendor={openVendor} /></RevealPanel>
 
 
         <RevealPanel delay={40}>

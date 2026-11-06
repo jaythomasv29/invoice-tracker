@@ -1,3 +1,5 @@
+import LoadFailure from '../../components/ui/LoadFailure';
+import { buildDemoInvoices } from '../../lib/demoData';
 import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { useCallback, useState } from 'react';
@@ -9,7 +11,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors } from '../../constants/Colors';
 import { useStore, Invoice } from '../../store/useStore';
 import { useSupabase } from '../../lib/supabase';
-import { fetchVendorInvoices } from '../../lib/invoicePipeline';
+import { fetchVendorInvoices, fallbackVendorColor } from '../../lib/invoicePipeline';
 import { initialsFor } from '../../lib/initials';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import Spinner from '../../components/ui/Spinner';
@@ -49,12 +51,17 @@ export default function VendorDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { organization, isPersonal } = useWorkspace();
   const supabase = useSupabase();
-  const { vendors } = useStore();
+  const { vendors, demoMode } = useStore();
+  const [remoteVendor,setRemoteVendor]=useState<{id:string;name:string;color:string;contactName?:string;contactPhone?:string;accountNumber?:string}|null>(null);
+  const [loadError,setLoadError]=useState('');
+  const [retry,setRetry]=useState(0);
   const { isPaid } = useEntitlement();
 
-  const vendor = vendors.find((v) => v.id === id);
+  const vendor = vendors.find((v) => v.id === id) ?? (remoteVendor?.id===id?remoteVendor:null);
   const [vendorInvoices, setVendorInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadedVendorId,setLoadedVendorId]=useState(id);
+  const displayedInvoices=loadedVendorId===id?vendorInvoices:[];
 
   // Focus (not mount) effect — so returning here after deleting an invoice
   // from the detail screen drops the now-gone row instead of leaving a
@@ -62,12 +69,21 @@ export default function VendorDetailScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!organization?.id || !id) return;
-      setLoading(true);
-      fetchVendorInvoices(supabase, organization.id, id)
-        .then(setVendorInvoices)
-        .catch(() => setVendorInvoices([]))
-        .finally(() => setLoading(false));
-    }, [organization?.id, id, supabase])
+      if(demoMode){setVendorInvoices(buildDemoInvoices().filter(inv=>inv.vendorId===id));setLoadedVendorId(id);setLoading(false);return;}
+      let live=true;const scope=useStore.getState().activeScope;
+      setLoading(true);setLoadError('');
+      void Promise.all([fetchVendorInvoices(supabase,organization.id,id),supabase.from('vendors').select('name,color,contact_name,contact_phone,account_number').eq('id',id).eq('organization_id',organization.id).single()])
+        .then(([invoices,result])=>{
+          if(!live||useStore.getState().activeScope!==scope)return;
+          if(result.error||!result.data)throw new Error('Could not load supplier details.');
+          setVendorInvoices(invoices);setLoadedVendorId(id);const v=result.data;setRemoteVendor({id,name:v.name,color:v.color||fallbackVendorColor(id),contactName:v.contact_name||undefined,contactPhone:v.contact_phone||undefined,accountNumber:v.account_number||undefined});
+        })
+        .catch(()=>{if(live&&useStore.getState().activeScope===scope)setLoadError('Could not refresh this supplier’s invoices.');})
+        .finally(()=>{if(live&&useStore.getState().activeScope===scope)setLoading(false);});
+      return()=>{live=false;};
+    // Retry version intentionally reruns this focused fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [organization?.id, id, supabase,demoMode,retry])
   );
 
   if (!vendor) {
@@ -75,8 +91,9 @@ export default function VendorDetailScreen() {
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <BackButton onPress={() => router.back()} />
-          <Text style={styles.headerTitle}>Vendor not found</Text>
+          <Text style={styles.headerTitle}>{loading ? "Loading supplier…" : "Supplier details"}</Text>
         </View>
+        {loading?<Spinner/>:<LoadFailure message={loadError||'Supplier could not be found.'} onRetry={()=>setRetry(n=>n+1)}/>}
       </SafeAreaView>
     );
   }
@@ -93,7 +110,7 @@ export default function VendorDetailScreen() {
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.headerTitle} numberOfLines={1}>{vendor.name}</Text>
           <Text style={styles.headerSub}>
-            {loading ? 'Loading…' : `${vendorInvoices.length} invoice${vendorInvoices.length === 1 ? '' : 's'} captured`}
+            {loading ? 'Loading…' : `${displayedInvoices.length} invoice${displayedInvoices.length === 1 ? '' : 's'} captured`}
           </Text>
         </View>
       </View>
@@ -111,10 +128,10 @@ export default function VendorDetailScreen() {
           </View>
         )}
 
-        {isPaid && !loading && vendorInvoices.length > 0 && (() => {
-          const orderCount = vendorInvoices.length;
-          const avgOrderSize = vendorInvoices.reduce((sum, inv) => sum + inv.total, 0) / orderCount;
-          const cadence = cadenceLabel(vendorInvoices);
+        {isPaid && !loading && displayedInvoices.length > 0 && (() => {
+          const orderCount = displayedInvoices.length;
+          const avgOrderSize = displayedInvoices.reduce((sum, inv) => sum + inv.total, 0) / orderCount;
+          const cadence = cadenceLabel(displayedInvoices);
           return (
             <View style={styles.patternsCard}>
               <Text style={styles.patternsHeader}>Order patterns</Text>
@@ -138,6 +155,7 @@ export default function VendorDetailScreen() {
           );
         })()}
 
+        {!!loadError&&<LoadFailure message={loadError} hasData={displayedInvoices.length>0} onRetry={()=>setRetry(n=>n+1)}/>}
         <Text style={styles.sectionLabel}>{isPersonal?'Receipts':'Invoices'}</Text>
         {loading ? (
           <View style={styles.empty}>
@@ -145,13 +163,13 @@ export default function VendorDetailScreen() {
           </View>
         ) : (
           <>
-            {vendorInvoices.map((inv) => (
+            {displayedInvoices.map((inv) => (
               <InvoiceRow key={inv.id} invoice={inv} onPress={() => {
                 Haptics.selectionAsync();
                 router.push(`/invoice/${inv.id}`);
               }} />
             ))}
-            {vendorInvoices.length === 0 && (
+            {!loadError && displayedInvoices.length === 0 && (
               <View style={styles.empty}>
                 <Text style={styles.emptyTitle}>No invoices yet</Text>
                 <Text style={styles.emptySub}>Scanned invoices from {vendor.name} will show up here.</Text>

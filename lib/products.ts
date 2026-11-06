@@ -192,3 +192,9 @@ export async function purchaseHistory(db: SupabaseClient, key: string, offset = 
   if (error) throw new Error('Could not load purchase history. Please retry.');
   return data ?? [];
 }
+
+export async function searchProductGroups(db: SupabaseClient, query: string, offset = 0): Promise<import('./productGroups').ProductGroup[]> {
+  const {data,error}=await db.rpc('purchase_product_groups',{p_query:query.trim(),p_limit:200,p_offset:offset});
+  if(error) throw new Error('Could not load products. Please retry.');
+  return (data??[]).map((r:any)=>({key:r.group_key,name:r.group_key==='product:bean sprouts'?'Bean sprouts':r.product_name,variants:r.variants}));
+}

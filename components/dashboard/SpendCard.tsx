@@ -1,3 +1,4 @@
+import AnimatedNumber from '../ui/AnimatedNumber';
 import { Design } from '../../constants/Design';
 import TouchableOpacity from '../ui/MotionTouchable';
 import { useMemo } from 'react';
@@ -54,7 +55,7 @@ export default function SpendCard({
             <Text style={styles.spendLabel}>{spendPeriodLabel(period, yearsBack)}</Text>
             {isLoading && <Spinner size={12} color={Colors.textSecondary} />}
           </View>
-          <Text style={styles.spendAmount}>${Math.round(periodTotal).toLocaleString()}</Text>
+          <AnimatedNumber value={periodTotal} format={n=>`$${Math.round(n).toLocaleString()}`} contextKey={`${period}:${yearsBack}`} ready={!isLoading} style={styles.spendAmount} />
           {compare && (
             <View style={styles.spendChange}>
               <Text style={[styles.spendChangeArrow, periodPctChange > 0 && styles.spendChangeUp]}>

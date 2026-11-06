@@ -1,3 +1,4 @@
+import AnimatedNumber from '../ui/AnimatedNumber';
 import { Design } from '../../constants/Design';
 import { useWorkspace } from '../../lib/workspaceContext';
 import Touch from '../ui/MotionTouchable';
@@ -120,7 +121,7 @@ export default function SpendTrendCard({
             <Text style={styles.label}>{spendPeriodLabel(period, yearsBack)}</Text>
             {isLoading && <Spinner size={12} color={Colors.textSecondary} />}
           </View>
-          <Text style={styles.amount}>${Math.round(periodTotal).toLocaleString()}</Text>
+          <AnimatedNumber value={periodTotal} format={n=>`$${Math.round(n).toLocaleString()}`} contextKey={`${period}:${yearsBack}`} ready={!isLoading} style={styles.amount} />
         </View>
         {compare && (
           <View style={[styles.trendPill, isUp ? styles.trendPillUp : styles.trendPillDown]}>

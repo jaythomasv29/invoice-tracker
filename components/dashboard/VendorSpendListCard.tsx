@@ -1,3 +1,4 @@
+import AnimatedNumber from '../ui/AnimatedNumber';
 import { Design } from '../../constants/Design';
 import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../ui/MotionTouchable';
@@ -90,7 +91,7 @@ export default function VendorSpendListCard({
                 </View>
               </View>
               <View style={styles.pill}>
-                <Text style={styles.pillAmount}>${Math.round(amount).toLocaleString()}</Text>
+                <AnimatedNumber value={amount} format={n=>`$${Math.round(n).toLocaleString()}`} contextKey={`${v.id}:${period}:${yearsBack}`} ready={!isLoading} style={styles.pillAmount} />
                 <Text style={styles.pillLabel}>{shortLabel}</Text>
               </View>
             </TouchableOpacity>
