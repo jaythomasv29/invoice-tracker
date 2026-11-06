@@ -21,7 +21,7 @@ const SLIDES = [
     id: 'scan',
     eyebrow: 'SCAN',
     title: 'Snap a photo,\nskip the data entry',
-    subtitle: 'Capture a grocery receipt or supplier invoice. AI drafts the details; review prices, quantities and totals before saving.',
+    subtitle: 'Capture a grocery receipt or supplier invoice. Smart Sift drafts the details; review prices, quantities and totals before saving.',
     accent: Colors.primary,
     accentTint: Colors.primaryLight,
     Preview: ScanPreview,

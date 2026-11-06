@@ -424,7 +424,7 @@ function ProductPage({
         setReview({
           summary: FORECAST_REASONS[facts.status],
           focusNote:
-            "Sample history preview. Live AI reviews analyze your saved purchase patterns.",
+            "Sample history preview. Live Smart Sift reviews analyze your saved purchase patterns.",
         });
         return;
       }
@@ -436,7 +436,7 @@ function ProductPage({
       if (!mounted.current || scope !== useStore.getState().activeScope) return;
       if (callError || data?.error)
         throw new Error(
-          data?.error || "Could not complete the AI review. Please retry.",
+          data?.error || "Could not complete the Smart Sift review. Please retry.",
         );
       setReview(data);
     } catch (e) {
@@ -516,7 +516,7 @@ function ProductPage({
       </View>
       {review && (
         <View style={s.review}>
-          <Text style={s.patternTitle}>AI review</Text>
+          <Text style={s.patternTitle}>Smart Sift review</Text>
           <Text style={s.body}>{review.summary}</Text>
           <Text style={s.note}>{review.focusNote}</Text>
         </View>
@@ -531,20 +531,20 @@ function ProductPage({
         onPress={() => void analyze()}
         accessibilityLabel={
           isPaid
-            ? "Review product pattern with AI"
-            : "Unlock AI product reviews with Pro"
+            ? "Review product pattern with Smart Sift"
+            : "Unlock Smart Sift product reviews with Pro"
         }
       >
         <Text style={s.ctaText}>
           {reviewing
             ? "Reviewing…"
             : isPaid
-              ? "Review with AI"
-              : "Unlock AI review · Pro"}
+              ? "Smart Sift"
+              : "Unlock Smart Sift review · Pro"}
         </Text>
       </Touch>
       <Text style={s.small}>
-        AI reviews send purchase dates, quantities and derived metrics to
+        Smart Sift reviews send purchase dates, quantities and derived metrics to
         Anthropic. Pro: 60 reviews/month, up to 10/day. Repeated unchanged
         reviews are cached.
       </Text>
@@ -565,7 +565,7 @@ function ProductPage({
           }}
         >
           <Text style={s.link}>
-            {cache.has(row.key) ? "Retry AI review" : "Retry history"}
+            {cache.has(row.key) ? "Retry Smart Sift review" : "Retry history"}
           </Text>
         </Touch>
       )}

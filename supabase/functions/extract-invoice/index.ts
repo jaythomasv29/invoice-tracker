@@ -378,7 +378,7 @@ Deno.serve(async (req) => {
     {
       const reservation = await beginAiJob(invoice.organization_id, invoiceId, 'invoice', cap);
       const { allowed, used } = reservation;
-      if (!allowed && reservation.code !== 'FREE_LIMIT_REACHED') throw new Error(reservation.code === 'AI_BUSY' ? 'This invoice is already processing. Please wait.' : 'Too many AI requests. Please try again later.');
+      if (!allowed && reservation.code !== 'FREE_LIMIT_REACHED') throw new Error(reservation.code === 'AI_BUSY' ? 'This invoice is already processing. Please wait.' : 'Too many Smart Sift requests. Please try again later.');
       if (!allowed) {
         return new Response(
           JSON.stringify({
@@ -529,7 +529,7 @@ Deno.serve(async (req) => {
 
     // Always detect price creep so free orgs can see the *count* as an upgrade
     // teaser ("3 price increases this month"); the alert *details* stay
-    // Pro-gated in the UI. Detection is cheap SQL (no AI spend), so running it
+    // Pro-gated in the UI. Detection is cheap SQL (no Smart Sift spend), so running it
     // for everyone is fine — and it means a converting user immediately sees the
     // alerts that were already waiting for them.
     if (vendorId && !invoice.organization_id.startsWith('pws_')) {

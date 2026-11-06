@@ -247,7 +247,7 @@ export default function RecipeDetailScreen() {
               </Text>
               <Text style={ui.hint}>
                 {cost.estimatedCount > 0
-                  ? `${cost.estimatedCount} ingredient price(s) use manual or AI estimates. `
+                  ? `${cost.estimatedCount} ingredient price(s) use manual or Smart Sift estimates. `
                   : ""}
                 Excludes gas, utilities, packaging and other overhead. This is a
                 cost estimate, not net profit.

@@ -91,7 +91,7 @@ export default function NewRecipeScreen() {
           <Spinner size={28} />
           <Text style={styles.busyText}>Setting up your dish…</Text>
           {busy === 'ai' && (
-            <Text style={styles.busySub}>This can take a few seconds while the AI reads your dish.</Text>
+            <Text style={styles.busySub}>This can take a few seconds while Smart Sift reads your dish.</Text>
           )}
         </View>
       </SafeAreaView>
@@ -151,7 +151,7 @@ export default function NewRecipeScreen() {
             disabled={!name.trim()}
             activeOpacity={0.85}
           >
-            <Text style={styles.ctaText}>Draft with AI</Text>
+            <Text style={styles.ctaText}>Draft with Smart Sift</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
     if (!["pro", "plus"].includes(org.public_metadata?.plan))
       return reply(
         {
-          error: "AI product reviews are a Pro feature.",
+          error: "Smart Sift product reviews are a Pro feature.",
           code: "PRO_REQUIRED",
         },
         403,
@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
           error:
             reservation?.code === "AI_BUSY"
               ? "This product review is already running. Please retry shortly."
-              : "AI review limit reached. Try again later. Product history remains available.",
+              : "Smart Sift review limit reached. Try again later. Product history remains available.",
           code: reservation?.code,
         },
         429,
@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
         tool_choice: { type: "tool", name: "review_purchase_pattern" },
       }),
     });
-    if (!response.ok) throw new Error("AI service unavailable");
+    if (!response.ok) throw new Error("Smart Sift service unavailable");
     const payload = await response.json();
     const tool = payload.content?.find(
       (c: { type: string; name?: string }) =>
@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
         tool?.input?.focus,
       )
     )
-      throw new Error("AI review could not be validated");
+      throw new Error("Smart Sift review could not be validated");
     // User-facing facts and dates are always generated from verified evidence, not model prose.
     const focus = tool.input.focus as string;
     const focusNote =
@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
     return reply(
       {
         error:
-          "Could not complete this AI review. Check AI permission in Profile and retry. Your purchase history is still available.",
+          "Could not complete this Smart Sift review. Check Smart Sift permission in Profile and retry. Your purchase history is still available.",
       },
       503,
     );

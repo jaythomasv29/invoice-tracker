@@ -10,7 +10,7 @@ interface AIInsightCardProps {
 }
 
 // Surfaces price-creep detection (already computed into priceAlerts
-// elsewhere) as a standalone "AI insight" card, separate from the
+// elsewhere) as a standalone "Smart Sift insight" card, separate from the
 // single-alert PriceAlertBanner further down — this one summarizes the
 // trend rather than nudging on one unread alert. Empty state entices
 // scanning more invoices, since the detector needs repeat purchases of the
@@ -27,7 +27,7 @@ export default function AIInsightCard({ priceAlerts, onPress }: AIInsightCardPro
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Open price alerts">
       <View style={styles.headerRow}>
         <View style={styles.aiBadge}>
-          <Text style={styles.aiBadgeText}>AI</Text>
+          <Text style={styles.aiBadgeText}>Smart Sift</Text>
         </View>
         <Text style={styles.title}>Price insight</Text>
       </View>

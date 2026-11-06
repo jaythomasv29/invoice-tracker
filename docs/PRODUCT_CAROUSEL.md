@@ -25,3 +25,7 @@ Migration: 20261106010000_product_reorder_insights.sql adds only a read-only RLS
 - Hosted disposable development identities: real signed JWTs, two workspaces and four fictional weekly invoices. Verified anonymous/forged rejection, cross-workspace isolation, consent requirement, a real Anthropic review, grounded cadence/action, no recommended quantity, cache reuse, withdrawal blocking cache, and server-side Pro enforcement. All identities, templates, consent, invoices, lines, vendors and insight jobs created by the test were cleaned up.
 - Actual UI components rendered in the isolated browser fixture: Spending/Products switch, next product, hidden spending filters in Products mode, last date/quantity/price, evidence progress and history sheet with invoice destinations. Native gesture feel, VoiceOver and largest Dynamic Type still require phone confirmation.
 - iOS runtime fingerprint matches installed TestFlight build 7: 062bedef39aff97c339accbe22183fe3470f622f. No native dependency was added.
+
+## Smart Sift branding
+
+Product reviews, recipe drafts, permission controls, onboarding, and plan labels use **Smart Sift**. Anthropic (Claude) remains explicitly disclosed where data sharing is explained. This is a naming change; the deployed provider remains Anthropic. Apple’s Foundation Models could support on-device reviews in a future native build, with runtime availability checks and a clearly disclosed cloud fallback. No Apple model integration is included in this OTA.

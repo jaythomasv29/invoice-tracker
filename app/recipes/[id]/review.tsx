@@ -98,7 +98,7 @@ function ghostLabel(ing: RecipeIngredient): string | null {
   const { aiQty, aiUnit } = ing;
   if (aiQty == null || aiUnit == null) return null;
   if (aiQty === ing.qty && aiUnit === ing.unit) return null;
-  return `AI suggested ${formatQty(aiQty)}${aiUnit}`;
+  return `Smart Sift suggested ${formatQty(aiQty)}${aiUnit}`;
 }
 
 export default function RecipeReviewScreen() {
@@ -368,7 +368,7 @@ export default function RecipeReviewScreen() {
       return;
     }
     Alert.alert(
-      "Replace ingredients with AI draft?",
+      "Replace ingredients with Smart Sift draft?",
       "Auto Cost will discard the current ingredient list and generate a new one to review.",
       [
         { text: "Cancel", style: "cancel" },
@@ -523,7 +523,7 @@ export default function RecipeReviewScreen() {
         {ingredients.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptySub}>
-              Add the ingredients that make up this dish, or let AI draft a
+              Add the ingredients that make up this dish, or let Smart Sift draft a
               starting template you can adjust.
             </Text>
             {autoCosting ? (
@@ -547,7 +547,7 @@ export default function RecipeReviewScreen() {
                   activeOpacity={0.7}
                 >
                   <Text style={styles.emptySecondaryBtnText}>
-                    Auto Cost with AI
+                    Cost with Smart Sift
                   </Text>
                 </TouchableOpacity>
                 {autoCostProError && (

@@ -36,7 +36,7 @@ export function featuresFor(type: AccountType): PlanFeature[] {
     ),
     row('CSV export', true, true),
     row('Product carousel & purchase history', true, true),
-    row('AI product reviews / month', false, '60', true),
+    row('Smart Sift product reviews / month', false, '60', true),
     row('Item price alerts', false, true, true),
     row('Advanced spending trends', false, true, true),
     row('Category breakdowns', false, true),
@@ -45,7 +45,7 @@ export function featuresFor(type: AccountType): PlanFeature[] {
       ? []
       : [
           row('Missing-invoice reminders', false, true),
-          row('AI recipe drafts / month', false, '10', true),
+          row('Smart Sift recipe drafts / month', false, '10', true),
         ]),
   ];
 }

@@ -136,7 +136,7 @@ export default function PaywallScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
           <Text style={styles.headline}>{isPersonal?'Make more sense of your grocery spend.':PAYWALL_HEADLINE}</Text>
-          <Text style={styles.subhead}>{`${isPersonal?'Personal':'Business'} Pro includes ${policy.pro.scans} scans per calendar month${isPersonal?'':', plus 10 AI recipe draft attempts'}. ${PAYWALL_SUBHEAD}`}</Text>
+          <Text style={styles.subhead}>{`${isPersonal?'Personal':'Business'} Pro includes ${policy.pro.scans} scans per calendar month${isPersonal?'':', plus 10 Smart Sift recipe draft attempts'}. ${PAYWALL_SUBHEAD}`}</Text>
         </View>
 
         {isPaid ? (

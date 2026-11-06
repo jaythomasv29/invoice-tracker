@@ -1,4 +1,4 @@
-// AI-Assisted Recipe Costing — draft step (see RECIPE_COSTING.md §4).
+// Smart Sift-Assisted Recipe Costing — draft step (see RECIPE_COSTING.md §4).
 //
 // Mirrors extract-invoice: the client creates a draft `recipes` row (and
 // optionally uploads a photo to the private recipe-images bucket), then invokes
@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
 
     await requireAiConsent(supabase);
     const reservation = await beginAiJob(recipe.organization_id, recipeId, 'recipe', 10);
-    if (!reservation.allowed) throw new Error(reservation.code === 'AI_BUSY' ? 'This recipe is already processing.' : 'Recipe AI limit reached. Please try again later.');
+    if (!reservation.allowed) throw new Error(reservation.code === 'AI_BUSY' ? 'This recipe is already processing.' : 'Recipe Smart Sift limit reached. Please try again later.');
     jobId = reservation.id;
     const images = recipe.source_photo_path
       ? [await storagePathToBase64(supabase, recipe.source_photo_path)]

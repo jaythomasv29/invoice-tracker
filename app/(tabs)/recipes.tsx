@@ -30,7 +30,7 @@ import { RecipeCostPreview } from '../../components/onboarding/PreviewCards';
 const RECIPE_EXPLAINER: ExplainerConfig = {
   eyebrow: 'RECIPE COSTING',
   title: 'Know what every\ndish really costs',
-  subtitle: 'Name a dish or snap a photo and AI drafts its ingredients. Confirm the quantities and Sift prices the plate from your real invoice history — updated as vendor prices move.',
+  subtitle: 'Name a dish or snap a photo and Smart Sift drafts its ingredients. Confirm the quantities and Sift prices the plate from your real invoice history — updated as vendor prices move.',
   Illustration: RecipeCostPreview,
   ctaLabel: 'Start a dish',
 };
@@ -152,7 +152,7 @@ export default function RecipesTabScreen() {
           <View style={styles.infoBanner}>
             <Text style={styles.infoBannerLabel}>FROM YOUR INVOICES TO YOUR MENU</Text>
             <Text style={styles.infoBannerBody}>
-              Confirm the AI-drafted ingredients and quantities. Match invoice prices to refine each dish’s ingredient cost.
+              Confirm the ingredients drafted by Smart Sift and quantities. Match invoice prices to refine each dish’s ingredient cost.
             </Text>
           </View>
 

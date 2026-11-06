@@ -50,9 +50,9 @@ export async function runDeletion(job: any) {
   for (const orgId of job.organization_ids as string[]) {
     // Don't erase data while a model operation could still commit it.
     const { count, error: activeError } = await db.from('ai_jobs').select('id', { count: 'exact', head: true }).eq('organization_id', orgId).eq('status', 'running').gt('created_at', new Date(Date.now()-15*60*1000).toISOString());
-    if (activeError || count) throw new Error('An AI request is finishing. Account deletion has started; retry in a few minutes.');
+    if (activeError || count) throw new Error('An Smart Sift request is finishing. Account deletion has started; retry in a few minutes.');
     const {count:insights,error:insightError}=await db.from('product_insight_jobs').select('id',{count:'exact',head:true}).eq('organization_id',orgId).eq('status','running').gt('created_at',new Date(Date.now()-2*60*1000).toISOString());
-    if(insightError||insights)throw new Error('An AI product review is finishing. Retry deletion in a few minutes.');
+    if(insightError||insights)throw new Error('An Smart Sift product review is finishing. Retry deletion in a few minutes.');
     await removeFolder('invoice-images', orgId);
     await removeFolder('recipe-images', orgId);
     // Remove child records first; each deletion is idempotent and checked.

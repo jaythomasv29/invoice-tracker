@@ -194,8 +194,8 @@ export default function MoreScreen() {
     {
       header: 'App',
       rows: [
-        { label: 'Allow AI processing', onPress: async () => { try { if (await ensureAiConsent(supabase)) showToast('AI processing allowed'); } catch (e) { showToast((e as Error).message); } } },
-        { label: 'Withdraw AI permission', onPress: () => Alert.alert('Withdraw AI permission?', 'New invoice scans and AI recipe drafts will pause. Saved records remain available.', [{ text: 'Keep permission', style: 'cancel' }, { text: 'Withdraw', onPress: async () => { try { await withdrawAiConsent(supabase); showToast('AI processing permission withdrawn'); } catch (e) { showToast((e as Error).message); } } }]) },
+        { label: 'Allow Smart Sift processing', onPress: async () => { try { if (await ensureAiConsent(supabase)) showToast('Smart Sift processing allowed'); } catch (e) { showToast((e as Error).message); } } },
+        { label: 'Withdraw Smart Sift permission', onPress: () => Alert.alert('Withdraw Smart Sift permission?', 'New invoice scans and Smart Sift recipe drafts will pause. Saved records remain available.', [{ text: 'Keep permission', style: 'cancel' }, { text: 'Withdraw', onPress: async () => { try { await withdrawAiConsent(supabase); showToast('Smart Sift processing permission withdrawn'); } catch (e) { showToast((e as Error).message); } } }]) },
         {
           label: 'Privacy & data',
           onPress: () => openLegalUrl(PRIVACY_POLICY_URL, () => showToast('Privacy policy coming soon')),
