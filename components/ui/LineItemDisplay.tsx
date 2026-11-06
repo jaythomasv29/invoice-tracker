@@ -1,3 +1,4 @@
+import {displayUnitCost} from '../../shared/measurement';
 import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from './MotionTouchable';
 import { printedCatchWeight } from '../../lib/linePricing';
@@ -31,6 +32,7 @@ export default function LineItemDisplay({
   const {isPersonal}=useWorkspace();
   const [noteOpen, setNoteOpen] = useState(false);
   const isMissing = item.verification === 'missing';
+  const common=item.normalizedCost?displayUnitCost(item.normalizedCost):null;
   const catchWeight = printedCatchWeight(item.rawDesc ?? item.desc);
 
   return (
@@ -54,6 +56,7 @@ export default function LineItemDisplay({
           <Text style={[styles.itemMeta, item.voided && styles.itemTextVoided]}>
             {catchWeight ? `${item.qty} ${item.unit} · ${catchWeight} lb billed @ $${item.unitPrice.toFixed(2)}/lb` : `${item.qty} ${item.unit} @ $${item.unitPrice.toFixed(2)}`}
           </Text>
+          {common&&<Text style={styles.itemMeta}>${common.value.toFixed(3)} / {common.unit} · {item.normalizedCost?.basis}</Text>}
         </View>
         <View style={{ alignItems: 'flex-end', gap: 6 }}>
           <Text style={[styles.itemExt, item.voided && styles.itemTextVoided]}>${item.ext.toFixed(2)}</Text>

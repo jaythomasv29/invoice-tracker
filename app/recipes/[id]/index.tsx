@@ -1,42 +1,44 @@
-import TouchableOpacity from '../../../components/ui/MotionTouchable';
-import { useCallback, useMemo, useState } from 'react';
+import TouchableOpacity from "../../../components/ui/MotionTouchable";
+import { useCallback, useMemo, useState } from "react";
 import {
-  View, Text, ScrollView, StyleSheet, TextInput, Alert,
-  KeyboardAvoidingView, Platform,
-} from 'react-native';
-import SafeAreaView from '../../../components/ui/Screen';
-import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import * as Haptics from 'expo-haptics';
-import { Colors } from '../../../constants/Colors';
-import { useSupabase } from '../../../lib/supabase';
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import SafeAreaView from "../../../components/ui/Screen";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
+import * as Haptics from "expo-haptics";
+import { Colors } from "../../../constants/Colors";
+import { useSupabase } from "../../../lib/supabase";
 import {
-  fetchRecipe, resolveIngredientCost, computeRecipeCost, saveRecipeRollup, deleteRecipe,
-  isWeightUnit, toGrams, confidenceHint,
-  Recipe, RecipeIngredient,
-} from '../../../lib/recipeCosting';
-import Spinner from '../../../components/ui/Spinner';
-import BackButton from '../../../components/ui/BackButton';
+  fetchRecipe,
+  resolveIngredientCosts,
+  saveRecipeLabor,
+  computeRecipeCost,
+  saveRecipeRollup,
+  deleteRecipe,
+  confidenceHint,
+  Recipe,
+  RecipeIngredient,
+} from "../../../lib/recipeCosting";
+import Spinner from "../../../components/ui/Spinner";
+import BackButton from "../../../components/ui/BackButton";
+
+import { ingredientCost } from "../../../shared/recipeIngredients";
+import { recipeLaborBreakdown } from "../../../shared/recipeLabor";
+import { displayUnitCost } from "../../../shared/measurement";
+import RecipeLaborEditor from "../../../components/products/RecipeLaborEditor";
+import { ui } from "../../../components/products/ProductUI";
 
 function confidenceMeta(confidence: number): { label: string; color: string } {
-  if (confidence >= 0.8) return { label: 'High', color: Colors.primary };
-  if (confidence >= 0.4) return { label: 'Medium', color: Colors.warning };
-  return { label: 'Low', color: Colors.textTertiary };
-}
-
-// $ contribution of a single ingredient toward the dish total. Prefers a
-// real weight-priced match from invoice history; falls back to the AI's
-// rough $/unit guess (same fallback computeRecipeCost uses for the dish
-// total) so a row only reads "needs price data" when there's truly nothing
-// to show yet — not on every unmatched ingredient by default.
-function ingredientContribution(ing: RecipeIngredient): { value: number; resolved: boolean } | null {
-  if (ing.costPerGram != null && isWeightUnit(ing.unit)) {
-    const grams = toGrams(ing.qty, ing.unit);
-    if (grams != null) return { value: grams * ing.costPerGram, resolved: true };
-  }
-  if (ing.aiEstUnitCost != null) {
-    return { value: ing.qty * ing.aiEstUnitCost, resolved: false };
-  }
-  return null;
+  if (confidence >= 0.8) return { label: "High", color: Colors.primary };
+  if (confidence >= 0.4) return { label: "Medium", color: Colors.warning };
+  return { label: "Low", color: Colors.textTertiary };
 }
 
 export default function RecipeDetailScreen() {
@@ -47,7 +49,7 @@ export default function RecipeDetailScreen() {
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([]);
   const [loading, setLoading] = useState(true);
-  const [menuPriceInput, setMenuPriceInput] = useState('');
+  const [menuPriceInput, setMenuPriceInput] = useState("");
   const [savingMenuPrice, setSavingMenuPrice] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -61,15 +63,10 @@ export default function RecipeDetailScreen() {
           const r = await fetchRecipe(supabase, id);
           if (cancelled) return;
           setRecipe(r);
-          setMenuPriceInput(r.menuPrice != null ? String(r.menuPrice) : '');
-          const resolved = await Promise.all(
-            r.ingredients.map(async (ing) => {
-              if (!ing.itemId) return ing;
-              const resolvedCost = await resolveIngredientCost(supabase, ing.itemId);
-              return resolvedCost
-                ? { ...ing, costPerGram: resolvedCost.costPerGram, sampleSize: resolvedCost.sampleSize }
-                : ing;
-            })
+          setMenuPriceInput(r.menuPrice != null ? String(r.menuPrice) : "");
+          const resolved = await resolveIngredientCosts(
+            supabase,
+            r.ingredients,
           );
           if (cancelled) return;
           setIngredients(resolved);
@@ -85,7 +82,7 @@ export default function RecipeDetailScreen() {
       return () => {
         cancelled = true;
       };
-    }, [id, supabase])
+    }, [id, supabase]),
   );
 
   const cost = useMemo(() => computeRecipeCost(ingredients), [ingredients]);
@@ -94,7 +91,7 @@ export default function RecipeDetailScreen() {
     if (!recipe) return;
     const trimmed = menuPriceInput.trim();
     let value: number | null;
-    if (trimmed === '') {
+    if (trimmed === "") {
       value = null;
     } else {
       const parsed = Number(trimmed);
@@ -107,7 +104,10 @@ export default function RecipeDetailScreen() {
       await saveRecipeRollup(supabase, recipe.id, { menu_price: value });
       setRecipe({ ...recipe, menuPrice: value });
     } catch (err: any) {
-      Alert.alert('Could not save menu price', err?.message ?? 'Please try again.');
+      Alert.alert(
+        "Could not save menu price",
+        err?.message ?? "Please try again.",
+      );
     } finally {
       setSavingMenuPrice(false);
     }
@@ -116,28 +116,35 @@ export default function RecipeDetailScreen() {
   const handleDelete = () => {
     if (!recipe || deleting) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    Alert.alert('Delete dish', `Delete "${recipe.name}"? This can't be undone.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          setDeleting(true);
-          try {
-            await deleteRecipe(supabase, recipe.id);
-            router.back();
-          } catch (err: any) {
-            setDeleting(false);
-            Alert.alert('Could not delete dish', err?.message ?? 'Please try again.');
-          }
+    Alert.alert(
+      "Delete dish",
+      `Delete "${recipe.name}"? This can't be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteRecipe(supabase, recipe.id);
+              router.back();
+            } catch (err: any) {
+              setDeleting(false);
+              Alert.alert(
+                "Could not delete dish",
+                err?.message ?? "Please try again.",
+              );
+            }
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
         <View style={styles.centerFill}>
           <Spinner />
         </View>
@@ -147,7 +154,7 @@ export default function RecipeDetailScreen() {
 
   if (!recipe) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
         <View style={styles.header}>
           <BackButton onPress={() => router.back()} />
           <Text style={styles.headerTitle}>Dish not found</Text>
@@ -157,14 +164,27 @@ export default function RecipeDetailScreen() {
   }
 
   const confidence = confidenceMeta(cost.confidence);
-  const foodCostPct = recipe.menuPrice && recipe.menuPrice > 0 ? (cost.estimate / recipe.menuPrice) * 100 : null;
-  const marginPct = recipe.menuPrice && recipe.menuPrice > 0 ? ((recipe.menuPrice - cost.estimate) / recipe.menuPrice) * 100 : null;
+  const breakdown = recipeLaborBreakdown(
+    cost.estimate,
+    recipe.labor,
+    cost.complete,
+  );
+  const foodCostPct =
+    cost.complete && recipe.menuPrice && recipe.menuPrice > 0
+      ? (breakdown.ingredientsPerServing / recipe.menuPrice) * 100
+      : null;
+  const contributionPct =
+    breakdown.complete && recipe.menuPrice && recipe.menuPrice > 0
+      ? ((recipe.menuPrice - breakdown.perServing) / recipe.menuPrice) * 100
+      : null;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <View style={styles.header}>
         <BackButton onPress={() => router.back()} />
-        <Text style={styles.headerTitle} numberOfLines={1}>{recipe.name}</Text>
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {recipe.name}
+        </Text>
         <TouchableOpacity
           style={styles.editBtn}
           onPress={() => {
@@ -177,37 +197,89 @@ export default function RecipeDetailScreen() {
         </TouchableOpacity>
       </View>
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.costCard}>
             <View style={styles.costHeaderRow}>
-              <Text style={styles.costLabel}>Estimated cost</Text>
-              <View style={[styles.badge, { backgroundColor: confidence.color + '20' }]}>
-                <Text style={[styles.badgeText, { color: confidence.color }]}>{confidence.label} confidence</Text>
+              <Text style={styles.costLabel}>
+                {breakdown.complete
+                  ? "Estimated cost / serving"
+                  : "Known subtotal / serving"}
+              </Text>
+              <View
+                style={[
+                  styles.badge,
+                  { backgroundColor: confidence.color + "20" },
+                ]}
+              >
+                <Text style={[styles.badgeText, { color: confidence.color }]}>
+                  {confidence.label} confidence
+                </Text>
               </View>
             </View>
-            <Text style={styles.costValue}>${cost.estimate.toFixed(2)}</Text>
-            <Text style={styles.costRange}>${cost.low.toFixed(2)}–${cost.high.toFixed(2)} range</Text>
-            <Text style={styles.confidenceHint}>{confidenceHint(cost.confidence)}</Text>
+            <Text style={styles.costValue}>
+              ${breakdown.perServing.toFixed(2)}
+            </Text>
+            <Text style={styles.costRange}>
+              Batch of {recipe.labor.servings}: $
+              {breakdown.knownBatch.toFixed(2)}
+            </Text>
+            <View style={{ gap: 8, marginTop: 16 }}>
+              <Text style={ui.hint}>
+                Ingredients / serving: $
+                {breakdown.ingredientsPerServing.toFixed(2)}
+                {cost.missingCount > 0
+                  ? ` · ${cost.missingCount} unpriced`
+                  : ""}
+              </Text>
+              <Text style={ui.hint}>
+                Labor / serving:{" "}
+                {breakdown.laborPerServing == null
+                  ? "Not entered"
+                  : `$${breakdown.laborPerServing.toFixed(2)}`}
+              </Text>
+              <Text style={ui.hint}>
+                {cost.estimatedCount > 0
+                  ? `${cost.estimatedCount} ingredient price(s) use manual or AI estimates. `
+                  : ""}
+                Excludes gas, utilities, packaging and other overhead. This is a
+                cost estimate, not net profit.
+              </Text>
+            </View>
+            <Text style={styles.confidenceHint}>
+              {confidenceHint(cost.confidence)}
+            </Text>
 
-            {(foodCostPct != null && marginPct != null) && (
+            {foodCostPct != null && (
               <View style={styles.pctRow}>
                 <View style={styles.pctTile}>
                   <Text style={styles.pctValue}>{foodCostPct.toFixed(0)}%</Text>
                   <Text style={styles.pctLabel}>Food cost</Text>
                 </View>
                 <View style={styles.pctTile}>
-                  <Text style={styles.pctValue}>{marginPct.toFixed(0)}%</Text>
-                  <Text style={styles.pctLabel}>Margin</Text>
+                  <Text style={styles.pctValue}>
+                    {contributionPct == null
+                      ? "—"
+                      : `${contributionPct.toFixed(0)}%`}
+                  </Text>
+                  <Text style={styles.pctLabel}>After food & labor</Text>
                 </View>
               </View>
             )}
 
             <View style={styles.menuPriceRow}>
-              <Text style={styles.menuPriceLabel}>Menu price</Text>
+              <Text style={styles.menuPriceLabel}>Menu price / serving</Text>
               <View style={styles.menuPriceInputWrap}>
                 <Text style={styles.menuPriceDollar}>$</Text>
                 <TextInput
+                  accessibilityLabel="Menu price per serving in dollars"
                   style={styles.menuPriceInput}
                   value={menuPriceInput}
                   onChangeText={setMenuPriceInput}
@@ -223,14 +295,33 @@ export default function RecipeDetailScreen() {
             </View>
           </View>
 
-          <Text style={styles.sectionLabel}>Ingredients</Text>
+          <RecipeLaborEditor
+            key={recipe.id}
+            value={recipe.labor}
+            onSave={async (labor) => {
+              await saveRecipeLabor(supabase, recipe.id, labor);
+              setRecipe((r) => (r ? { ...r, labor } : r));
+            }}
+          />
+          <Text style={styles.sectionLabel}>Ingredients · per batch</Text>
           <View style={styles.ingredientsCard}>
             {ingredients.map((ing, i) => {
-              const contribution = ingredientContribution(ing);
+              const costRow = ingredientCost(ing);
+              const contribution =
+                costRow.amount == null
+                  ? null
+                  : {
+                      value: costRow.amount,
+                      resolved: costRow.source === "purchase",
+                    };
+              const per = ing.unitCost ? displayUnitCost(ing.unitCost) : null;
               return (
                 <TouchableOpacity
                   key={ing.id}
-                  style={[styles.ingredientRow, i > 0 && styles.ingredientRowBorder]}
+                  style={[
+                    styles.ingredientRow,
+                    i > 0 && styles.ingredientRowBorder,
+                  ]}
                   activeOpacity={0.7}
                   onPress={() => {
                     Haptics.selectionAsync();
@@ -238,20 +329,40 @@ export default function RecipeDetailScreen() {
                   }}
                 >
                   <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={styles.ingredientName} numberOfLines={1}>{ing.rawName}</Text>
-                    <Text style={styles.ingredientQty}>{ing.qty} {ing.unit}</Text>
+                    <Text style={styles.ingredientName} numberOfLines={1}>
+                      {ing.rawName}
+                    </Text>
+                    <Text style={styles.ingredientQty}>
+                      {ing.qty} {ing.unit}
+                    </Text>
+                    {per && (
+                      <Text style={styles.ingredientHint}>
+                        ${per.value.toFixed(3)} / {per.unit} ·{" "}
+                        {ing.unitCost?.basis}
+                      </Text>
+                    )}
                   </View>
                   {contribution != null ? (
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={contribution.resolved ? styles.ingredientCost : styles.ingredientCostEstimated}>
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text
+                        style={
+                          contribution.resolved
+                            ? styles.ingredientCost
+                            : styles.ingredientCostEstimated
+                        }
+                      >
                         ${contribution.value.toFixed(2)}
                       </Text>
-                      {!contribution.resolved && <Text style={styles.ingredientHint}>estimated</Text>}
+                      {!contribution.resolved && (
+                        <Text style={styles.ingredientHint}>estimated</Text>
+                      )}
                     </View>
                   ) : (
-                    <View style={{ alignItems: 'flex-end' }}>
+                    <View style={{ alignItems: "flex-end" }}>
                       <Text style={styles.ingredientCostMissing}>—</Text>
-                      <Text style={styles.ingredientHint}>needs price data</Text>
+                      <Text style={styles.ingredientHint}>
+                        needs price data
+                      </Text>
                     </View>
                   )}
                 </TouchableOpacity>
@@ -264,8 +375,15 @@ export default function RecipeDetailScreen() {
             )}
           </View>
 
-          <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete} activeOpacity={0.7} disabled={deleting}>
-            <Text style={styles.deleteText}>{deleting ? 'Deleting…' : 'Delete dish'}</Text>
+          <TouchableOpacity
+            style={styles.deleteBtn}
+            onPress={handleDelete}
+            activeOpacity={0.7}
+            disabled={deleting}
+          >
+            <Text style={styles.deleteText}>
+              {deleting ? "Deleting…" : "Delete dish"}
+            </Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -276,71 +394,215 @@ export default function RecipeDetailScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   header: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 18, paddingTop: 12, paddingBottom: 14,
-    backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 14,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
-  headerTitle: { flex: 1, fontSize: 17, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, letterSpacing: -0.2 },
+  headerTitle: {
+    flex: 1,
+    fontSize: 17,
+    fontFamily: "Manrope_800ExtraBold",
+    color: Colors.textPrimary,
+    letterSpacing: -0.2,
+  },
   editBtn: {
-    paddingHorizontal: 14, height: 36, borderRadius: 10,
-    backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border,
-    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 14,
+    minHeight: 44,
+    borderRadius: 10,
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  editBtnText: { fontSize: 13, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
+  editBtnText: {
+    fontSize: 13,
+    fontFamily: "Manrope_700Bold",
+    color: Colors.textPrimary,
+  },
 
-  centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  centerFill: { flex: 1, alignItems: "center", justifyContent: "center" },
 
   scroll: { padding: 16, gap: 14, paddingBottom: 48 },
 
   costCard: {
-    backgroundColor: Colors.surface, borderRadius: 18,
-    borderWidth: 1, borderColor: Colors.border, padding: 18,
+    backgroundColor: Colors.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 18,
   },
-  costHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  costLabel: { fontSize: 12, fontFamily: 'Manrope_700Bold', color: Colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.4 },
-  costValue: { fontSize: 38, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, letterSpacing: -0.8, marginTop: 6 },
-  costRange: { fontSize: 13, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary, marginTop: 2 },
+  costHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  costLabel: {
+    fontSize: 12,
+    fontFamily: "Manrope_700Bold",
+    color: Colors.textTertiary,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  costValue: {
+    fontSize: 38,
+    fontFamily: "Manrope_800ExtraBold",
+    color: Colors.textPrimary,
+    letterSpacing: -0.8,
+    marginTop: 6,
+  },
+  costRange: {
+    fontSize: 13,
+    fontFamily: "Manrope_600SemiBold",
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
   confidenceHint: {
-    fontSize: 11.5, fontFamily: 'Manrope_500Medium', color: Colors.textTertiary,
-    textAlign: 'center', lineHeight: 16, marginTop: 8,
+    fontSize: 11.5,
+    fontFamily: "Manrope_500Medium",
+    color: Colors.textTertiary,
+    textAlign: "center",
+    lineHeight: 16,
+    marginTop: 8,
   },
 
   badge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 },
-  badgeText: { fontSize: 11.5, fontFamily: 'Manrope_700Bold' },
+  badgeText: { fontSize: 11.5, fontFamily: "Manrope_700Bold" },
 
-  pctRow: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  pctRow: { flexDirection: "row", gap: 10, marginTop: 16 },
   pctTile: {
-    flex: 1, alignItems: 'center', gap: 2, backgroundColor: Colors.background,
-    borderRadius: 12, paddingVertical: 10,
+    flex: 1,
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    paddingVertical: 10,
   },
-  pctValue: { fontSize: 17, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary },
-  pctLabel: { fontSize: 11.5, fontFamily: 'Manrope_600SemiBold', color: Colors.textTertiary },
+  pctValue: {
+    fontSize: 17,
+    fontFamily: "Manrope_800ExtraBold",
+    color: Colors.textPrimary,
+  },
+  pctLabel: {
+    fontSize: 11.5,
+    fontFamily: "Manrope_600SemiBold",
+    color: Colors.textTertiary,
+  },
 
-  menuPriceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 },
-  menuPriceLabel: { fontSize: 13, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
-  menuPriceInputWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: Colors.background, borderRadius: 10,
-    borderWidth: 1, borderColor: Colors.border,
-    paddingHorizontal: 10, height: 38, minWidth: 90,
+  menuPriceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 16,
   },
-  menuPriceDollar: { fontSize: 14, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary },
-  menuPriceInput: { flex: 1, fontSize: 14, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary, padding: 0 },
+  menuPriceLabel: {
+    fontSize: 13,
+    fontFamily: "Manrope_700Bold",
+    color: Colors.textPrimary,
+  },
+  menuPriceInputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.background,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 10,
+    height: 38,
+    minWidth: 90,
+  },
+  menuPriceDollar: {
+    fontSize: 14,
+    fontFamily: "Manrope_600SemiBold",
+    color: Colors.textSecondary,
+  },
+  menuPriceInput: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Manrope_700Bold",
+    color: Colors.textPrimary,
+    padding: 0,
+  },
 
   sectionLabel: {
-    fontSize: 11, fontFamily: 'Manrope_700Bold', letterSpacing: 0.5,
-    textTransform: 'uppercase', color: Colors.textTertiary, marginTop: 4, marginBottom: 2,
+    fontSize: 11,
+    fontFamily: "Manrope_700Bold",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    color: Colors.textTertiary,
+    marginTop: 4,
+    marginBottom: 2,
   },
-  ingredientsCard: { backgroundColor: Colors.surface, borderRadius: 18, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
-  ingredientRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 13 },
-  ingredientRowBorder: { borderTopWidth: 1, borderTopColor: Colors.borderLight },
-  ingredientName: { fontSize: 14.5, fontFamily: 'Manrope_600SemiBold', color: Colors.textPrimary },
-  ingredientQty: { fontSize: 12.5, fontFamily: 'Manrope_500Medium', color: Colors.textSecondary, marginTop: 1 },
-  ingredientCost: { fontSize: 14.5, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
-  ingredientCostEstimated: { fontSize: 14.5, fontFamily: 'Manrope_700Bold', color: Colors.textSecondary },
-  ingredientCostMissing: { fontSize: 14.5, fontFamily: 'Manrope_700Bold', color: Colors.textTertiary },
-  ingredientHint: { fontSize: 10.5, fontFamily: 'Manrope_600SemiBold', color: Colors.textTertiary, marginTop: 1 },
+  ingredientsCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: "hidden",
+  },
+  ingredientRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+  },
+  ingredientRowBorder: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+  },
+  ingredientName: {
+    fontSize: 14.5,
+    fontFamily: "Manrope_600SemiBold",
+    color: Colors.textPrimary,
+  },
+  ingredientQty: {
+    fontSize: 12.5,
+    fontFamily: "Manrope_500Medium",
+    color: Colors.textSecondary,
+    marginTop: 1,
+  },
+  ingredientCost: {
+    fontSize: 14.5,
+    fontFamily: "Manrope_700Bold",
+    color: Colors.textPrimary,
+  },
+  ingredientCostEstimated: {
+    fontSize: 14.5,
+    fontFamily: "Manrope_700Bold",
+    color: Colors.textSecondary,
+  },
+  ingredientCostMissing: {
+    fontSize: 14.5,
+    fontFamily: "Manrope_700Bold",
+    color: Colors.textTertiary,
+  },
+  ingredientHint: {
+    fontSize: 10.5,
+    fontFamily: "Manrope_600SemiBold",
+    color: Colors.textTertiary,
+    marginTop: 1,
+  },
 
-  deleteBtn: { alignItems: 'center', justifyContent: 'center', marginTop: 8, paddingVertical: 8 },
-  deleteText: { fontSize: 13, fontFamily: 'Manrope_600SemiBold', color: Colors.danger, textDecorationLine: 'underline' },
+  deleteBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 8,
+    paddingVertical: 8,
+  },
+  deleteText: {
+    fontSize: 13,
+    fontFamily: "Manrope_600SemiBold",
+    color: Colors.danger,
+    textDecorationLine: "underline",
+  },
 });

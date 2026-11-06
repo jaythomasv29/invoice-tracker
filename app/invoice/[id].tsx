@@ -81,7 +81,7 @@ export default function InvoiceDetailScreen() {
         total,
         lineItems: invoice.lineItems.map((it) =>
           it.id === editingItem.id
-            ? { ...it, desc: updates.desc, qty: updates.qty, unitPrice: updates.unitPrice, ext: extendedPrice }
+            ? { ...it, normalizedCost:null, desc: updates.desc, qty: updates.qty, unitPrice: updates.unitPrice, ext: extendedPrice }
             : it
         ),
       });

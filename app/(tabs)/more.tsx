@@ -161,6 +161,7 @@ export default function MoreScreen() {
     {
       header: 'Intelligence',
       rows: [
+        {label:'Products & prices',detail:'Search items',onPress:()=>router.push('/products')},
         ...(!isPersonal?[{
           label: 'Recipe costing',
           detail: isPaid ? 'New' : 'Pro',

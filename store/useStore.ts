@@ -9,6 +9,7 @@ export type VerificationStatus = 'pending' | 'received' | 'missing';
 export type LineItemType = 'charge' | 'credit';
 
 export interface LineItem {
+  normalizedCost?:import('../shared/measurement').NormalizedPurchase|null;
   id: string;
   desc: string;
   // Verbatim as printed on the invoice — kept for provenance/audit even

@@ -203,6 +203,7 @@ export default function HomeScreen() {
           <View style={{flex:1}}><Text style={styles.overviewTitle}>{isPersonal?'Household overview':'Kitchen overview'}</Text><Text style={styles.overviewSubtitle}>{getGreeting()}. Let’s make it a clear one.</Text></View>
           <TouchableOpacity onPress={() => router.push('/scan')} accessibilityRole="button" accessibilityLabel={isPersonal?'Scan a new receipt':'Scan a new invoice'} style={styles.quickScan}><Text style={styles.quickScanText}>+ Scan</Text></TouchableOpacity>
         </View>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Search products and purchase prices" onPress={() => router.push('/products')} style={{padding:18,borderRadius:20,backgroundColor:Colors.surface,borderWidth:1,borderColor:Colors.border,marginBottom:16}}><Text style={{fontFamily:'Manrope_700Bold',fontSize:15,color:Colors.primaryDark}}>Search items & prices →</Text><Text style={{fontFamily:'Manrope_500Medium',fontSize:12,color:Colors.textSecondary,marginTop:4}}>Find a purchase. Build your product list.</Text></TouchableOpacity>
         <SpendOverviewCard invoices={spendInvoices} vendors={vendors} loading={isLoadingSummary} onOpenInvoices={openInvoices} onOpenSuppliers={openSuppliers} onOpenVendor={openVendor} />
         {awaitingReviewCount>0&&<View style={styles.reviewCard}>
           <Text style={styles.reviewTitle}>{awaitingReviewCount} {awaitingReviewCount===1?'invoice needs':'invoices need'} review</Text>

@@ -1,3 +1,4 @@
+import {normalizePurchase,type PurchaseObservation} from '../shared/measurement';
 import { retailHistorySeries } from '../shared/receiptHistory.ts';
 import { validatedLineTotal } from './linePricing';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -72,6 +73,7 @@ export function localDateFromTimestamp(isoTimestamp: string | null | undefined):
 
 // DB row shapes, as returned by the extract-invoice edge function.
 interface DbLineItem {
+  retail_product?:PurchaseObservation['retail_product'];
   id: string;
   raw_description: string;
   clean_name: string | null;
@@ -113,6 +115,7 @@ function mapLineItem(row: DbLineItem): LineItem {
   return {
     id: row.id,
     desc: cleanName,
+    normalizedCost:normalizePurchase({...row,invoices:{id:'',vendor_id:'',invoice_date:null,created_at:''}}),
     rawDesc: cleanName.trim().toLowerCase() === row.raw_description.trim().toLowerCase()
       ? undefined
       : row.raw_description,
