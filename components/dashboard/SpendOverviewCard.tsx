@@ -1,3 +1,6 @@
+import HistoryMilestone from './HistoryMilestone';
+import { RevealPanel } from './DashboardMotion';
+import { Design } from '../../constants/Design';
 import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../ui/MotionTouchable';
 import SupplierSpendBar from './SupplierSpendBar';
@@ -21,15 +24,13 @@ export default function SpendOverviewCard({ invoices, vendors, loading, onOpenIn
     : period === 'day' ? data.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : `${data.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${data.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
   const openPeriod=()=>onOpenInvoices({from:localDay(data.start),to:localDay(data.end)});
-  const topVendors = data.vendors.slice(0, 3);
-  const max = Math.max(1, ...topVendors.map(([, total]) => Math.abs(total)));
   return <View style={s.wrapper}>
-    <View style={s.tabs}>
+    <RevealPanel><View style={s.tabs}>
       {(['day', 'week', 'month'] as const).map(p => <TouchableOpacity key={p} accessibilityRole="button" accessibilityState={{ selected: p === period }} onPress={() => { setPeriod(p); setOffset(0); }} style={[s.tab, p === period && s.selected]}>
         <Text style={[s.tabText, p === period && s.selectedText]}>{p === 'day' ? 'Day' : p === 'week' ? 'Week' : 'Month'}</Text>
       </TouchableOpacity>)}
-    </View>
-    <View style={s.hero}>
+    </View></RevealPanel>
+    <RevealPanel delay={40}><View style={s.hero}>
       <View style={s.heroTop}><Text style={s.eyebrow}>TOTAL SPENDING</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel={`View ${receipt}s for ${label}`} onPress={openPeriod} style={s.savedPill}><Text style={s.savedText}>View {receipt}s ›</Text></TouchableOpacity></View>
       <View style={s.navigation}>
         <Text style={s.date}>{label}</Text>
@@ -40,36 +41,36 @@ export default function SpendOverviewCard({ invoices, vendors, loading, onOpenIn
       </View>
       <TouchableOpacity onPress={openPeriod} accessibilityRole="button" accessibilityLabel={`View ${receipt}s behind ${money(data.total)} spending for ${label}`}><Animated.Text key={`${period}:${offset}:${data.total}:${loading}`} entering={FadeIn.duration(220).reduceMotion(ReduceMotion.System)} style={s.amount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} accessibilityLiveRegion="polite">{loading ? 'Loading…' : money(data.total)}</Animated.Text></TouchableOpacity>
       <Text style={s.heroCaption}>Grouped by the date on each {receipt}</Text>
-      {!loading && <SupplierSpendBar totals={data.vendors} vendors={vendors} onPressVendor={onOpenVendor} />}
+      <SupplierSpendBar totals={data.vendors} vendors={vendors} variant="bar" />
       <View style={s.stats}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={`View ${receipt}s for this period`} onPress={openPeriod} style={s.stat}><Text style={s.statNumber}>{loading ? '—' : data.count}</Text><Text style={s.statLabel}>{isPersonal?'Receipts':'Invoices'} ›</Text></TouchableOpacity>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={isPersonal?'Browse stores':'Browse suppliers'} onPress={onOpenSuppliers} style={s.stat}><Text style={s.statNumber}>{loading ? '—' : data.vendors.length}</Text><Text style={s.statLabel}>{isPersonal?'Stores':'Suppliers'} ›</Text></TouchableOpacity>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={`View ${receipt}s behind this average`} onPress={openPeriod} style={s.stat}><Text style={s.statNumber} numberOfLines={1} adjustsFontSizeToFit>{loading || !data.count ? '—' : money(data.total / data.count)}</Text><Text style={s.statLabel}>Avg. {receipt} ›</Text></TouchableOpacity>
       </View>
-    </View>
-    <View style={s.breakdown}>
-      <View style={s.sectionRow}><Text style={s.heading}>Where it went</Text><Text style={s.note}>Top {isPersonal?'stores':'suppliers'}</Text></View>
-      {topVendors.map(([id, total], index) => <TouchableOpacity key={id} onPress={()=>onOpenVendor(id)} accessibilityRole="button" accessibilityLabel={`Open supplier ${vendors.find(v=>v.id===id)?.name??'Unknown vendor'}`} style={s.vendorRow}>
-        <View style={[s.rank, index === 0 && s.firstRank]}><Text style={s.rankText}>{String(index + 1).padStart(2, '0')}</Text></View>
-        <View style={s.vendorBody}><View style={s.sectionRow}><Text style={s.vendor} numberOfLines={1}>{vendors.find(v => v.id === id)?.name ?? 'Unknown vendor'}</Text><Text style={s.vendorAmount}>{money(total)}</Text></View>
-          <View style={s.track} accessible={false}><View style={[s.fill, { width: `${Math.abs(total) / max * 100}%`, opacity: 1 - index * 0.2 }]} /></View>
-        </View><Text style={s.note}>›</Text>
-      </TouchableOpacity>)}
+      <HistoryMilestone invoices={invoices} loading={loading} onPress={() => onOpenInvoices()} />
+    </View></RevealPanel>
+    <RevealPanel><View style={s.breakdown}>
+      <View style={s.sectionRow}><Text style={s.heading}>Where it went</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel={isPersonal?'Browse all stores':'Browse all suppliers'} onPress={onOpenSuppliers} style={s.browse}><Text style={s.browseText}>{isPersonal?'Stores':'Suppliers'} ›</Text></TouchableOpacity></View>
+      <SupplierSpendBar totals={data.vendors} vendors={vendors} onPressVendor={onOpenVendor} light variant="list" />
+      {loading && data.vendors.length === 0 && <View style={s.breakdownLoading}><Text style={s.note}>Loading {isPersonal?'store':'supplier'} breakdown…</Text></View>}
       {!loading && data.count === 0 && <Text style={s.empty}>No saved {receipt}s in this period. Scan your first {receipt} or use the arrows to explore past spending.</Text>}
       {data.fallbackCount > 0 && <Text style={s.note}>{data.fallbackCount} {data.fallbackCount === 1 ? `${receipt} uses` : `${receipt}s use`} upload date because the {receipt} date is missing.</Text>}
       <TouchableOpacity accessibilityRole="button" accessibilityLabel={`View all saved ${receipt}s`} onPress={()=>onOpenInvoices()} style={s.footer}><Text style={s.note}>All time · {data.allCount} saved</Text><Text style={s.allTotal}>{money(data.allTotal)} ›</Text></TouchableOpacity>
-    </View>
+    </View></RevealPanel>
   </View>;
 }
 const s = StyleSheet.create({
-  wrapper: { gap: 14 }, tabs: { flexDirection: 'row', backgroundColor: '#E8EDE5', borderRadius: 16, padding: 4 },
-  tab: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12 }, selected: { backgroundColor: Colors.surface },
+  breakdownLoading: { minHeight: 128, justifyContent: 'center' },
+  browse: { minHeight:44, justifyContent:'center', paddingHorizontal:4 },
+  browseText: { fontFamily:'Manrope_600SemiBold', fontSize:13, color:Colors.primaryDark },
+  wrapper: { gap: 14 }, tabs: { flexDirection: 'row', backgroundColor: Colors.primaryLight, borderRadius: Design.radius.pill, padding: 4},
+  tab: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: Design.radius.pill}, selected: { backgroundColor: Colors.accent},
   tabText: { fontFamily: 'Manrope_600SemiBold', fontSize: 14, color: Colors.textSecondary }, selectedText: { color: Colors.primaryDark },
-  hero: { backgroundColor: Colors.hero, borderRadius: 26, padding: 22 }, heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  eyebrow: { fontFamily: 'Manrope_700Bold', fontSize: 11, letterSpacing: 1.5, color: Colors.heroMuted }, savedPill: { minHeight:44,justifyContent:'center',paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, backgroundColor: '#285342' }, savedText: { fontFamily: 'Manrope_600SemiBold', fontSize: 11, color: Colors.accent },
+  hero: { backgroundColor: Colors.hero, borderRadius: Design.radius.hero, padding: 24}, heroTop: { flexWrap: 'wrap', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  eyebrow: { fontFamily: 'Manrope_700Bold', fontSize: 11, letterSpacing: 1.5, color: Colors.heroMuted }, savedPill: { minHeight:44,justifyContent:'center',paddingHorizontal: 14, paddingVertical: 6, borderRadius: Design.radius.pill, backgroundColor: Colors.accent }, savedText: { fontFamily: 'Manrope_600SemiBold', fontSize: 12, color: Colors.hero},
   navigation: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, gap: 4 }, date: { flex: 1, fontFamily: 'Manrope_500Medium', fontSize: 15, color: Colors.heroMuted }, arrows: { flexDirection: 'row' }, arrow: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }, arrowText: { color: Colors.heroText, fontSize: 28 }, disabled: { opacity: 0.3 },
-  amount: { fontFamily: 'Manrope_800ExtraBold', fontSize: 46, letterSpacing: -1.8, color: Colors.heroText, marginTop: -1, fontVariant: ['tabular-nums'] }, heroCaption: { fontFamily: 'Manrope_400Regular', fontSize: 12, color: Colors.heroMuted, marginTop: 6 },
+  amount: { fontFamily: 'Manrope_800ExtraBold', fontSize: 52, letterSpacing: -2, color: Colors.accent, marginTop: -1, fontVariant: ['tabular-nums'] }, heroCaption: { lineHeight: 18, fontFamily: 'Manrope_400Regular', fontSize: 12, color: Colors.heroMuted, marginTop: 6 },
   stats: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#3B5C4D', marginTop: 22, paddingTop: 18, gap: 12 }, stat: { flex: 1, gap: 4, minHeight:48 }, statNumber: { fontFamily: 'Manrope_700Bold', fontSize: 19, color: Colors.heroText, fontVariant: ['tabular-nums'] }, statLabel: { fontFamily: 'Manrope_400Regular', fontSize: 12, color: Colors.heroMuted },
-  breakdown: { padding: 20, borderRadius: 24, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, gap: 18 }, sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 }, heading: { fontFamily: 'Manrope_700Bold', fontSize: 17, color: Colors.textPrimary }, note: { fontFamily: 'Manrope_500Medium', fontSize: 12, lineHeight: 18, color: Colors.textSecondary },
-  vendorRow: { minHeight:48,flexDirection: 'row', alignItems: 'center', gap: 12 }, rank: { width: 34, height: 34, borderRadius: 11, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' }, firstRank: { backgroundColor: Colors.primaryLight }, rankText: { fontFamily: 'Manrope_700Bold', fontSize: 11, color: Colors.primaryDark }, vendorBody: { flex: 1, gap: 8 }, vendor: { flex: 1, fontFamily: 'Manrope_600SemiBold', fontSize: 13, color: Colors.textPrimary }, vendorAmount: { fontFamily: 'Manrope_700Bold', fontSize: 13, color: Colors.textPrimary, fontVariant: ['tabular-nums'] }, track: { height: 4, borderRadius: 2, backgroundColor: Colors.background, overflow: 'hidden' }, fill: { height: 4, backgroundColor: Colors.primary, borderRadius: 2 }, empty: { fontFamily: 'Manrope_400Regular', fontSize: 14, lineHeight: 22, color: Colors.textSecondary }, footer: { minHeight:44,flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: Colors.borderLight, paddingTop: 14, gap: 8 }, allTotal: { fontFamily: 'Manrope_700Bold', fontSize: 13, color: Colors.textPrimary },
+  breakdown: { padding: 20, borderRadius: Design.radius.card, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, gap: 18 }, sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 }, heading: { letterSpacing: -0.4, fontFamily: 'Manrope_700Bold', fontSize: 19, color: Colors.textPrimary }, note: { fontFamily: 'Manrope_500Medium', fontSize: 12, lineHeight: 18, color: Colors.textSecondary },
+  vendorRow: { minHeight:48,flexDirection: 'row', alignItems: 'center', gap: 12 }, rank: { width: 34, height: 34, borderRadius: Design.radius.pill, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' }, firstRank: { backgroundColor: Colors.primaryLight }, rankText: { fontFamily: 'Manrope_700Bold', fontSize: 11, color: Colors.primaryDark }, vendorBody: { flex: 1, gap: 8 }, vendor: { flex: 1, fontFamily: 'Manrope_600SemiBold', fontSize: 13, color: Colors.textPrimary }, vendorAmount: { fontFamily: 'Manrope_700Bold', fontSize: 13, color: Colors.textPrimary, fontVariant: ['tabular-nums'] }, track: { height: 4, borderRadius: 2, backgroundColor: Colors.background, overflow: 'hidden' }, fill: { height: 4, backgroundColor: Colors.primary, borderRadius: 2 }, empty: { fontFamily: 'Manrope_400Regular', fontSize: 14, lineHeight: 22, color: Colors.textSecondary }, footer: { minHeight:44,flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: Colors.borderLight, paddingTop: 14, gap: 8 }, allTotal: { fontFamily: 'Manrope_700Bold', fontSize: 13, color: Colors.textPrimary },
 });

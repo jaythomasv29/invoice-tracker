@@ -1,3 +1,4 @@
+import { Design } from '../../constants/Design';
 import TouchableOpacity from './MotionTouchable';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
@@ -52,10 +53,9 @@ export default function InvoiceRow({ invoice: inv, onPress, showVendorName }: In
 
 const styles = StyleSheet.create({
   row: {
-    backgroundColor: Colors.surface, borderRadius: 20,
+    backgroundColor: Colors.surface, borderRadius: 24,
     borderWidth: 1, borderColor: Colors.border,
-    padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10,
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8,
+    padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10, shadowOpacity: 0,
   },
   title: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
   meta: { fontSize: 12, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary, marginTop: 1 },
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
 
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 7 },
   pill: {
-    backgroundColor: Colors.background, borderRadius: 20,
+    backgroundColor: Colors.background, borderRadius: Design.radius.pill,
     borderWidth: 1, borderColor: Colors.border,
     paddingHorizontal: 9, paddingVertical: 3,
   },

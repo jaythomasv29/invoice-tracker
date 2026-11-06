@@ -1,3 +1,4 @@
+import { Design } from '../../constants/Design';
 import TouchableOpacity from './MotionTouchable';
 import { View, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
@@ -18,7 +19,7 @@ export default function BackButton({ onPress }: { onPress: () => void }) {
 
 const styles = StyleSheet.create({
   backBtn: {
-    width: 44, height: 44, borderRadius: 12,
+    width: 44, height: 44, borderRadius: Design.radius.pill,
     backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },

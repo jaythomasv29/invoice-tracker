@@ -1,3 +1,4 @@
+import { Design } from '../../constants/Design';
 import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { useEffect, useState } from 'react';
@@ -243,8 +244,8 @@ const styles = StyleSheet.create({
   },
   missingLabel: { fontSize: 12.5, fontFamily: 'Manrope_700Bold', color: Colors.danger },
   missingValue: { fontSize: 12.5, fontFamily: 'Manrope_700Bold', color: Colors.danger },
-  saveBtn: {
-    backgroundColor: Colors.textPrimary, borderRadius: 14, height: 52,
+  saveBtn: { paddingVertical: 14, minHeight: 52,
+    backgroundColor: Colors.textPrimary, borderRadius: Design.radius.pill,
     alignItems: 'center', justifyContent: 'center', marginTop: 6,
   },
   saveBtnDisabled: { opacity: 0.7 },

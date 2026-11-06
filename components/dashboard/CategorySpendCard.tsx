@@ -1,3 +1,4 @@
+import { Design } from '../../constants/Design';
 import { useWorkspace } from '../../lib/workspaceContext';
 import Touch from '../ui/MotionTouchable';
 import { View, Text, StyleSheet } from 'react-native';
@@ -35,10 +36,9 @@ export default function CategorySpendCard({ categorySpend, onOpenInvoices }: { c
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.surface, borderRadius: 22,
+    backgroundColor: Colors.surface, borderRadius: Design.radius.card,
     borderWidth: 1, borderColor: Colors.border,
-    padding: 18,
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 18,
+    padding: 18, shadowOpacity: 0,
   },
   tileLabel: { fontSize: 12, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary },
   tileCaption: { fontSize: 10.5, fontFamily: 'Manrope_500Medium', color: Colors.textTertiary, marginTop: 1, marginBottom: 10, lineHeight: 13 },

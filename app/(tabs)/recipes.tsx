@@ -1,3 +1,4 @@
+import { Design } from '../../constants/Design';
 import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -219,7 +220,7 @@ export default function RecipesTabScreen() {
 
 const styles = StyleSheet.create({
   summaryRow:{flexDirection:'row',gap:12},
-  summaryStat:{flex:1,backgroundColor:Colors.surface,borderWidth:1,borderColor:Colors.border,borderRadius:20,padding:18,gap:6},
+  summaryStat:{flex:1,backgroundColor:Colors.surface,borderWidth:1,borderColor:Colors.border,borderRadius: Design.radius.card,padding:18,gap:6},
   summaryNumber:{fontFamily:'Manrope_800ExtraBold',fontSize:30,letterSpacing:-1,color:Colors.textPrimary},
   summaryLabel:{fontFamily:'Manrope_500Medium',fontSize:12,lineHeight:18,color:Colors.textSecondary},
   safe: { flex: 1, backgroundColor: Colors.background },
@@ -227,7 +228,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: 10, paddingBottom: 14,
   },
-  title: { fontSize: 28, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, letterSpacing: -0.5 },
+  title: { fontSize: 32, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, letterSpacing: -1},
 
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 10, paddingBottom: 90 },
 
@@ -235,7 +236,7 @@ const styles = StyleSheet.create({
   recipeList: { gap: 10 },
 
   infoBanner: {
-    backgroundColor: Colors.primaryLight, borderRadius: 22,
+    backgroundColor: Colors.primaryLight, borderRadius: Design.radius.card,
     borderWidth: 1, borderColor: Colors.border,
     padding: 20, gap: 8,
   },
@@ -243,16 +244,15 @@ const styles = StyleSheet.create({
   infoBannerBody: { fontSize: 13, fontFamily: 'Manrope_500Medium', color: Colors.textSecondary, lineHeight: 19 },
 
   cta: {
-    backgroundColor: Colors.primary, borderRadius: 14, minHeight: 52,
+    backgroundColor: Colors.primary, borderRadius: Design.radius.pill, minHeight: 52,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08, shadowRadius: 12, elevation: 6,
+    shadowOpacity: 0, elevation: 0,
   },
   ctaText: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: '#fff' },
 
   card: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: Colors.surface, borderRadius: 22,
+    backgroundColor: Colors.surface, borderRadius: Design.radius.card,
     borderWidth: 1, borderColor: Colors.border,
     paddingHorizontal: 16, paddingVertical: 14,
   },
@@ -273,6 +273,6 @@ const styles = StyleSheet.create({
   legendDot: { width: 7, height: 7, borderRadius: 3.5 },
   legendText: { fontSize: 12, fontFamily: 'Manrope_600SemiBold', color: Colors.textTertiary },
 
-  badge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, flexShrink: 0 },
+  badge: { borderRadius: Design.radius.pill, paddingHorizontal: 10, paddingVertical: 6, flexShrink: 0 },
   badgeText: { fontSize: 12, fontFamily: 'Manrope_700Bold' },
 });

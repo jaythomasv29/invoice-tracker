@@ -1,3 +1,4 @@
+import { Design } from '../constants/Design';
 import { WORKSPACE_PLANS } from '../shared/workspacePolicy.ts';
 import { useWorkspace } from '../lib/workspaceContext';
 import TouchableOpacity from '../components/ui/MotionTouchable';
@@ -306,7 +307,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   topBar: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 8 },
   closeBtn: {
-    width: 36, height: 36, borderRadius: 12,
+    width: 44, height: 44, borderRadius: Design.radius.pill,
     backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
     alignItems: 'center', justifyContent: 'center',
   },
@@ -316,21 +317,21 @@ const styles = StyleSheet.create({
 
   hero: { gap: 8, marginTop: 4 },
   headline: {
-    fontSize: 26, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary,
-    letterSpacing: -0.5, lineHeight: 32,
+    fontSize: 32, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary,
+    letterSpacing: -1, lineHeight: 36,
   },
   subhead: {
     fontSize: 15, fontFamily: 'Manrope_500Medium', color: Colors.textSecondary, lineHeight: 21,
   },
 
   proBanner: {
-    backgroundColor: Colors.primaryLight, borderRadius: 14, borderWidth: 1, borderColor: Colors.primaryMuted,
+    backgroundColor: Colors.primaryLight, borderRadius: Design.radius.card, borderWidth: 1, borderColor: Colors.primaryMuted,
     paddingVertical: 14, paddingHorizontal: 16, alignItems: 'center',
   },
   proBannerText: { fontSize: 14, fontFamily: 'Manrope_700Bold', color: Colors.primaryDark },
 
   usageCard: {
-    backgroundColor: Colors.surface, borderRadius: 14, borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: Colors.surface, borderRadius: Design.radius.card, borderWidth: 1, borderColor: Colors.border,
     paddingVertical: 14, paddingHorizontal: 16, gap: 10,
   },
   usageText: { fontSize: 13.5, fontFamily: 'Manrope_500Medium', color: Colors.textSecondary, lineHeight: 19 },
@@ -339,7 +340,7 @@ const styles = StyleSheet.create({
   meterFill: { height: '100%', borderRadius: 3, backgroundColor: Colors.primary },
 
   table: {
-    backgroundColor: Colors.surface, borderRadius: 18, borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: Colors.surface, borderRadius: Design.radius.card, borderWidth: 1, borderColor: Colors.border,
     overflow: 'hidden',
   },
   tableHeaderRow: {
@@ -373,11 +374,10 @@ const styles = StyleSheet.create({
   cellCheck: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: Colors.primary },
   cellLock: { fontSize: 13, color: Colors.textTertiary },
 
-  cta: {
-    backgroundColor: Colors.primary, borderRadius: 14, height: 54,
+  cta: { paddingVertical: 14, minHeight: 54,
+    backgroundColor: Colors.primary, borderRadius: Design.radius.pill,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3, shadowRadius: 12, elevation: 6,
+    shadowOpacity: 0, elevation: 0,
   },
   ctaText: { fontSize: 16, fontFamily: 'Manrope_700Bold', color: Colors.textOnPrimary },
   ctaBusy: { opacity: 0.6 },

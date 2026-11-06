@@ -1,3 +1,4 @@
+import { Design } from '../../constants/Design';
 import TouchableOpacity from '../ui/MotionTouchable';
 import { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
@@ -130,19 +131,18 @@ const styles = StyleSheet.create({
   backdrop: {
     position: 'absolute', top: -1000, left: -1000, right: -1000, bottom: -1000, zIndex: 15,
   },
-  periodBadge: {
+  periodBadge: { minHeight: 44,
     flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border,
-    borderRadius: 11, paddingHorizontal: 11, paddingVertical: 7,
+    borderRadius: Design.radius.pill, paddingHorizontal: 11, paddingVertical: 7,
   },
   periodText: { fontSize: 12, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
   periodMenu: {
-    position: 'absolute', top: 40, right: 0, minWidth: 168,
-    backgroundColor: Colors.surface, borderRadius: 13, borderWidth: 1, borderColor: Colors.border,
-    paddingVertical: 4, zIndex: 20,
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 1, shadowRadius: 16,
+    position: 'absolute', top: 52, right: 0, minWidth: 168,
+    backgroundColor: Colors.surface, borderRadius: 20, borderWidth: 1, borderColor: Colors.border,
+    paddingVertical: 4, zIndex: 20, shadowOpacity: 0,
   },
-  periodOption: {
+  periodOption: { minHeight: 44,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 13, paddingVertical: 10,
   },
@@ -152,9 +152,9 @@ const styles = StyleSheet.create({
   periodDivider: { height: 1, backgroundColor: Colors.borderLight, marginVertical: 4, marginHorizontal: 8 },
 
   yearStepperRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, gap: 6 },
-  yearLabelWrap: { flex: 1, alignItems: 'center', paddingVertical: 6 },
+  yearLabelWrap: { justifyContent: 'center', minHeight: 44, flex: 1, alignItems: 'center', paddingVertical: 6 },
   stepperBtn: {
-    width: 26, height: 26, borderRadius: 8,
+    width: 44, height: 44, borderRadius: Design.radius.pill,
     backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border,
     alignItems: 'center', justifyContent: 'center',
   },

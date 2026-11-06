@@ -1,3 +1,4 @@
+import { Design } from '../../constants/Design';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { useCallback, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
@@ -242,12 +243,12 @@ const styles = StyleSheet.create({
   },
   slideContent: { width: '100%', alignItems: 'flex-start' },
   eyebrowPill: {
-    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 18,
+    borderRadius: Design.radius.pill, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 18,
   },
   eyebrowText: { fontSize: 11, fontFamily: 'Manrope_700Bold', letterSpacing: 0.8 },
   title: {
-    fontSize: 28, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary,
-    letterSpacing: -0.5, lineHeight: 34, marginBottom: 12,
+    fontSize: 32, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary,
+    letterSpacing: -1, lineHeight: 36, marginBottom: 12,
   },
   subtitle: {
     fontSize: 15, fontFamily: 'Manrope_500Medium', color: Colors.textSecondary,
@@ -259,11 +260,10 @@ const styles = StyleSheet.create({
   dot: { height: 7, borderRadius: 4, backgroundColor: Colors.primary },
 
   bottomArea: { paddingHorizontal: 24, paddingBottom: 8 },
-  cta: {
-    backgroundColor: Colors.primary, borderRadius: 14, height: 54,
+  cta: { paddingVertical: 14, minHeight: 54,
+    backgroundColor: Colors.primary, borderRadius: Design.radius.pill,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3, shadowRadius: 12, elevation: 6,
+    shadowOpacity: 0, elevation: 0,
   },
   ctaText: { fontSize: 16, fontFamily: 'Manrope_700Bold', color: '#fff' },
   signInLinkWrap: { alignItems: 'center', marginTop: 16, marginBottom: 4 },

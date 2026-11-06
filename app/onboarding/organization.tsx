@@ -1,3 +1,4 @@
+import { Design } from '../../constants/Design';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { useEffect, useState } from 'react';
 import {
@@ -229,7 +230,7 @@ const s = StyleSheet.create({
   option: {
     flex: 1,
     padding: 16,
-    borderRadius: 18,
+    borderRadius: Design.radius.card,
     borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.surface,
@@ -269,7 +270,7 @@ const s = StyleSheet.create({
   },
   button: {
     minHeight: 54,
-    borderRadius: 16,
+    borderRadius: Design.radius.pill,
     backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',

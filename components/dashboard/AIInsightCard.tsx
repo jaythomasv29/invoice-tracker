@@ -1,3 +1,4 @@
+import { Design } from '../../constants/Design';
 import TouchableOpacity from '../ui/MotionTouchable';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
@@ -68,10 +69,9 @@ export default function AIInsightCard({ priceAlerts, onPress }: AIInsightCardPro
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.surface, borderRadius: 22,
+    backgroundColor: Colors.surface, borderRadius: Design.radius.card,
     borderWidth: 1, borderColor: Colors.border,
-    padding: 18,
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 18,
+    padding: 18, shadowOpacity: 0,
   },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   aiBadge: {

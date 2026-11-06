@@ -1,3 +1,4 @@
+import { Design } from '../../constants/Design';
 import TouchableOpacity from '../ui/MotionTouchable';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
@@ -46,9 +47,8 @@ export default function MissingInvoiceCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.surface, borderRadius: 18,
-    borderWidth: 1, borderColor: Colors.border, padding: 16,
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 8,
+    backgroundColor: Colors.surface, borderRadius: Design.radius.card,
+    borderWidth: 1, borderColor: Colors.border, padding: 16, shadowOpacity: 0,
   },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.warning },

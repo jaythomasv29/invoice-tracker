@@ -1,3 +1,4 @@
+import { Design } from '../../constants/Design';
 import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../ui/MotionTouchable';
 import { View, Text, StyleSheet } from 'react-native';
@@ -60,10 +61,9 @@ export default function UploadActivityCard({ entries, onPressInvoice }: UploadAc
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.surface, borderRadius: 22,
+    backgroundColor: Colors.surface, borderRadius: Design.radius.card,
     borderWidth: 1, borderColor: Colors.border,
-    padding: 18,
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 18,
+    padding: 18, shadowOpacity: 0,
   },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start' },
   title: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary, letterSpacing: -0.2 },

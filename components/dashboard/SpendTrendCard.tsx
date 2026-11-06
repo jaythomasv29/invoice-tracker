@@ -1,3 +1,4 @@
+import { Design } from '../../constants/Design';
 import { useWorkspace } from '../../lib/workspaceContext';
 import Touch from '../ui/MotionTouchable';
 import { useEffect, useState } from 'react';
@@ -256,10 +257,9 @@ export default function SpendTrendCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.surface, borderRadius: 24,
+    backgroundColor: Colors.surface, borderRadius: Design.radius.card,
     borderWidth: 1, borderColor: Colors.border,
-    padding: 20, overflow: 'hidden',
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 1, shadowRadius: 22,
+    padding: 20, overflow: 'hidden', shadowOpacity: 0,
   },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },

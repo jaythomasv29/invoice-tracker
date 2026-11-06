@@ -1,3 +1,4 @@
+import { Design } from '../../constants/Design';
 import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { ensureAiConsent, withdrawAiConsent } from '../../lib/aiConsent';
@@ -284,20 +285,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20,
   },
   avatar: {
-    width: 52, height: 52, borderRadius: 15,
-    backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
-    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10,
+    width: 52, height: 52, borderRadius: Design.radius.pill,
+    backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', shadowOpacity: 0,
   },
   avatarText: { fontSize: 16, fontFamily: 'Manrope_800ExtraBold', color: '#fff', letterSpacing: 0.5 },
   restaurantName: { fontSize: 18, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, letterSpacing: -0.3 },
   email: { fontSize: 13, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary, marginTop: 1 },
-  scroll: { padding: 16, gap: 6, paddingBottom: 120 },
+  scroll: { padding: 20, gap: 12, paddingBottom: 120 },
   section: { gap: 6 },
   sectionHeader: {
     fontSize: 11, fontFamily: 'Manrope_700Bold', letterSpacing: 0.5,
     textTransform: 'uppercase', color: Colors.textTertiary, paddingHorizontal: 4, marginTop: 10, marginBottom: 2,
   },
-  sectionCard: { backgroundColor: Colors.surface, borderRadius: 18, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  sectionCard: { backgroundColor: Colors.surface, borderRadius: Design.radius.card, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
   rowBorder: { borderTopWidth: 1, borderTopColor: Colors.borderLight },
   rowLabel: { fontSize: 15, fontFamily: 'Manrope_600SemiBold', color: Colors.textPrimary },
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   rowDetail: { fontSize: 14, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary },
   rowChevron: { fontSize: 18, color: Colors.textTertiary },
   signOutBtn: {
-    backgroundColor: Colors.dangerLight, borderRadius: 14, height: 50,
+    backgroundColor: Colors.dangerLight, borderRadius: Design.radius.pill, height: 50,
     alignItems: 'center', justifyContent: 'center', marginTop: 16,
   },
   signOutText: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: Colors.danger },

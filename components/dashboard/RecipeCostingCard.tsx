@@ -1,3 +1,4 @@
+import { Design } from '../../constants/Design';
 import TouchableOpacity from '../ui/MotionTouchable';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
@@ -40,8 +41,7 @@ export default function RecipeCostingCard({ isPaid, onPress }: { isPaid: boolean
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: Colors.surface, borderRadius: 22, padding: 18, borderWidth: 1, borderColor: Colors.border,
-    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.02, shadowRadius: 14, elevation: 6,
+    backgroundColor: Colors.surface, borderRadius: Design.radius.card, padding: 18, borderWidth: 1, borderColor: Colors.border, shadowOpacity: 0, elevation: 0,
   },
   iconWrap: {
     width: 46, height: 46, borderRadius: 14,

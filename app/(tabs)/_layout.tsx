@@ -1,10 +1,16 @@
+import GlassSurface from '../../components/ui/GlassSurface';
+import { type BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
+import { Design } from '../../constants/Design';
 import { useWorkspace } from '../../lib/workspaceContext';
 import { useEffect } from "react";
 import { Tabs, useRouter } from "expo-router";
 import {
   View,
+  Text,
+  useWindowDimensions,
   StyleSheet,
   Pressable,
+  Platform,
   GestureResponderEvent,
 } from "react-native";
 import Animated, {
@@ -12,10 +18,12 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withTiming,
+  ReduceMotion,
+  FadeInUp,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path, Circle } from "react-native-svg";
-import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { useAuth } from "@clerk/clerk-expo";
 import { Colors } from "../../constants/Colors";
@@ -25,7 +33,7 @@ import { TourTarget } from "../../components/tour/TourTarget";
 import SpotlightOverlay from "../../components/tour/SpotlightOverlay";
 import DemoBanner from "../../components/tour/DemoBanner";
 
-const SCAN_SIZE = 48; // diameter of the inline green scan circle
+const SCAN_SIZE = 40; // diameter of the inline green scan circle
 const ICON_SIZE = 24; // standardized icon box for every tab
 const STROKE = 2; // standardized stroke weight
 
@@ -115,8 +123,9 @@ function AnimatedTabIcon({
 
   useEffect(() => {
     iconScale.value = withSpring(focused ? 1 : 0.92, {
-      damping: 12,
+      damping: 24,
       stiffness: 260,
+      reduceMotion: ReduceMotion.System,
     });
   }, [focused, iconScale]);
 
@@ -131,49 +140,26 @@ function AnimatedTabIcon({
   );
 }
 
-type TabButtonProps = {
-  children: React.ReactNode;
-  style?: any;
-  onPress?: (e: GestureResponderEvent) => void;
-  accessibilityState?: { selected?: boolean };
-  testID?: string;
-};
+type TabButtonProps = Pick<BottomTabBarButtonProps,
+  'children' | 'style' | 'onPress' | 'accessibilityState' | 'accessibilityLabel' | 'onLongPress' | 'testID' | 'disabled' | 'accessibilityLargeContentTitle' | 'accessibilityShowsLargeContentViewer'>;
 
-// Shared press feedback (scale + haptic) for the regular tab buttons.
-function TabButton({
-  children,
-  style,
-  onPress,
-  accessibilityState,
-  testID,
-}: TabButtonProps) {
+// Preserve navigation's labels, long-press handling and test identifiers.
+function TabButton({ children, style, onPress, accessibilityState, ...props }: TabButtonProps) {
   const scale = useSharedValue(1);
-  const pressStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={accessibilityState}
-      testID={testID}
-      onPress={(e: GestureResponderEvent) => {
-        Haptics.selectionAsync();
-        onPress?.(e);
-      }}
-      onPressIn={() => {
-        scale.value = withSpring(0.88, { damping: 15, stiffness: 320 });
-      }}
-      onPressOut={() => {
-        scale.value = withSpring(1, { damping: 12, stiffness: 220 });
-      }}
-      style={style}
-    >
-      <Animated.View style={[styles.tabButtonInner, pressStyle]}>
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
+  const selected = useSharedValue(accessibilityState?.selected ? 1 : 0);
+  useEffect(() => {
+    selected.value = withTiming(accessibilityState?.selected ? 1 : 0, { duration: 220, reduceMotion: ReduceMotion.System });
+  }, [accessibilityState?.selected, selected]);
+  const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const selectionStyle = useAnimatedStyle(() => ({ opacity: selected.value }));
+  return <Pressable {...props} accessibilityRole={Platform.OS === 'ios' ? 'button' : 'tab'} accessibilityState={accessibilityState}
+    onPress={event => { void Haptics.selectionAsync(); onPress?.(event); }}
+    onPressIn={() => { scale.value = withSpring(0.96, { damping: 24, stiffness: 380, reduceMotion: ReduceMotion.System }); }}
+    onPressOut={() => { scale.value = withSpring(1, { damping: 24, stiffness: 320, reduceMotion: ReduceMotion.System }); }}
+    style={[style, styles.tabHitArea]}>
+    <Animated.View style={[styles.selection, selectionStyle]} pointerEvents="none" />
+    <Animated.View style={[styles.tabButtonInner, pressStyle]}>{children}</Animated.View>
+  </Pressable>;
 }
 
 function ScanButton({
@@ -195,10 +181,10 @@ function ScanButton({
         onPress?.(e);
       }}
       onPressIn={() => {
-        scale.value = withSpring(0.9, { damping: 14, stiffness: 300 });
+        scale.value = withSpring(0.96, { damping: 24, stiffness: 300, reduceMotion: ReduceMotion.System });
       }}
       onPressOut={() => {
-        scale.value = withSpring(1, { damping: 10, stiffness: 200 });
+        scale.value = withSpring(1, { damping: 24, stiffness: 260, reduceMotion: ReduceMotion.System });
       }}
       accessibilityRole="button"
       accessibilityLabel={isPersonal?'Scan receipt':'Scan invoice'}
@@ -206,40 +192,23 @@ function ScanButton({
       <Animated.View style={[styles.scanCircle, pressStyle]}>
         <CameraIcon />
       </Animated.View>
+      <Text style={styles.scanLabel}>Scan</Text>
     </Pressable>
   );
 }
 
-// Frosted "liquid glass" material behind the pill: a real backdrop blur of
-// whatever content scrolls underneath, warmed with a faint white tint and a
-// bright hairline edge so it catches light like Apple's glass surfaces.
-function GlassBackground() {
-  return (
-    <View style={styles.glassClip}>
-      <BlurView
-        intensity={15}
-        tint="light"
-        blurMethod="dimezisBlurView"
-        style={StyleSheet.absoluteFill}
-      />
-      <View style={styles.glassTint} />
-      <View style={styles.glassEdge} />
-    </View>
-  );
+// The shadow sits outside the clipped material; the labels stay on top of it.
+function TabBarBackground() {
+  return <Animated.View entering={FadeInUp.duration(380).reduceMotion(ReduceMotion.System)} style={styles.barSurface}><GlassSurface /></Animated.View>;
 }
 
-// Builds the floating-pill tab bar style, lifted off the bottom by the safe-area
-// inset so it clears the home indicator on notched devices. The bar is absolutely
-// positioned so content scrolls *under* it — that's what gives the glass blur
-// something real to frost.
 function useTabBarStyle() {
   const insets = useSafeAreaInsets();
-  // Flush to the very bottom edge. Extend the bar down into the safe area and
-  // pad its contents up by that inset so icons/labels clear the home indicator.
-  return [
-    styles.tabBar,
-    { bottom: 0, height: 70 + insets.bottom, paddingBottom: insets.bottom },
-  ];
+  const { fontScale } = useWindowDimensions();
+  return [styles.tabBar, {
+    bottom: Math.max(12, insets.bottom),
+    height: 76 + Math.max(0, Math.min(fontScale, 2) - 1) * 20,
+  }];
 }
 
 export default function TabLayout() {
@@ -275,23 +244,22 @@ export default function TabLayout() {
         animation: reducedMotion ? 'none' : 'fade',
         headerShown: false,
         tabBarStyle,
-        tabBarBackground: () => <GlassBackground />,
+        tabBarBackground: () => <TabBarBackground />,
         tabBarShowLabel: true,
+        tabBarHideOnKeyboard: true,
+        tabBarItemStyle: styles.tabItem,
         tabBarLabelStyle: styles.tabLabel,
         tabBarActiveTintColor: Colors.tabBarActive,
-        tabBarInactiveTintColor: Colors.tabBarInactive,
-        tabBarButton: (props) => (
-          <TabButton
-            style={props.style}
-            onPress={
-              props.onPress as ((e: GestureResponderEvent) => void) | undefined
-            }
-            accessibilityState={props.accessibilityState}
-            testID={props.testID}
-          >
-            {props.children}
-          </TabButton>
-        ),
+        tabBarInactiveTintColor: Colors.textSecondary,
+        tabBarButton: (props) => <TabButton style={props.style} onPress={props.onPress}
+          onLongPress={props.onLongPress}
+          accessibilityState={{ ...props.accessibilityState, selected: props['aria-selected'] ?? props.accessibilityState?.selected }}
+          accessibilityLabel={props['aria-label'] ?? props.accessibilityLabel}
+          accessibilityLargeContentTitle={props.accessibilityLargeContentTitle}
+          accessibilityShowsLargeContentViewer={props.accessibilityShowsLargeContentViewer}
+          testID={props.testID} disabled={props.disabled}>
+          {props.children}
+        </TabButton>,
       }}
     >
       <Tabs.Screen
@@ -362,59 +330,34 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  // A detached, rounded glass "pill" floating over the content. Transparent
-  // itself — the frosted material is painted by GlassBackground behind it.
   tabBar: {
     position: "absolute",
-    left: 28,
-    right: 28,
-    height: 70,
-    borderRadius: 26,
+    left: 12,
+    right: 12,
+    height: 76,
+    borderRadius: Design.radius.pill,
     backgroundColor: "transparent",
     borderTopWidth: 0,
-    paddingTop: 0,
-    paddingBottom: 0,
-    // Soft drop shadow all around (it's floating, so the shadow isn't just on top).
-    shadowColor: "#1A1A2E",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
+    paddingTop: 6,
+    paddingBottom: 6,
+    elevation: 0,
+    shadowColor: Colors.hero,
+    shadowOffset: { width: 0, height: 6 },
     shadowRadius: 18,
-    elevation: 12,
+    shadowOpacity: 0.12,
   },
-  // Rounded clip for the glass layers; matches the bar's radius. overflow hidden
-  // keeps the blur inside the pill; the shadow lives on the (unclipped) bar above.
-  glassClip: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 26,
-    overflow: "hidden",
-    backgroundColor: "rgba(255,255,255,0.96)",
-  },
-  // Faint white wash over the blur so icons/labels keep contrast and it reads
-  // as a light glass surface rather than a plain blur.
-  glassTint: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(255,255,255,0.96)",
-  },
-  // Bright hairline edge — the "lit rim" that sells the glass look.
-  glassEdge: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 26,
+  barSurface: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: Design.radius.pill,
+    backgroundColor: "transparent",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.7)",
+    borderColor: "rgba(255,255,255,0.75)",
   },
-  tabLabel: { fontSize: 11, fontFamily: "Manrope_700Bold", marginTop: 4 },
+  tabItem: { paddingVertical: 2 },
+  tabHitArea: { minHeight: 52, borderRadius: 9999, marginHorizontal: 2 },
+  selection: { ...StyleSheet.absoluteFill, borderRadius: 9999, backgroundColor: Colors.primaryLight, borderWidth: 1, borderColor: Colors.borderLight },
+  tabLabel: { fontSize: 11, fontFamily: "Manrope_700Bold", marginTop: 3 },
+  scanLabel: { fontSize: 11, fontFamily: "Manrope_700Bold", color: Colors.primaryDark, marginTop: 3 },
 
   tabButtonInner: { flex: 1, alignItems: "center", justifyContent: "center" },
 
@@ -435,10 +378,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 6,
+    elevation: 0,
   },
 });

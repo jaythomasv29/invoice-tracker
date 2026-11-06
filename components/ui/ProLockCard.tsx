@@ -1,3 +1,4 @@
+import { Design } from '../../constants/Design';
 import TouchableOpacity from './MotionTouchable';
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -57,17 +58,17 @@ export default function ProLockCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.surface,
-    borderRadius: 18,
+    borderRadius: Design.radius.card,
     borderWidth: 1,
     borderColor: Colors.border,
-    padding: 18,
-    gap: 6,
+    padding: 20,
+    gap: 10,
   },
   cardCompact: { padding: 14 },
   badge: {
     alignSelf: 'flex-start',
     backgroundColor: Colors.primaryLight,
-    borderRadius: 8,
+    borderRadius: Design.radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 3,
     marginBottom: 4,

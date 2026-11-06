@@ -1,6 +1,6 @@
 # Sift — kitchen clarity
 
-A quiet, capable financial workspace for independent restaurants. Warm ivory canvas, forest green actions and a dark evergreen spend card. Keep the established Manrope family: 800 for amounts, 700 for headings, 500/400 for supporting information. Use consistent 20-point gutters, 8-point spacing, 20–24-point card radii, light borders and restrained shadows.
+A quiet, capable financial workspace for independent restaurants. Warm ivory canvas, forest green actions and a dark evergreen spend card. Keep the established Manrope family: 800 for amounts, 700 for headings, 500/400 for supporting information. Use consistent 20-point gutters, 8-point spacing, 28-point content-card radii (24 for compact invoice rows), a 32-point spend hero, pill actions and flat surfaces with light borders.
 
 Lead with saved spending, period navigation, invoice/vendor counts and the next action. Use accurate currency and real date grouping. Never present spending as revenue or ingredient margin as restaurant profit. Color alone must not communicate status. Keep touch targets at least 44 points; preserve dynamic text and safe areas. All scan-processing locks, consent, review and duplicate protections remain intact.
 
@@ -9,3 +9,7 @@ Style reference: UI/UX Pro Max financial-dashboard style, verified explicitly. T
 Marketing assets must use actual app captures with fictional data. Label recipe features as Pro, and ingredient margins as ingredient margins. No invented testimonials, savings or review ratings. Source SVGs and raw captures stay with exported assets in launch-assets.
 
 Shared motion applies across authentication, onboarding, scanning/review, Home, invoice/supplier views, recipes, alerts, paywall and Profile. Use UI-thread press springs through MotionTouchable and a short 180ms opacity reveal through Screen. Reserve stronger transitions for meaningful state changes: 240ms Home introduction and 480ms milestone progress. Honor system Reduce Motion, preserve native back/modal navigation and disabled/processing locks, and keep dismiss backdrops stable. Calendar targets and new Home actions must remain at least 44 points. Physical-phone smoothness and largest-text checks remain required before public release; simulator captures alone do not establish those results.
+
+Owner-directed styling refinement (November 6): apply the supplied Wise Design reference through mobile-scale headline contrast, rounded panels, pill controls and shadow-free surfaces. Preserve all existing Colors tokens and Manrope; the reference’s desktop-scale typography and palette are not imported. See pages/app-polish.md for the implementation scope and exceptions.
+
+Home/navigation follow-up (November 6): the owner now requests glass controls and repeated, gentle entrances. Follow pages/home.md for the Home hierarchy, floating system-blur bottom bar, accessibility fallbacks and viewport-driven motion. This supersedes the earlier flat-navigation and single-introduction timing rules for those surfaces; retain flat financial content panels elsewhere.

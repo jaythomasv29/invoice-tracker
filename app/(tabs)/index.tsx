@@ -1,6 +1,11 @@
+import { Design } from '../../constants/Design';
 import HouseholdInsightsCard from '../../components/dashboard/HouseholdInsightsCard';
 import { useWorkspace } from '../../lib/workspaceContext';
-import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
+import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
+import { DashboardMotionContext, RevealPanel } from '../../components/dashboard/DashboardMotion';
+import GlassSurface from '../../components/ui/GlassSurface';
+import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { fetchInvoiceById, fetchInvoiceImageUrls } from '../../lib/invoicePipeline';
 import SpendOverviewCard from '../../components/dashboard/SpendOverviewCard';
@@ -9,9 +14,8 @@ import {
   View,
   Text,
   ScrollView,
+  AppState,
   StyleSheet,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
 } from "react-native";
 import SafeAreaView from '../../components/ui/Screen';
 import { useRouter, useFocusEffect } from "expo-router";
@@ -97,7 +101,12 @@ export default function HomeScreen() {
     periodPctChange,
   } = useSpendPeriod();
 
-  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(true);
+  const insets = useSafeAreaInsets();
+  const scrollY = useSharedValue(0);
+  const viewport = useSharedValue(0);
+  const epoch = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler(event => { scrollY.value = event.contentOffset.y; });
   const [infoOpen, setInfoOpen] = useState(false);
   const [openingReview, setOpeningReview] = useState(false);
   const openInvoices = (range?: {from:string;to:string}) => router.push({ pathname:'/(tabs)/vendors', params:{view:'invoices',from:range?.from??'',to:range?.to??'',entry:Date.now().toString()} });
@@ -121,34 +130,46 @@ export default function HomeScreen() {
   // brought into view before the spotlight measures them.
   const { registerScroller } = useTour();
   const scrollRef = useRef<ScrollView>(null);
-  const scrollOffset = useRef(0);
   useEffect(() => {
     registerScroller("index", {
       scrollTo: (y) => scrollRef.current?.scrollTo({ y, animated: true }),
-      getOffset: () => scrollOffset.current,
+      getOffset: () => scrollY.value,
     });
     return () => registerScroller("index", null);
-  }, [registerScroller]);
+  }, [registerScroller, scrollY]);
 
   useFocusEffect(
     useCallback(() => {
-      if (organization?.id) {
+      let active = true;
+      let request = 0;
+      let appState = AppState.currentState;
+      const load = () => {
+        if (!organization?.id) { setIsLoadingSummary(false); return; }
+        const current = ++request;
+        const scope = useStore.getState().activeScope;
         setIsLoadingSummary(true);
-        // Price alerts are a Pro feature — free orgs skip the fetch entirely.
-        Promise.all([
+        void Promise.all([
           fetchDashboardSummary(supabase, organization.id),
-          isPaid
-            ? fetchPriceAlerts(supabase, organization.id)
-            : Promise.resolve(),
-        ]).finally(() => setIsLoadingSummary(false));
-      }
-    }, [
-      organization?.id,
-      supabase,
-      isPaid,
-      fetchDashboardSummary,
-      fetchPriceAlerts,
-    ]),
+          isPaid ? fetchPriceAlerts(supabase, organization.id) : Promise.resolve(),
+        ]).catch(() => {
+          if (active && current === request) useStore.getState().showToast('Could not refresh your overview. Please try again.');
+        }).finally(() => {
+          if (!active || current !== request || scope !== useStore.getState().activeScope) return;
+          setIsLoadingSummary(false);
+          epoch.value += 1;
+        });
+      };
+      epoch.value += 1;
+      load();
+      const subscription = AppState.addEventListener('change', next => {
+        if (next === 'active' && appState !== 'active') {
+          epoch.value += 1;
+          load();
+        }
+        appState = next;
+      });
+      return () => { active = false; subscription.remove(); };
+    }, [organization?.id, supabase, isPaid, fetchDashboardSummary, fetchPriceAlerts, epoch]),
   );
 
   return (
@@ -156,7 +177,7 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={styles.greeting}>YOUR WORKSPACE</Text>
+          <Text style={styles.greeting}>{getGreeting().toUpperCase()}</Text>
           <View style={styles.nameRow}>
             <Text style={styles.restaurantName} numberOfLines={1}>
               {restaurantName}
@@ -189,51 +210,58 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <ScrollView
+      <DashboardMotionContext.Provider value={{ scrollY, viewport, epoch }}>
+      <Animated.ScrollView
         ref={scrollRef}
         style={{ flex: 1 }}
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { paddingBottom: 112 + insets.bottom }]}
+        onLayout={event => { viewport.value = event.nativeEvent.layout.height; }}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
-        onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
-          scrollOffset.current = e.nativeEvent.contentOffset.y;
-        }}
+        onScroll={onScroll}
       >
-        <View style={styles.overviewHeading}>
-          <View style={{flex:1}}><Text style={styles.overviewTitle}>{isPersonal?'Household overview':'Kitchen overview'}</Text><Text style={styles.overviewSubtitle}>{getGreeting()}. Let’s make it a clear one.</Text></View>
+        <RevealPanel><View style={styles.overviewHeading}>
+          <View style={{flex:1}}><Text style={styles.overviewTitle}>{isPersonal?'Household overview':'Kitchen overview'}</Text><Text style={styles.overviewSubtitle}>{isLoadingSummary ? 'Updating your overview…' : 'Your spending, in perspective.'}</Text></View>
           <TouchableOpacity onPress={() => router.push('/scan')} accessibilityRole="button" accessibilityLabel={isPersonal?'Scan a new receipt':'Scan a new invoice'} style={styles.quickScan}><Text style={styles.quickScanText}>+ Scan</Text></TouchableOpacity>
-        </View>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Search products and purchase prices" onPress={() => router.push('/products')} style={{padding:18,borderRadius:20,backgroundColor:Colors.surface,borderWidth:1,borderColor:Colors.border,marginBottom:16}}><Text style={{fontFamily:'Manrope_700Bold',fontSize:15,color:Colors.primaryDark}}>Search items & prices →</Text><Text style={{fontFamily:'Manrope_500Medium',fontSize:12,color:Colors.textSecondary,marginTop:4}}>Find a purchase. Build your product list.</Text></TouchableOpacity>
-        <SpendOverviewCard invoices={spendInvoices} vendors={vendors} loading={isLoadingSummary} onOpenInvoices={openInvoices} onOpenSuppliers={openSuppliers} onOpenVendor={openVendor} />
-        {awaitingReviewCount>0&&<View style={styles.reviewCard}>
+        </View></RevealPanel>
+
+        <RevealPanel animate={false}><SpendOverviewCard invoices={spendInvoices} vendors={vendors} loading={isLoadingSummary} onOpenInvoices={openInvoices} onOpenSuppliers={openSuppliers} onOpenVendor={openVendor} /></RevealPanel>
+        {awaitingReviewCount>0&&<RevealPanel><View style={styles.reviewCard}>
           <Text style={styles.reviewTitle}>{awaitingReviewCount} {awaitingReviewCount===1?'invoice needs':'invoices need'} review</Text>
           <Text style={styles.reviewBody}>These scans are ready. Review and save them to include them in your spending.</Text>
           {awaitingReview.map(invoice=><TouchableOpacity key={invoice.id} disabled={openingReview} accessibilityRole="button" accessibilityLabel={`Review invoice from ${invoice.vendorName}`} onPress={()=>void openReview(invoice.id)} style={styles.reviewRow}>
             <Text style={styles.reviewVendor} numberOfLines={1}>{invoice.vendorName}</Text><Text style={styles.reviewLink}>{openingReview?'Opening…':'Review →'}</Text>
           </TouchableOpacity>)}
-        </View>}
+        </View></RevealPanel>}
 
+        <RevealPanel delay={40}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Search products and purchase prices" onPress={() => router.push('/products')} style={styles.searchAction}>
+            <GlassSurface />
+            <View style={styles.searchIcon}><Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={Colors.primaryDark} strokeWidth={1.8} accessible={false}><Path d="M21 21l-4.5-4.5M19 10.5a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0Z" /></Svg></View>
+            <View style={{flex:1}}><Text style={styles.searchTitle}>Search items & prices</Text><Text style={styles.searchCaption}>Find a purchase. Build your product list.</Text></View>
+            <Text style={styles.searchChevron} accessible={false}>›</Text>
+          </TouchableOpacity>
+        </RevealPanel>
 
-        <View style={styles.intelligenceHeading}>
+        <RevealPanel><View style={styles.intelligenceHeading}>
           <View style={{flex:1}}><Text style={styles.intelligenceEyebrow}>THE BIGGER PICTURE</Text><Text style={styles.intelligenceTitle}>{isPersonal?'Shopping intelligence':'Purchasing intelligence'}</Text><Text style={styles.overviewSubtitle}>{isPersonal?'Your stores. Your essentials. A little more perspective.':'Build momentum. Spot changes. Know your next move.'}</Text></View>
           {isPaid && <View style={styles.intelligenceBadge}><Text style={styles.intelligenceBadgeText}>PRO</Text></View>}
-        </View>
-        <Animated.View entering={FadeInDown.duration(240).reduceMotion(ReduceMotion.System)} style={{gap:16}}>
-          {isPersonal?<HouseholdInsightsCard count={spendInvoices.length} isPaid={isPaid}/>:<TourTarget id="home-streak"><KitchenMomentumCard invoices={spendInvoices} pending={awaitingReviewCount} loading={isLoadingSummary} onInvoices={()=>openInvoices()} onReview={()=>{ if(awaitingReview[0]) void openReview(awaitingReview[0].id); else openInvoices(); }} onScan={()=>router.push('/scan')} /></TourTarget>}
-          {!isPersonal&&<RecipeCostingCard isPaid={isPaid} onPress={()=>router.push(isPaid?'/recipes':'/paywall')} />}
+        </View></RevealPanel>
+          <RevealPanel>{isPersonal?<HouseholdInsightsCard count={spendInvoices.length} isPaid={isPaid}/>:<TourTarget id="home-streak"><KitchenMomentumCard invoices={spendInvoices} pending={awaitingReviewCount} loading={isLoadingSummary} onInvoices={()=>openInvoices()} onReview={()=>{ if(awaitingReview[0]) void openReview(awaitingReview[0].id); else openInvoices(); }} onScan={()=>router.push('/scan')} /></TourTarget>}</RevealPanel>
+          {!isPersonal&&<RevealPanel><RecipeCostingCard isPaid={isPaid} onPress={()=>router.push(isPaid?'/recipes':'/paywall')} /></RevealPanel>}
           {isPaid ? <>
-            {!isPersonal&&<TourTarget id="home-alerts"><AIInsightCard priceAlerts={priceAlerts} onPress={()=>router.push('/(tabs)/alerts')} /></TourTarget>}
-            {!isPersonal&&<MissingInvoiceCard flags={missingInvoices} onPressVendor={openVendor} />}
-            <View style={styles.patternHeading}><Text style={styles.patternTitle}>{isPersonal?'Your shopping patterns':'Your purchasing patterns'}</Text><TouchableOpacity onPress={openSuppliers} accessibilityRole="button" style={styles.sectionAction}><Text style={styles.insightsLink}>{isPersonal?'Stores':'Suppliers'} ›</Text></TouchableOpacity></View>
-            <TourTarget id="home-spend"><SpendTrendCard period={spendView} yearsBack={yearsBack} periodTotal={periodTotal} periodPctChange={periodPctChange} barData={periodBarData} isLoading={isLoadingSummary} onOpenDetails={openSuppliers} /></TourTarget>
-            <TourTarget id="home-vendors"><VendorSpendListCard vendors={vendors} period={spendView} onChangePeriod={setSpendView} yearsBack={yearsBack} onChangeYears={setYearsBack} maxYears={maxYears} periodBarData={periodBarData} onPressVendor={openVendor} isLoading={isLoadingSummary} /></TourTarget>
-            {!isPersonal&&<DeliveryGapCard total={deliveryGapTotal} items={deliveryGapItems} onPressInvoice={id=>router.push(`/invoice/${id}`)} />}
-            {categorySpend.length>0 && <CategorySpendCard categorySpend={categorySpend} onOpenInvoices={()=>openInvoices()} />}
-            {!isPersonal&&<TopItemsCard topItems={topItems} onPressItem={name=>router.push({pathname:'/item-history',params:{itemName:name}})} />}
-          </> : <ProLockCard stat={monthTotal>0?`$${Math.round(monthTotal).toLocaleString('en-US')}`:undefined} statLabel={monthTotal>0?'spent this month':undefined} title={isPersonal?'See the patterns behind your shopping':'See the patterns behind your purchasing'} body={isPersonal?'Personal Pro connects your store trends, category breakdowns and comparable item prices.':'Pro connects supplier trends, price-change alerts and recipe costing to your invoices.'} />}
-        </Animated.View>
-        {uploadActivity.length>0 && <UploadActivityCard entries={uploadActivity} onPressInvoice={id=>router.push(`/invoice/${id}`)} />}
-      </ScrollView>
+            {!isPersonal&&<RevealPanel><TourTarget id="home-alerts"><AIInsightCard priceAlerts={priceAlerts} onPress={()=>router.push('/(tabs)/alerts')} /></TourTarget></RevealPanel>}
+            {!isPersonal&&missingInvoices.length>0&&<RevealPanel><MissingInvoiceCard flags={missingInvoices} onPressVendor={openVendor} /></RevealPanel>}
+            <RevealPanel><View style={styles.patternHeading}><Text style={styles.patternTitle}>{isPersonal?'Your shopping patterns':'Your purchasing patterns'}</Text><TouchableOpacity onPress={openSuppliers} accessibilityRole="button" style={styles.sectionAction}><Text style={styles.insightsLink}>{isPersonal?'Stores':'Suppliers'} ›</Text></TouchableOpacity></View></RevealPanel>
+            <RevealPanel><TourTarget id="home-spend"><SpendTrendCard period={spendView} yearsBack={yearsBack} periodTotal={periodTotal} periodPctChange={periodPctChange} barData={periodBarData} isLoading={isLoadingSummary} onOpenDetails={openSuppliers} /></TourTarget></RevealPanel>
+            <RevealPanel><TourTarget id="home-vendors"><VendorSpendListCard vendors={vendors} period={spendView} onChangePeriod={setSpendView} yearsBack={yearsBack} onChangeYears={setYearsBack} maxYears={maxYears} periodBarData={periodBarData} onPressVendor={openVendor} isLoading={isLoadingSummary} /></TourTarget></RevealPanel>
+            {!isPersonal&&deliveryGapItems.length>0&&<RevealPanel><DeliveryGapCard total={deliveryGapTotal} items={deliveryGapItems} onPressInvoice={id=>router.push(`/invoice/${id}`)} /></RevealPanel>}
+            {categorySpend.length>0 && <RevealPanel><CategorySpendCard categorySpend={categorySpend} onOpenInvoices={()=>openInvoices()} /></RevealPanel>}
+            {!isPersonal&&topItems.length>0&&<RevealPanel><TopItemsCard topItems={topItems} onPressItem={name=>router.push({pathname:'/item-history',params:{itemName:name}})} /></RevealPanel>}
+          </> : <RevealPanel><ProLockCard stat={monthTotal>0?`$${Math.round(monthTotal).toLocaleString('en-US')}`:undefined} statLabel={monthTotal>0?'spent this month':undefined} title={isPersonal?'See the patterns behind your shopping':'See the patterns behind your purchasing'} body={isPersonal?'Personal Pro connects your store trends, category breakdowns and comparable item prices.':'Pro connects supplier trends, price-change alerts and recipe costing to your invoices.'} /></RevealPanel>}
+        {uploadActivity.length>0 && <RevealPanel><UploadActivityCard entries={uploadActivity} onPressInvoice={id=>router.push(`/invoice/${id}`)} /></RevealPanel>}
+      </Animated.ScrollView>
+      </DashboardMotionContext.Provider>
 
       <OnboardingExplainerSheet
         visible={infoOpen}
@@ -248,57 +276,24 @@ export default function HomeScreen() {
 }
 
 function BellIcon() {
-  return (
-    <View style={{ width: 17, height: 18, alignItems: "center" }}>
-      <View
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 3,
-          width: 11,
-          height: 10,
-          borderWidth: 2,
-          borderColor: Colors.textPrimary,
-          borderRadius: 6,
-          borderBottomWidth: 0,
-        }}
-      />
-      <View
-        style={{
-          position: "absolute",
-          bottom: 3,
-          left: 0,
-          width: 17,
-          height: 2.5,
-          backgroundColor: Colors.textPrimary,
-          borderRadius: 2,
-        }}
-      />
-      <View
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 6.5,
-          width: 4,
-          height: 3,
-          backgroundColor: Colors.textPrimary,
-          borderRadius: 2,
-        }}
-      />
-    </View>
-  );
+  return <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={Colors.textPrimary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" accessible={false}><Path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></Svg>;
 }
 
 const styles = StyleSheet.create({
-  overviewHeading: {flexDirection:'row',alignItems:'center',gap:12,marginBottom:4},
-  overviewTitle:{fontFamily:'Manrope_800ExtraBold',fontSize:27,letterSpacing:-1,color:Colors.textPrimary},
-  overviewSubtitle:{fontFamily:'Manrope_400Regular',fontSize:12,lineHeight:19,color:Colors.textSecondary,marginTop:3},
-  quickScan:{minWidth:76,minHeight:44,paddingHorizontal:14,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:Colors.primary},
+  searchAction: { flexDirection:'row', alignItems:'center', gap:12, paddingHorizontal:18, paddingVertical:16, minHeight:76, borderRadius:9999, borderWidth:1, borderColor:Colors.border },
+  searchIcon: { width:32, height:32, alignItems:'center', justifyContent:'center' },
+  searchTitle: { fontFamily:'Manrope_700Bold', fontSize:15, color:Colors.primaryDark },
+  searchCaption: { fontFamily:'Manrope_400Regular', fontSize:12, lineHeight:18, color:Colors.textSecondary, marginTop:3 },
+  searchChevron: { fontSize:26, color:Colors.primaryDark },
+  overviewHeading: {flexDirection:'row',alignItems: 'flex-start',gap:12,marginBottom: 8},
+  overviewTitle:{fontFamily:'Manrope_800ExtraBold',fontSize: 30,letterSpacing: -1.2,color:Colors.textPrimary},
+  overviewSubtitle:{fontFamily:'Manrope_400Regular',fontSize: 14,lineHeight: 21,color:Colors.textSecondary,marginTop:3},
+  quickScan:{minWidth:76,minHeight:44,paddingHorizontal:14,borderRadius: Design.radius.pill,alignItems:'center',justifyContent:'center',backgroundColor:Colors.primary},
   quickScanText:{fontFamily:'Manrope_700Bold',fontSize:14,color:Colors.textOnPrimary},
-  intelligenceHeading:{flexDirection:'row',alignItems:'flex-start',gap:12,marginTop:20,marginBottom:2},
+  intelligenceHeading:{flexDirection:'row',alignItems:'flex-start',gap:12,marginTop: 16,marginBottom: 8},
   intelligenceEyebrow:{fontFamily:'Manrope_700Bold',fontSize:10,letterSpacing:1.5,color:Colors.primary,marginBottom:7},
-  intelligenceTitle:{fontFamily:'Manrope_800ExtraBold',fontSize:25,letterSpacing:-0.6,color:Colors.textPrimary,marginBottom:6},
-  intelligenceBadge:{paddingHorizontal:10,paddingVertical:6,borderRadius:10,backgroundColor:Colors.primaryLight},
+  intelligenceTitle:{fontFamily:'Manrope_800ExtraBold',fontSize: 28,letterSpacing: -1,color:Colors.textPrimary,marginBottom:6},
+  intelligenceBadge:{paddingHorizontal:10,paddingVertical:6,borderRadius: Design.radius.pill,backgroundColor:Colors.primaryLight},
   intelligenceBadgeText:{fontFamily:'Manrope_800ExtraBold',fontSize:10,letterSpacing:1,color:Colors.primaryDark},
   patternHeading:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:8,marginTop:8},
   patternTitle:{fontFamily:'Manrope_700Bold',fontSize:17,color:Colors.textPrimary},
@@ -306,7 +301,7 @@ const styles = StyleSheet.create({
   insightsToggle:{flexDirection:'row',alignItems:'center',gap:12,paddingVertical:12},
   insightsTitle:{fontFamily:'Manrope_700Bold',fontSize:17,color:Colors.textPrimary},
   insightsLink:{fontFamily:'Manrope_700Bold',fontSize:13,color:Colors.primary},
-  reviewCard:{padding:20,gap:12,borderRadius:20,backgroundColor:Colors.surface,borderWidth:1,borderColor:Colors.border},
+  reviewCard:{padding:20,gap:12,borderRadius: Design.radius.card,backgroundColor:Colors.surface,borderWidth:1,borderColor:Colors.border},
   reviewTitle:{fontFamily:'Manrope_700Bold',fontSize:18,color:Colors.textPrimary},
   reviewBody:{fontFamily:'Manrope_400Regular',fontSize:14,lineHeight:21,color:Colors.textSecondary},
   reviewRow:{minHeight:48,flexDirection:'row',alignItems:'center',gap:12},
@@ -349,16 +344,13 @@ const styles = StyleSheet.create({
   iconBtn: {
     width: 44,
     height: 44,
-    borderRadius: 13,
+    borderRadius: Design.radius.pill,
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 1,
-    shadowRadius: 3,
+    shadowOpacity: 0,
   },
   alertDot: {
     position: "absolute",
@@ -374,14 +366,11 @@ const styles = StyleSheet.create({
   avatar: {
     width: 44,
     height: 44,
-    borderRadius: 13,
+    borderRadius: Design.radius.pill,
     backgroundColor: Colors.primary,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
+    shadowOpacity: 0,
   },
   avatarText: {
     fontSize: 14,
@@ -397,14 +386,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 14,
     backgroundColor: Colors.surface,
-    borderRadius: 18,
+    borderRadius: Design.radius.card,
     borderWidth: 1,
     borderColor: Colors.border,
     padding: 18,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 18,
+    shadowOpacity: 0,
   },
   vendorIconWrap: {
     width: 44,

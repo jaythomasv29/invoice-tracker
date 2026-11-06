@@ -1,3 +1,4 @@
+import { Design } from '../../constants/Design';
 import {
   Text,
   TextInput,
@@ -118,8 +119,8 @@ export function UnitPrice({
 export const ui = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: "row", alignItems: "center", gap: 12, padding: 20 },
-  title: {
-    fontSize: 24,
+  title: { letterSpacing: -1,
+    fontSize: 30,
     fontFamily: "Manrope_800ExtraBold",
     color: Colors.textPrimary,
     flexShrink: 1,
@@ -136,7 +137,7 @@ export const ui = StyleSheet.create({
   card: {
     padding: 20,
     gap: 12,
-    borderRadius: 24,
+    borderRadius: Design.radius.card,
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -177,7 +178,7 @@ export const ui = StyleSheet.create({
   priceUnit: { fontSize: 14, fontFamily: "Manrope_600SemiBold" },
   action: {
     minHeight: 48,
-    borderRadius: 14,
+    borderRadius: Design.radius.pill,
     backgroundColor: Colors.primaryDark,
     alignItems: "center",
     justifyContent: "center",
@@ -195,7 +196,7 @@ export const ui = StyleSheet.create({
     paddingHorizontal: 14,
     minHeight: 44,
     justifyContent: "center",
-    borderRadius: 12,
+    borderRadius: Design.radius.pill,
     borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.surface,

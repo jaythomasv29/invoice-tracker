@@ -1,3 +1,4 @@
+import { Design } from '../../constants/Design';
 import { useWorkspace } from '../../lib/workspaceContext';
 import { filterInvoiceLibrary } from '../../lib/invoiceLibrary';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
@@ -278,21 +279,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12,
     paddingHorizontal: 20, paddingTop: 10, paddingBottom: 12,
   },
-  title: { fontSize: 28, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, letterSpacing: -0.5 },
+  title: { fontSize: 32, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary, letterSpacing: -1},
   subtitle: { fontSize: 13, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary, marginTop: 2 },
 
   segmentRow: {
     flexDirection: 'row', marginHorizontal: 16, marginBottom: 14,
-    backgroundColor: Colors.surface, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, padding: 3,
+    backgroundColor: Colors.surface, borderRadius: Design.radius.pill, borderWidth: 1, borderColor: Colors.border, padding: 3,
   },
-  segment: { flex: 1, paddingVertical: 8, borderRadius: 9, alignItems: 'center' },
-  segmentActive: { backgroundColor: Colors.primary },
+  segment: { justifyContent: 'center', minHeight: 44, flex: 1, paddingVertical: 8, borderRadius: Design.radius.pill, alignItems: 'center' },
+  segmentActive: { backgroundColor: Colors.accent},
   segmentText: { fontSize: 13, fontFamily: 'Manrope_700Bold', color: Colors.textSecondary },
-  segmentTextActive: { color: '#fff' },
+  segmentTextActive: { color: Colors.primaryDark },
 
   searchWrap: { paddingHorizontal: 16, marginBottom: 10 },
   searchInput: {
-    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, borderRadius: 12,
+    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, borderRadius: Design.radius.pill,
     paddingHorizontal: 14, height: 44,
     fontSize: 14, fontFamily: 'Manrope_600SemiBold', color: Colors.textPrimary,
   },
@@ -300,9 +301,8 @@ const styles = StyleSheet.create({
   scroll: { padding: 20, gap: 11, paddingBottom: 120 },
 
   vendorCard: {
-    backgroundColor: Colors.surface, borderRadius: 22,
-    borderWidth: 1, borderColor: Colors.border, padding: 20, gap: 12,
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 1, shadowRadius: 12,
+    backgroundColor: Colors.surface, borderRadius: Design.radius.card,
+    borderWidth: 1, borderColor: Colors.border, padding: 20, gap: 12, shadowOpacity: 0,
   },
   vendorTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   vendorAvatar: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },

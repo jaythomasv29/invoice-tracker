@@ -1,3 +1,4 @@
+import { Design } from '../../constants/Design';
 import TouchableOpacity from '../ui/MotionTouchable';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
@@ -164,9 +165,8 @@ export default function UploadStreakCard({ onScan }: { onScan: () => void }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.surface, borderRadius: 22,
-    borderWidth: 1, borderColor: Colors.border, padding: 18,
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 18,
+    backgroundColor: Colors.surface, borderRadius: Design.radius.card,
+    borderWidth: 1, borderColor: Colors.border, padding: 18, shadowOpacity: 0,
   },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   flameWrap: {
@@ -196,8 +196,7 @@ const styles = StyleSheet.create({
   loggedChipText: { fontSize: 13, fontFamily: 'Manrope_700Bold', color: Colors.primaryDark },
   cta: {
     flex: 1, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 11,
-    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 10, elevation: 4,
+    backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 11, shadowOpacity: 0, elevation: 0,
   },
   ctaText: { fontSize: 14, fontFamily: 'Manrope_800ExtraBold', color: '#fff', letterSpacing: -0.1 },
 });

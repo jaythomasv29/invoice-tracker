@@ -1,3 +1,4 @@
+import { Design } from '../../constants/Design';
 import { useCallback, useEffect, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
@@ -219,7 +220,7 @@ const s = StyleSheet.create({
   wrap: { gap: 16 },
   card: {
     padding: 20,
-    borderRadius: 24,
+    borderRadius: Design.radius.card,
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,

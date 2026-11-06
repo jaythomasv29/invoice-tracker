@@ -1,3 +1,4 @@
+import { Design } from '../../constants/Design';
 import TouchableOpacity from '../ui/MotionTouchable';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
@@ -25,10 +26,9 @@ export default function PriceAlertBanner({ alert, onPress }: { alert: PriceAlert
 
 const styles = StyleSheet.create({
   alertCard: {
-    backgroundColor: Colors.surface, borderRadius: 18,
+    backgroundColor: Colors.surface, borderRadius: Design.radius.card,
     borderWidth: 1, borderColor: Colors.border,
-    padding: 15, flexDirection: 'row', gap: 13, alignItems: 'center',
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 1, shadowRadius: 12,
+    padding: 15, flexDirection: 'row', gap: 13, alignItems: 'center', shadowOpacity: 0,
   },
   alertIconWrap: {
     width: 42, height: 42, borderRadius: 12,
