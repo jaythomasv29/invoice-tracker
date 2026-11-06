@@ -1,0 +1,35 @@
+{
+  "verifiedAt": "2026-11-06T23:59:35.106444+00:00",
+  "sourceCommit": "df909d6520ed02478565423199f48c974384170b",
+  "channel": "beta",
+  "build": "1.0.0 (7)",
+  "updateId": "01a1b34d-4cc4-71b8-9ca6-8f1fee9d1ddf",
+  "groupId": "adb55df9-eec9-4503-bab1-cdb9b1c7ac84",
+  "runtimeVersion": "062bedef39aff97c339accbe22183fe3470f622f",
+  "migration": "20261106030000_commercial_product_groups",
+  "nativeBuildUsed": false,
+  "verification": {
+    "typecheck": "passed",
+    "lint": "passed, no lint warnings",
+    "nodeTests": 55,
+    "sqlAssertions": 10,
+    "hosted": {
+      "checks": [
+        "equivalent product names across suppliers return one group",
+        "both supplier options retained",
+        "original supplier prices preserved",
+        "supplier search retains other options for comparison",
+        "groups are isolated to the verified workspace",
+        "supplier-specific reorder history remains separate",
+        "supplier-specific reorder history remains separate",
+        "grouping does not rewrite invoice records"
+      ],
+      "passed": true,
+      "cleanup": "complete"
+    },
+    "bundle": "passed",
+    "liveManifest": "passed",
+    "ui": "375px real-component browser fixture: grouped supplier options and normalized prices; background amount settles correctly; physical-phone foreground motion and VoiceOver remain QA items"
+  },
+  "nextPhases": "REFINEMENT_PHASES.md"
+}
