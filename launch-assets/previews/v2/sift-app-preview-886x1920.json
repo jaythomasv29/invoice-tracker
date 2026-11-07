@@ -1,0 +1,94 @@
+{
+  "file": "/Users/james/Desktop/code/InvoiceIntelligenceApp/launch-assets/previews/v2/sift-app-preview-886x1920.mp4",
+  "sha256": "bfdd6951562f5ea9b6088b88e82354c36b96a70e4e6ebe5b47d064ac69ac09b4",
+  "durationSeconds": 29.2,
+  "posterFrameSeconds": 9.5,
+  "video": {
+    "codec": "h264",
+    "profile": "High",
+    "level": 40,
+    "width": 886,
+    "height": 1920,
+    "pix_fmt": "yuv420p",
+    "fps": "30/1",
+    "avg_fps": "30/1",
+    "bit_rate": 7684681,
+    "color": [
+      "bt709",
+      "bt709",
+      "bt709"
+    ]
+  },
+  "audio": {
+    "codec": "aac",
+    "profile": "LC",
+    "channels": 2,
+    "sample_rate": "48000",
+    "bit_rate": 265046
+  },
+  "segments": [
+    {
+      "file": "/Users/james/Desktop/code/InvoiceIntelligenceApp/launch-assets/captures/2026-11-07/recording/02-review.mov",
+      "scene": "review",
+      "start": 43,
+      "end": 48.8,
+      "speed": 1,
+      "dur": 5.799999999999997,
+      "caption": "Check every line.",
+      "pro": null
+    },
+    {
+      "file": "/Users/james/Desktop/code/InvoiceIntelligenceApp/launch-assets/captures/2026-11-07/recording/03-alerts.mov",
+      "scene": "alerts",
+      "start": 20,
+      "end": 27.4,
+      "speed": 1,
+      "dur": 7.399999999999999,
+      "caption": "Catch quiet price hikes.",
+      "pro": "BUSINESS PRO"
+    },
+    {
+      "file": "/Users/james/Desktop/code/InvoiceIntelligenceApp/launch-assets/captures/2026-11-07/recording/04-home.mov",
+      "scene": "home",
+      "start": 21.7,
+      "end": 25.3,
+      "speed": 1,
+      "dur": 3.6000000000000014,
+      "caption": "See where the money goes.",
+      "pro": null
+    },
+    {
+      "file": "/Users/james/Desktop/code/InvoiceIntelligenceApp/launch-assets/captures/2026-11-07/recording/04-home.mov",
+      "scene": "intelligence",
+      "start": 25.3,
+      "end": 30.3,
+      "speed": 1,
+      "dur": 5,
+      "caption": "Spot what is creeping up.",
+      "pro": "BUSINESS PRO"
+    },
+    {
+      "file": "/Users/james/Desktop/code/InvoiceIntelligenceApp/launch-assets/captures/2026-11-07/recording/05-recipes.mov",
+      "scene": "recipes",
+      "start": 27.8,
+      "end": 32,
+      "speed": 1,
+      "dur": 4.199999999999999,
+      "caption": "Know what every plate costs.",
+      "pro": "BUSINESS PRO"
+    },
+    {
+      "file": "/Users/james/Desktop/code/InvoiceIntelligenceApp/launch-assets/captures/2026-11-07/recording/06-library.mov",
+      "scene": "library",
+      "start": 30.6,
+      "end": 33.8,
+      "speed": 1,
+      "dur": 3.1999999999999957,
+      "caption": "Every invoice, found fast.",
+      "pro": null
+    }
+  ],
+  "music": "scripts/lib/music_bed.py (synthesized in-house)",
+  "ok": true,
+  "problems": []
+}

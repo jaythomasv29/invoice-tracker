@@ -1,0 +1,8 @@
+{ "segments": [
+  { "scene": "review",       "file": "02-review.mov",  "start": 43.0, "end": 48.8 },
+  { "scene": "alerts",       "file": "03-alerts.mov",  "start": 20.0, "end": 27.4 },
+  { "scene": "home",         "file": "04-home.mov",    "start": 21.7, "end": 25.3 },
+  { "scene": "intelligence", "file": "04-home.mov",    "start": 25.3, "end": 30.3 },
+  { "scene": "recipes",      "file": "05-recipes.mov", "start": 27.8, "end": 32.0 },
+  { "scene": "library",      "file": "06-library.mov", "start": 30.6, "end": 33.8 }
+] }

@@ -1,0 +1,69 @@
+{
+  "film": "Sift-launch-film-1920x1080.mp4",
+  "sha256": "dd840319a94e425152dc7c096ef994acffe555d42787d6794360acbb5519ce7b",
+  "durationSeconds": 42.5,
+  "width": 1920,
+  "height": 1080,
+  "video": [
+    "h264",
+    "High",
+    40,
+    "yuv420p",
+    "30/1"
+  ],
+  "audio": [
+    "aac",
+    2,
+    "48000",
+    202923
+  ],
+  "cta": "Coming to iPhone",
+  "music": "scripts/lib/music_bed.py (synthesized in-house, no third-party audio)",
+  "captures": "/Users/james/Desktop/code/InvoiceIntelligenceApp/launch-assets/captures/2026-11-07/stills",
+  "timeline": [
+    {
+      "kind": "hook",
+      "dur": 5
+    },
+    {
+      "kind": "scene",
+      "key": "alerts",
+      "dur": 5,
+      "source": "03-alerts.mov@21.1s"
+    },
+    {
+      "kind": "scene",
+      "key": "review",
+      "dur": 5,
+      "source": "02-review.mov@42.8s"
+    },
+    {
+      "kind": "scene",
+      "key": "home",
+      "dur": 5,
+      "source": "04-home.mov@21.9s"
+    },
+    {
+      "kind": "scene",
+      "key": "recipes",
+      "dur": 5,
+      "source": "05-recipes.mov@27s"
+    },
+    {
+      "kind": "scene",
+      "key": "library",
+      "dur": 5,
+      "source": "06-library.mov@29.2s"
+    },
+    {
+      "kind": "scene",
+      "key": "suppliers",
+      "dur": 5,
+      "source": "suppliers.png"
+    },
+    {
+      "kind": "close",
+      "dur": 7.5
+    }
+  ]
+}

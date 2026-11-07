@@ -61,7 +61,7 @@ export default function Home() {
           accent={BRAND}
           title={<>Every invoice.<br />A bigger picture.</>}
           subtitle="Build your saved-invoice milestones, see your weekly upload rhythm, and keep the next useful action in view. Pro adds deeper purchasing patterns and price insights."
-          visual={<PhoneFrame src={media.screens.intelligence.src} alt="Sift's expanded Purchasing intelligence with saved-invoice milestones, weekly activity, recipe costing and price insights using fictional data" maxWidthClass="max-w-[320px]" />}
+          visual={<PhoneFrame src={media.screens.intelligence.src} alt="Sift's Purchasing intelligence with this week's delivery rhythm, recipe costing, and a Smart Sift price insight listing items that crept up, using fictional data" maxWidthClass="max-w-[320px]" />}
         />
 
         <FeatureSection
@@ -70,7 +70,7 @@ export default function Home() {
           title={<>Snap a photo,<br />skip the data entry.</>}
           subtitle="Photograph or import an invoice. AI drafts the line items, prices, and totals. Review the details, mark missing deliveries, and make corrections before saving."
           reverse
-          visual={<PhoneFrame src={media.screens.review.src} alt="Current Sift invoice review with extracted line items, missing-delivery controls and the invoice total" maxWidthClass="max-w-[320px]" />}
+          visual={<PhoneFrame src={media.screens.review.src} alt="Sift invoice review for a fictional supplier invoice, with extracted line items, a quick-check flag on one quantity, and the invoice total" maxWidthClass="max-w-[320px]" />}
         />
 
         <FeatureSection
@@ -78,7 +78,7 @@ export default function Home() {
           accent={ALERT}
           title={<>Spot price changes<br />before the next order.</>}
           subtitle="Compare new invoice prices with your purchasing history and review the supplier changes that need attention."
-          visual={<PhoneFrame src={media.screens.alerts.src} alt="Current Sift price alerts comparing fictional supplier prices with earlier purchases" maxWidthClass="max-w-[320px]" />}
+          visual={<PhoneFrame src={media.screens.alerts.src} alt="Sift price alerts grouped by product and dated by delivery, comparing fictional supplier prices with earlier purchases" maxWidthClass="max-w-[320px]" />}
         />
 
         <FeatureSection
@@ -87,7 +87,7 @@ export default function Home() {
           reverse
           title={<>Every invoice.<br />Easy to find.</>}
           subtitle="Keep supplier history together, search by vendor or invoice number, and open the records behind your daily, weekly, and monthly spending."
-          visual={<PhoneFrame src={media.screens.library.src} alt="Current Sift invoice library with searchable fictional supplier invoices and dates" maxWidthClass="max-w-[320px]" />}
+          visual={<PhoneFrame src={media.screens.library.src} alt="Sift invoice library listing searchable fictional supplier invoices with dates, item counts and totals" maxWidthClass="max-w-[320px]" />}
         />
 
         <FeatureSection
@@ -96,7 +96,7 @@ export default function Home() {
           accent={BRAND}
           title={<>See what every dish<br />actually costs to make.</>}
           subtitle="Confirm ingredients and quantities, then match prices from your invoices to estimate each dish’s ingredient cost and ingredient margin. Estimates become more useful as you add and match data."
-          visual={<PhoneFrame src={media.screens.recipes.src} alt="Current Sift recipe list showing sample ingredient costs, ingredient margins and confidence labels" maxWidthClass="max-w-[340px]" />}
+          visual={<PhoneFrame src={media.screens.recipes.src} alt="Sift recipe costing list showing fictional dishes with ingredient costs, ingredient margins, and Data-backed or Estimated labels" maxWidthClass="max-w-[340px]" />}
         />
 
         <ClosingCTA />

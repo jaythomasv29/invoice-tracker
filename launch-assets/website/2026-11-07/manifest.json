@@ -1,0 +1,74 @@
+{
+  "createdAt": "2026-11-07T23:07:32.717Z",
+  "appCommit": "16e40a1",
+  "data": "Fictional seeded development ledger; disposable development identity. No production restaurant data.",
+  "screens": {
+    "home": {
+      "src": "/screens/home-83fc58c081.webp",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "83fc58c0818fa926784f7355ec800a345cca0e132143f653005109e465d4d9fc",
+      "rawSha256": "58817fe9c78ff08272ad867563da172ae1ded4a236f5a8a984f563e5a8df1b3d"
+    },
+    "intelligence": {
+      "src": "/screens/intelligence-2bc2f974ab.webp",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "2bc2f974ab0744c89bf305bd94c4b8f719184ca4f92829fb643505423bbc6348",
+      "rawSha256": "ed1ec053b73ca357f2150413e4df0bf7b03529da4dd6aa0ca09ef4a8985900b5"
+    },
+    "review": {
+      "src": "/screens/review-479cb29491.webp",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "479cb29491df1bebc975596b0e09e8c89dfb7747657c097985fe3c0f33bc1a2b",
+      "rawSha256": "2572fd61061e3fae5d4d6cd98b163155a2a2fc71fb582d1deb638ff9bdacbc96"
+    },
+    "alerts": {
+      "src": "/screens/alerts-882a284737.webp",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "882a28473784ab0e5209378773dc3afd5643a862287762eb099c8e7bcad64c3b",
+      "rawSha256": "8720264f8c8b0fa6533e756aad28b6dcea2e1c2af2b7cb452ffcf76c53c41cdf"
+    },
+    "library": {
+      "src": "/screens/library-8af3efa4d4.webp",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "8af3efa4d443086d25d2f7adc71881d4dcdb2bffaf26bc21c504828c051ad5af",
+      "rawSha256": "d1104a42b1db366025e47d61ef06350767eee34f442a269f5b7df4780ffabadc"
+    },
+    "recipes": {
+      "src": "/screens/recipes-5895c10ee2.webp",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "5895c10ee2ad2d1e6b535fc6b3ba7d4c21c6a5c8be1cc0ebe9f95786e59c8b02",
+      "rawSha256": "1b3b5abaae5e6ee7a0a6ebc7e4f83820fd0f93d6c046d94b81ecae8a17e2e5a9"
+    },
+    "personal": {
+      "src": "/screens/personal-home-ce0ac249b4.webp",
+      "width": 1320,
+      "height": 2868,
+      "data": "Actual native Personal UI; fictional isolated QA household.",
+      "sha256": "ce0ac249b409bbc31507993ef0056669f0a9dbd294092bb7c8664fdb49bfb1f2",
+      "stale": true
+    },
+    "suppliers": {
+      "src": "/screens/suppliers-4dd067c119.webp",
+      "width": 1320,
+      "height": 2868,
+      "sha256": "4dd067c11945130c8d41f474f84e9ebda1569669322d9ad200933ed2a008781b",
+      "rawSha256": "c8d8e2d84fb4856f6ee9cd8b74904b71f65d0217527326e5041110221138c627"
+    }
+  },
+  "film": {
+    "src": "/media/sift-launch-film-dd840319a9.mp4",
+    "poster": "/media/sift-launch-film-poster-f75a4c1ba4.jpg",
+    "captions": "/media/sift-launch-film.en-e78600f882.vtt",
+    "durationSeconds": 43,
+    "width": 1920,
+    "height": 1080,
+    "sha256": "dd840319a94e425152dc7c096ef994acffe555d42787d6794360acbb5519ce7b",
+    "edition": "Website prelaunch edition built from native 16e40a1 captures; closing card \"Coming to iPhone\". Music: scripts/lib/music_bed.py (synthesized in-house, no third-party audio)."
+  }
+}

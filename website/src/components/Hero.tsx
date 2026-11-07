@@ -70,7 +70,7 @@ export default function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: easeOut, delay: 0.35 }}
         >
-          <PhoneFrame src={media.screens.home.src} alt="Current Sift Home with November spending, a color-coded supplier bar, and invoice metrics using fictional sample data" priority maxWidthClass="max-w-[352px]" />
+          <PhoneFrame src={media.screens.home.src} alt="Sift Home with this week's spending, a color-coded supplier bar, and invoice metrics using fictional sample data" priority maxWidthClass="max-w-[352px]" />
           <p className="mt-6 text-center text-xs text-muted">Actual app screens · fictional sample data</p>
         </motion.div>
       </div>

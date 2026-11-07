@@ -1,0 +1,198 @@
+{
+  "createdAt": "2026-11-07T23:04:19.203Z",
+  "captures": "/Users/james/Desktop/code/InvoiceIntelligenceApp/launch-assets/captures/2026-11-07/stills",
+  "sizes": {
+    "6.9": [
+      1320,
+      2868
+    ],
+    "6.3": [
+      1206,
+      2622
+    ]
+  },
+  "screenshots": [
+    {
+      "scene": "alerts",
+      "name": "01-price-alerts",
+      "capture": "alerts.png",
+      "captureSha256": "8720264f8c8b0fa6533e756aad28b6dcea2e1c2af2b7cb452ffcf76c53c41cdf",
+      "eyebrow": "BUSINESS PRO · PRICE ALERTS",
+      "headline": [
+        "Catch price hikes",
+        "before they add up."
+      ],
+      "sub": "See which supplier items cost more, by delivery.",
+      "files": {
+        "6.9": {
+          "path": "6.9/01-price-alerts.png",
+          "width": 1320,
+          "height": 2868,
+          "sha256": "49d43c4c2f0a5bde84a8bb1f054b744f3c6d3e74f5b0f56518d55b505a76a135"
+        },
+        "6.3": {
+          "path": "6.3/01-price-alerts.png",
+          "width": 1206,
+          "height": 2622,
+          "sha256": "9923098813d64617f3a400049cd0672d3acaae9ffbc5cf14d6b30797b1c6d283"
+        }
+      }
+    },
+    {
+      "scene": "review",
+      "name": "02-scan-review",
+      "capture": "review.png",
+      "captureSha256": "2572fd61061e3fae5d4d6cd98b163155a2a2fc71fb582d1deb638ff9bdacbc96",
+      "eyebrow": "SCAN & REVIEW",
+      "headline": [
+        "Snap the invoice.",
+        "Check every line."
+      ],
+      "sub": "Smart Sift reads it. You confirm before saving.",
+      "files": {
+        "6.9": {
+          "path": "6.9/02-scan-review.png",
+          "width": 1320,
+          "height": 2868,
+          "sha256": "33343c5fe6362b420d37fa5ae303a24e1dca6c472be5e4a559848d8bbcdf9d16"
+        },
+        "6.3": {
+          "path": "6.3/02-scan-review.png",
+          "width": 1206,
+          "height": 2622,
+          "sha256": "b99299c0892a0dfd931358761698f1d9e2511701d7606f87903d698a724efd78"
+        }
+      }
+    },
+    {
+      "scene": "home",
+      "name": "03-spending",
+      "capture": "home.png",
+      "captureSha256": "58817fe9c78ff08272ad867563da172ae1ded4a236f5a8a984f563e5a8df1b3d",
+      "eyebrow": "SPENDING OVERVIEW",
+      "headline": [
+        "See where your",
+        "food money goes."
+      ],
+      "sub": "Spend by supplier, day, week and month.",
+      "files": {
+        "6.9": {
+          "path": "6.9/03-spending.png",
+          "width": 1320,
+          "height": 2868,
+          "sha256": "d7c73bc497f5926a53f5d9cc2ed0c7f8870a605493986f8d4cef9470993ef5bc"
+        },
+        "6.3": {
+          "path": "6.3/03-spending.png",
+          "width": 1206,
+          "height": 2622,
+          "sha256": "e5d40e6937e3e69822b57c96e98616c5f81f8c13a016baa22726f0db4d1c15f6"
+        }
+      }
+    },
+    {
+      "scene": "intelligence",
+      "name": "04-purchasing-intelligence",
+      "capture": "intelligence.png",
+      "captureSha256": "ed1ec053b73ca357f2150413e4df0bf7b03529da4dd6aa0ca09ef4a8985900b5",
+      "eyebrow": "BUSINESS PRO · PURCHASING INTELLIGENCE",
+      "headline": [
+        "Spot the items",
+        "creeping up."
+      ],
+      "sub": "Price insights drawn from your saved invoices.",
+      "files": {
+        "6.9": {
+          "path": "6.9/04-purchasing-intelligence.png",
+          "width": 1320,
+          "height": 2868,
+          "sha256": "699c263af9c74e4a6178d791c9111fce7e7e4f8a5c7eab9488b7f4076ee6249e"
+        },
+        "6.3": {
+          "path": "6.3/04-purchasing-intelligence.png",
+          "width": 1206,
+          "height": 2622,
+          "sha256": "b7fa87d4cde50876b8c7974a2b95bb4b39faf30f4a224b2bfed7e1b0845e6354"
+        }
+      }
+    },
+    {
+      "scene": "recipes",
+      "name": "05-recipe-costing",
+      "capture": "recipes.png",
+      "captureSha256": "1b3b5abaae5e6ee7a0a6ebc7e4f83820fd0f93d6c046d94b81ecae8a17e2e5a9",
+      "eyebrow": "BUSINESS PRO · RECIPE COSTING",
+      "headline": [
+        "Know what every",
+        "plate really costs."
+      ],
+      "sub": "Ingredient costs from your own invoices.",
+      "files": {
+        "6.9": {
+          "path": "6.9/05-recipe-costing.png",
+          "width": 1320,
+          "height": 2868,
+          "sha256": "ea802ee1bf7fa15cecb8761abde5941314f217e03d4d91888588cc3aec2e8cc5"
+        },
+        "6.3": {
+          "path": "6.3/05-recipe-costing.png",
+          "width": 1206,
+          "height": 2622,
+          "sha256": "f297932a963d31eb7d7ef88e73752c0de8170eeabdac793431f4d54850771b61"
+        }
+      }
+    },
+    {
+      "scene": "library",
+      "name": "06-invoice-library",
+      "capture": "library.png",
+      "captureSha256": "d1104a42b1db366025e47d61ef06350767eee34f442a269f5b7df4780ffabadc",
+      "eyebrow": "INVOICE LIBRARY",
+      "headline": [
+        "Every invoice.",
+        "Found in seconds."
+      ],
+      "sub": "Search by supplier or invoice number.",
+      "files": {
+        "6.9": {
+          "path": "6.9/06-invoice-library.png",
+          "width": 1320,
+          "height": 2868,
+          "sha256": "8ea2ef7ba3b3207784af20acb3a8a607006d46015ce5d9bb76d70c63fdb755b6"
+        },
+        "6.3": {
+          "path": "6.3/06-invoice-library.png",
+          "width": 1206,
+          "height": 2622,
+          "sha256": "de396d6e2b798aa8445e1b6671306366dd5d41ed5ff03b0f500be6466d1a4da7"
+        }
+      }
+    },
+    {
+      "scene": "suppliers",
+      "name": "07-suppliers",
+      "capture": "suppliers.png",
+      "captureSha256": "c8d8e2d84fb4856f6ee9cd8b74904b71f65d0217527326e5041110221138c627",
+      "eyebrow": "SUPPLIERS",
+      "headline": [
+        "Every supplier.",
+        "One clear view."
+      ],
+      "sub": "Compare what you spend with each vendor.",
+      "files": {
+        "6.9": {
+          "path": "6.9/07-suppliers.png",
+          "width": 1320,
+          "height": 2868,
+          "sha256": "eae226579fc381c06b05d6f6355958f8f5b2f8c778deb4231f1362106adb1aeb"
+        },
+        "6.3": {
+          "path": "6.3/07-suppliers.png",
+          "width": 1206,
+          "height": 2622,
+          "sha256": "8d5923fcc3b4799af8f817720d959dfb353683b435931fab78df134b965f935b"
+        }
+      }
+    }
+  ]
+}

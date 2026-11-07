@@ -44,3 +44,7 @@ yarn-error.*
 
 # local test/sample invoice images (26MB of PNGs — not needed in the repo)
 thai_kitchen_invoices/
+
+# Raw simulator recordings (large; regenerate via scripts/capture)
+launch-assets/captures/**/*.mov
+launch-assets/previews/launch-film/
