@@ -147,7 +147,7 @@ export default function PaywallScreen() {
           <View style={styles.usageCard}>
             <Text style={styles.usageText}>
               You&apos;ve used <Text style={styles.usageStrong}>{used}</Text> of{' '}
-              <Text style={styles.usageStrong}>{cap}</Text> free extractions this month.
+              <Text style={styles.usageStrong}>{cap}</Text> free {isPersonal ? 'receipt scans' : 'extractions'} this month.
             </Text>
             <View style={styles.meterTrack}>
               <View style={[styles.meterFill, { width: `${usagePct * 100}%` }]} />
@@ -216,6 +216,8 @@ export default function PaywallScreen() {
               onPress={handleUpgrade}
               disabled={busy || restoring || loadingPackages || !selectedPkg || !organization?.canPurchase}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: busy || restoring || loadingPackages || !selectedPkg || !organization?.canPurchase, busy }}
             >
               <Text style={styles.ctaText}>{busy ? 'Verifying purchase…' : loadingPackages ? 'Loading price…' : !selectedPkg ? 'Subscription unavailable' : `Upgrade to ${ctaTierLabel} — ${ctaPriceLabel}`}</Text>
             </TouchableOpacity>
@@ -226,6 +228,7 @@ export default function PaywallScreen() {
               disabled={restoring || busy}
               activeOpacity={0.7}
               style={styles.restoreBtn}
+              accessibilityRole="button"
             >
               <Text style={styles.restoreText}>{restoring ? 'Restoring…' : 'Restore purchases'}</Text>
             </TouchableOpacity>
@@ -238,11 +241,11 @@ export default function PaywallScreen() {
               Apple ID settings. Personal and Business are separate subscriptions, managed by the purchasing owner’s Apple ID.
             </Text>
             <View style={styles.legalRow}>
-              <TouchableOpacity onPress={() => openLegalUrl(TERMS_URL, () => Alert.alert('Terms', 'Terms of Service will be available at launch.'))}>
+              <TouchableOpacity accessibilityRole="link" onPress={() => openLegalUrl(TERMS_URL, () => Alert.alert('Terms', 'Terms of Service will be available at launch.'))}>
                 <Text style={styles.legalLink}>Terms of Service</Text>
               </TouchableOpacity>
               <Text style={styles.legalDot}>·</Text>
-              <TouchableOpacity onPress={() => openLegalUrl(PRIVACY_POLICY_URL, () => Alert.alert('Privacy', 'Privacy Policy will be available at launch.'))}>
+              <TouchableOpacity accessibilityRole="link" onPress={() => openLegalUrl(PRIVACY_POLICY_URL, () => Alert.alert('Privacy', 'Privacy Policy will be available at launch.'))}>
                 <Text style={styles.legalLink}>Privacy Policy</Text>
               </TouchableOpacity>
             </View>

@@ -23,7 +23,7 @@ export default function ScanActivityScreen() {
   const { tasks, start, refresh, error } = useScanQueue();
   const router = useRouter();
   const db = useSupabase();
-  const { organization } = useWorkspace();
+  const { organization, isPersonal } = useWorkspace();
   const [opening, setOpening] = useState<string | null>(null);
   const open = async (task: ScanTask) => {
     if (!organization || opening) return;
@@ -153,7 +153,7 @@ export default function ScanActivityScreen() {
                         )
                       }
                     >
-                      <Text style={s.link}>View existing invoice</Text>
+                      <Text style={s.link}>View existing {isPersonal ? 'receipt' : 'invoice'}</Text>
                     </Touch>
                     {task.duplicate.canOverride && (
                       <Touch

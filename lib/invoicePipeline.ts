@@ -1,6 +1,7 @@
 import { collectInvoicePages } from './invoicePages';
 import {normalizePurchase,type PurchaseObservation} from '../shared/measurement';
 import { retailHistorySeries } from '../shared/receiptHistory.ts';
+import { categoryLabel } from '../shared/categories.ts';
 import { validatedLineTotal } from './linePricing';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Invoice, LineItem, LineItemType, VerificationStatus } from '../store/useStore';
@@ -42,13 +43,8 @@ export function categoryColor(category: string | null | undefined): string {
   return CATEGORY_COLORS[category.toLowerCase()] ?? DEFAULT_CATEGORY_COLOR;
 }
 
-export function categoryLabel(category: string | null | undefined): string {
-  if (!category) return 'Other';
-  return category
-    .split('_')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-}
+// Shared with the extract-invoice Edge Function's category list.
+export { categoryLabel };
 
 export function formatDate(isoDate: string | null | undefined): string {
   if (!isoDate) return '';

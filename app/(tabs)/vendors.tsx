@@ -92,7 +92,7 @@ export default function VendorsScreen() {
       setInvoicesLoading(true);setInvoicesError('');
       fetchAllInvoices(supabase, organization.id)
         .then(rows=>{if(live&&scope===useStore.getState().activeScope)setAllInvoices(rows);})
-        .catch(()=>{if(live&&scope===useStore.getState().activeScope)setInvoicesError('Could not refresh your invoice library.');})
+        .catch(()=>{if(live&&scope===useStore.getState().activeScope)setInvoicesError(isPersonal?'Could not refresh your receipt library.':'Could not refresh your invoice library.');})
         .finally(()=>{if(live&&scope===useStore.getState().activeScope)setInvoicesLoading(false);});
       return()=>{live=false;};
     // Retry version intentionally reruns this focused fetch.
@@ -135,7 +135,7 @@ export default function VendorsScreen() {
 
       {tab==='vendors'&&dashboardError&&<LoadFailure message={dashboardError} hasData={vendors.length>0} onRetry={()=>setRetrySummary(n=>n+1)}/>}
       <ScanInboxCard />
-      {tab==='invoices'&&hasRange&&<View style={{marginHorizontal:16,marginBottom:10,paddingHorizontal:12,borderRadius:12,backgroundColor:Colors.primaryLight,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8}}><Text style={{flex:1,fontFamily:'Manrope_600SemiBold',fontSize:12,color:Colors.primaryDark}}>{rangeFrom} — {rangeTo}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear invoice date filter" onPress={()=>router.setParams({from:'',to:''})} style={{minHeight:44,justifyContent:'center',paddingHorizontal:8}}><Text style={{fontFamily:'Manrope_700Bold',fontSize:12,color:Colors.primary}}>Clear</Text></TouchableOpacity></View>}
+      {tab==='invoices'&&hasRange&&<View style={{marginHorizontal:16,marginBottom:10,paddingHorizontal:12,borderRadius:12,backgroundColor:Colors.primaryLight,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8}}><Text style={{flex:1,fontFamily:'Manrope_600SemiBold',fontSize:12,color:Colors.primaryDark}}>{rangeFrom} — {rangeTo}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel={isPersonal?'Clear receipt date filter':'Clear invoice date filter'} onPress={()=>router.setParams({from:'',to:''})} style={{minHeight:44,justifyContent:'center',paddingHorizontal:8}}><Text style={{fontFamily:'Manrope_700Bold',fontSize:12,color:Colors.primary}}>Clear</Text></TouchableOpacity></View>}
       <View style={styles.segmentRow}>
         <TouchableOpacity
           accessibilityRole="button" accessibilityState={{selected: tab === 'vendors'}}
@@ -196,8 +196,8 @@ export default function VendorsScreen() {
                   style={styles.searchInput}
                   value={search}
                   onChangeText={setSearch}
-                  accessibilityLabel="Search invoices by vendor or invoice number"
-                  placeholder="Search vendor or invoice number"
+                  accessibilityLabel={isPersonal?'Search receipts by store or receipt number':'Search invoices by vendor or invoice number'}
+                  placeholder={isPersonal?'Search store or receipt number':'Search vendor or invoice number'}
                   placeholderTextColor={Colors.textTertiary}
                   autoCapitalize="none"
                   autoCorrect={false}

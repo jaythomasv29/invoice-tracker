@@ -40,10 +40,12 @@ export function featuresFor(type: AccountType): PlanFeature[] {
     row('Item price alerts', false, true, true),
     row('Advanced spending trends', false, true, true),
     row('Category breakdowns', false, true),
-    row('Top-spend items', false, true),
+    // Home only renders the top-spend (80/20) card for businesses — don't
+    // promise consumers a Pro feature they never see.
     ...(personal
       ? []
       : [
+          row('Top-spend items', false, true),
           row('Missing-invoice reminders', false, true),
           row('Smart Sift recipe drafts / month', false, '10', true),
         ]),

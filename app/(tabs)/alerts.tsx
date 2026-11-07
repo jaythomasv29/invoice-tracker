@@ -22,7 +22,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 export default function AlertsScreen() {
   const router = useRouter();
   const supabase = useSupabase();
-  const { organization } = useWorkspace();
+  const { organization, isPersonal } = useWorkspace();
   const { isPaid } = useEntitlement();
   const { priceAlerts, markAlertRead, fetchPriceAlerts } = useStore();
 
@@ -66,7 +66,7 @@ export default function AlertsScreen() {
         )}
       </View>
 
-      <Text style={{paddingHorizontal:20,paddingBottom:10,fontFamily:'Manrope_400Regular',fontSize:13,color:Colors.textSecondary}}>Items your suppliers charged more for than last time, dated by delivery.</Text>
+      <Text style={{paddingHorizontal:20,paddingBottom:10,fontFamily:'Manrope_400Regular',fontSize:13,color:Colors.textSecondary}}>{isPersonal ? 'Items a store charged more for than last time, compared by net unit price and dated by purchase.' : 'Items your suppliers charged more for than last time, dated by delivery.'}</Text>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {unread.length > 0 && (
           <>
@@ -109,6 +109,7 @@ export default function AlertsScreen() {
 
 function FreeAlertsUpsell() {
   const { count } = usePriceAlertCount();
+  const { isPersonal } = useWorkspace();
   const has = count > 0;
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -119,8 +120,10 @@ function FreeAlertsUpsell() {
         <ProLockCard
           stat={has ? String(count) : undefined}
           statLabel={has ? (count === 1 ? 'price increase this month' : 'price increases this month') : undefined}
-          title={has ? 'Someone’s prices are creeping up' : 'Never miss a quiet price hike'}
-          body="Pro checks every new invoice against your price history and flags any item that creeps up — so a vendor’s slow increases never slip past you."
+          title={has ? 'Some prices are creeping up' : 'Never miss a quiet price hike'}
+          body={isPersonal
+            ? 'Personal Pro compares each saved receipt with your past purchases of the same product and flags any that cost more per unit — so a store’s quiet increases never slip past you.'
+            : 'Pro checks every new invoice against your price history and flags any item that creeps up — so a vendor’s slow increases never slip past you.'}
         />
       </ScrollView>
       <Toast />
@@ -130,10 +133,14 @@ function FreeAlertsUpsell() {
 
 function AlertRow({ group: g, onPress, dimmed }: { group: PriceAlertGroup<PriceAlert>; onPress?: () => void; dimmed?: boolean }) {
   const a = g.latest;
+  const { isPersonal } = useWorkspace();
+  // Household comparisons are net unit prices ($/oz) — two decimals would
+  // render a real +5% change as "$0.18 → $0.18".
+  const money = (n: number) => n.toFixed(isPersonal && n < 1 ? 4 : 2);
   const unit = a.unit ? `/${a.unit}` : '';
   const date = formatAlertDate(a.priceDate, a.detectedAt);
   const since = formatAlertDate(g.firstDate);
-  const label = `${a.itemName} from ${a.vendorName}, up ${Math.round(a.pctChange)} percent to $${a.newPrice.toFixed(2)}${g.increases > 1 ? `, up ${Math.round(g.totalPct)} percent over ${g.increases} increases` : ''}`;
+  const label = `${a.itemName} from ${a.vendorName}, up ${Math.round(a.pctChange)} percent to $${money(a.newPrice)}${g.increases > 1 ? `, up ${Math.round(g.totalPct)} percent over ${g.increases} increases` : ''}`;
   return (
     <TouchableOpacity
       style={[styles.alertCard, dimmed && styles.alertCardDimmed]}
@@ -154,12 +161,12 @@ function AlertRow({ group: g, onPress, dimmed }: { group: PriceAlertGroup<PriceA
             <Text style={[styles.alertPctText, { color: Colors.warning }]}>+{Math.round(a.pctChange)}%</Text>
           </View>
           <Text style={styles.alertDetail}>
-            ${a.previousPrice.toFixed(2)} → ${a.newPrice.toFixed(2)}{unit}
+            ${money(a.previousPrice)} → ${money(a.newPrice)}{unit}
           </Text>
         </View>
         {g.increases > 1 && (
           <Text style={styles.alertStreak}>
-            Up {Math.round(g.totalPct)}% over {g.increases} increases{since ? ` since ${since}` : ''} · ${g.firstPrice.toFixed(2)} → ${g.latestPrice.toFixed(2)}{unit}
+            Up {Math.round(g.totalPct)}% over {g.increases} increases{since ? ` since ${since}` : ''} · ${money(g.firstPrice)} → ${money(g.latestPrice)}{unit}
           </Text>
         )}
       </View>

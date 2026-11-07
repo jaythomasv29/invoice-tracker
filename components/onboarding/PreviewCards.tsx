@@ -8,6 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Colors } from '../../constants/Colors';
 import DonutChart from '../ui/DonutChart';
+import { useWorkspace } from '../../lib/workspaceContext';
 
 interface PreviewProps {
   active: boolean;
@@ -288,17 +289,25 @@ const INVOICE_ROWS = [
   { name: 'Jasmine rice', qty: '4 BX', price: '$96.40' },
   { name: 'Canola oil', qty: '1 CS', price: '$61.20' },
 ] as const;
+// Household workspaces see a grocery receipt instead of a distributor invoice.
+const RECEIPT_ROWS = [
+  { name: 'Bananas', qty: '2.1 LB', price: '$1.37' },
+  { name: 'Whole Milk, 1 gal', qty: '1', price: '$4.29' },
+  { name: 'Paper Towels, 6 pk', qty: '1', price: '$9.99' },
+] as const;
 
 export function InvoiceParsePreview({ active }: PreviewProps) {
+  const { isPersonal } = useWorkspace();
+  const rows = isPersonal ? RECEIPT_ROWS : INVOICE_ROWS;
   return (
     <Frame>
       <View style={styles.invHeader}>
         <View style={styles.invAvatar}>
-          <Text style={styles.invAvatarText}>CF</Text>
+          <Text style={styles.invAvatarText}>{isPersonal ? 'FM' : 'CF'}</Text>
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={styles.invVendor} numberOfLines={1}>Cascade Foods</Text>
-          <Text style={styles.invNumber}>Invoice #4821</Text>
+          <Text style={styles.invVendor} numberOfLines={1}>{isPersonal ? 'Fresh Market' : 'Cascade Foods'}</Text>
+          <Text style={styles.invNumber}>{isPersonal ? 'Receipt #0193' : 'Invoice #4821'}</Text>
         </View>
         <View style={styles.invScannedPill}>
           <Text style={styles.invScannedText}>Scanned</Text>
@@ -307,7 +316,7 @@ export function InvoiceParsePreview({ active }: PreviewProps) {
 
       <View style={styles.recipeDivider} />
 
-      {INVOICE_ROWS.map((row, i) => (
+      {rows.map((row, i) => (
         <Animated.View
           key={active ? `${row.name}-in` : `${row.name}-out`}
           entering={active ? FadeInDown.duration(340).delay(140 + i * 130) : undefined}
@@ -322,7 +331,7 @@ export function InvoiceParsePreview({ active }: PreviewProps) {
       <View style={styles.recipeDivider} />
       <View style={styles.invTotalRow}>
         <Text style={styles.invTotalLabel}>Total</Text>
-        <Text style={styles.invTotalValue}>$341.60</Text>
+        <Text style={styles.invTotalValue}>{isPersonal ? '$15.65' : '$341.60'}</Text>
       </View>
     </Frame>
   );
@@ -335,6 +344,8 @@ export function InvoiceParsePreview({ active }: PreviewProps) {
 const OV_BARS = [40, 62, 50, 78, 58, 90] as const;
 
 export function DashboardOverviewPreview({ active }: PreviewProps) {
+  const { isPersonal } = useWorkspace();
+  const target = isPersonal ? 642 : 12480;
   const [total, setTotal] = useState(0);
   const fill = useSharedValue(0);
 
@@ -350,12 +361,12 @@ export function DashboardOverviewPreview({ active }: PreviewProps) {
     const duration = 850;
     const tick = () => {
       const t = Math.min((Date.now() - start) / duration, 1);
-      setTotal(Math.round(t * 12480));
+      setTotal(Math.round(t * target));
       if (t < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [active, fill]);
+  }, [active, fill, target]);
 
   return (
     <Frame>
@@ -379,13 +390,13 @@ export function DashboardOverviewPreview({ active }: PreviewProps) {
 
       <View style={ov.metricRow}>
         <View style={[ov.metricDot, { backgroundColor: Colors.vendorGolden }]} />
-        <Text style={ov.metricName} numberOfLines={1}>Cascade Foods</Text>
-        <Text style={ov.metricVal}>$4,210</Text>
+        <Text style={ov.metricName} numberOfLines={1}>{isPersonal ? 'Fresh Market' : 'Cascade Foods'}</Text>
+        <Text style={ov.metricVal}>{isPersonal ? '$318' : '$4,210'}</Text>
       </View>
       <View style={[ov.metricRow, { marginBottom: 0 }]}>
         <View style={[ov.metricDot, { backgroundColor: Colors.warning }]} />
-        <Text style={ov.metricName} numberOfLines={1}>Chicken breast · top item</Text>
-        <Text style={ov.metricVal}>$1,980</Text>
+        <Text style={ov.metricName} numberOfLines={1}>{isPersonal ? 'Dairy & Eggs · top category' : 'Chicken breast · top item'}</Text>
+        <Text style={ov.metricVal}>{isPersonal ? '$96' : '$1,980'}</Text>
       </View>
     </Frame>
   );

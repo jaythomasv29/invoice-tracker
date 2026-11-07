@@ -1,5 +1,6 @@
 import type { RetailProduct } from '../../../shared/receiptComparison.ts';
 import { scanCap, accountTypeForId } from '../../../shared/workspacePolicy.ts';
+import { normalizeCategory } from '../../../shared/categories.ts';
 import { compareInvoiceIdentity } from '../_shared/invoiceIdentity.ts';
 import { getOrganization } from '../_shared/clerkAuth.ts';
 import { isPlaceholderVendorName, matchVendor, missingPages, normalizeVendorName, repairLineItems, UNKNOWN_VENDOR_NAME } from '../_shared/extractionRepair.ts';
@@ -121,11 +122,6 @@ const EXTRACTION_TOOL = {
   },
 };
 
-const BUSINESS_CATEGORIES = ['protein', 'produce', 'dairy', 'dry_goods', 'seafood', 'beverage', 'paper_packaging', 'cleaning', 'other'];
-function businessCategory(c?: string): string {
-  const k = (c ?? '').toLowerCase().trim().replace(/[\s-]+/g, '_');
-  return BUSINESS_CATEGORIES.includes(k) ? k : 'other';
-}
 
 const EXTRACTION_PROMPT = `You are extracting structured data from a photo of a restaurant food-distributor invoice (Sysco, US Foods, PFG, or a local produce/meat/seafood vendor).
 
@@ -253,7 +249,7 @@ async function extractWithModel(
 
   const json = await res.json();
   if(jobId&&workspaceId&&json.usage){await adminClient().from('ai_model_usage').insert({job_id:jobId,organization_id:workspaceId,model,input_tokens:json.usage.input_tokens??0,output_tokens:json.usage.output_tokens??0});}
-  if (json.stop_reason === 'max_tokens') throw new Error('This invoice is too long to read in one pass. Try importing fewer pages at a time.');
+  if (json.stop_reason === 'max_tokens') throw new Error(`This ${personal ? 'receipt' : 'invoice'} is too long to read in one pass. Try importing fewer pages at a time.`);
   const toolUse = json.content?.find((b: any) => b.type === 'tool_use');
   if (!toolUse) throw new Error('Model did not return a structured extraction.');
   return toolUse.input as ExtractionResult;
@@ -351,11 +347,11 @@ const DUPLICATE_INVOICE_CODE = 'DUPLICATE_INVOICE_DETECTED';
 // confirmation UI. Same shape for either dedup layer — the client doesn't need
 // to know which one caught it. `existing` is a row selected with
 // `id, invoice_date, total, vendors(name)`.
-function duplicateResponse(existing: any, canOverride = true): Response {
+function duplicateResponse(existing: any, canOverride = true, personal = false): Response {
   const vendorName = existing.vendors?.name ?? null;
   return new Response(
     JSON.stringify({
-      error: 'This looks like a duplicate of an invoice you already have.',
+      error: `This looks like a duplicate of a${personal ? ' receipt' : 'n invoice'} you already have.`,
       code: DUPLICATE_INVOICE_CODE,
       canOverride,
       existingInvoiceId: existing.id,
@@ -394,10 +390,11 @@ Deno.serve(async (req) => {
       .eq('id', invoiceId)
       .single();
     if (fetchErr || !invoice) throw new Error(`Invoice not found: ${fetchErr?.message}`);
-    if (invoice.status !== 'pending') throw new Error('This invoice has already been processed. Open it from invoice history.');
-    if (invoice.image_urls?.length > 5) throw new Error('Import up to 5 pages per invoice.');
+    const noun = invoice.organization_id.startsWith('pws_') ? 'receipt' : 'invoice';
+    if (invoice.status !== 'pending') throw new Error(`This ${noun} has already been processed. Open it from your ${noun} library.`);
+    if (invoice.image_urls?.length > 5) throw new Error(`Import up to 5 pages per ${noun}.`);
     await requireAiConsent(supabase);
-    if (!invoice.image_urls?.length) throw new Error('Invoice has no images to extract from');
+    if (!invoice.image_urls?.length) throw new Error(`This ${noun} has no images to extract from.`);
 
     // Plan gate — enforced here, before any Claude spend. Every tier has a
     // monthly cap (Free 10 / Plus 300 / Pro 150). Over the cap, return 402 with
@@ -407,7 +404,7 @@ Deno.serve(async (req) => {
     {
       const reservation = await beginAiJob(invoice.organization_id, invoiceId, 'invoice', cap);
       const { allowed, used } = reservation;
-      if (!allowed && reservation.code !== 'FREE_LIMIT_REACHED') throw new Error(reservation.code === 'AI_BUSY' ? 'This invoice is already processing. Please wait.' : 'Too many Smart Sift requests. Please try again later.');
+      if (!allowed && reservation.code !== 'FREE_LIMIT_REACHED') throw new Error(reservation.code === 'AI_BUSY' ? `This ${noun} is already processing. Please wait.` : 'Too many Smart Sift requests. Please try again later.');
       if (!allowed) {
         return new Response(
           JSON.stringify({
@@ -445,7 +442,7 @@ Deno.serve(async (req) => {
       const exactMatch = hashMatches?.find((row:any) => row.image_hashes?.length === imageHashes.length && imageHashes.every(hash => row.image_hashes.includes(hash)));
       if (exactMatch) {
         await finishAiJob(jobId, false);
-        return duplicateResponse(exactMatch, false);
+        return duplicateResponse(exactMatch, false, noun === 'receipt');
       }
 
     if (!skipDuplicateCheck) {
@@ -466,7 +463,7 @@ Deno.serve(async (req) => {
         if (fpMatch) {
           const match=compareInvoiceIdentity(identity,{vendor:fpMatch.vendors?.name??'',number:fpMatch.invoice_number,date:fpMatch.invoice_date,total:fpMatch.total==null?null:Number(fpMatch.total)});
           await finishAiJob(jobId, false);
-          return duplicateResponse(fpMatch, match !== 'same');
+          return duplicateResponse(fpMatch, match !== 'same', noun === 'receipt');
         }
       }
     }
@@ -485,7 +482,7 @@ Deno.serve(async (req) => {
       : repairLineItems(result.line_items ?? []);
     if (repaired.mergedOverflowRows > 0) warnings.push(`Merged ${repaired.mergedOverflowRows} wrapped description row(s) into the item above.`);
     const missing = missingPages(result.page_info);
-    if (missing.length) warnings.push(`Page ${missing.join(', ')} of this invoice wasn't photographed. Add it so no items are missed.`);
+    if (missing.length) warnings.push(`Page ${missing.join(', ')} of this ${personal ? 'receipt' : 'invoice'} wasn't photographed. Add it so no items are missed.`);
 
     // Resolve or create the vendor: normalized name/alias first; the printed
     // phone / account number when the name is obscured or unknown; a single
@@ -510,11 +507,11 @@ Deno.serve(async (req) => {
     } else if (match.kind === 'contact') {
       vendorId = match.vendor.id;
       if (!placeholder && normalizeVendorName(match.vendor.name) !== normalizeVendorName(vendorName)) {
-        warnings.push(`Vendor read as "${vendorName}" but its phone/account matches ${match.vendor.name}; filed under ${match.vendor.name}.`);
+        warnings.push(`${personal ? 'Store' : 'Vendor'} read as "${vendorName}" but its phone/account matches ${match.vendor.name}; filed under ${match.vendor.name}.`);
       }
     } else if (placeholder) {
       vendorId = vendors.find((v: any) => normalizeVendorName(v.name) === normalizeVendorName(UNKNOWN_VENDOR_NAME))?.id;
-      warnings.push('The vendor name could not be read. Set it before saving.');
+      warnings.push(personal ? 'The store name could not be read. Set it before saving.' : 'The vendor name could not be read. Set it before saving.');
     }
     if (!vendorId) {
       // Assigned once at creation so it's stable in the DB — the client
@@ -550,7 +547,7 @@ Deno.serve(async (req) => {
       unit_price: li.unit_price,
       extended_price: li.extended_price,
       line_item_type: li.line_item_type,
-      category: personal ? li.category : businessCategory(li.category),
+      category: normalizeCategory(li.category, personal),
       confidence: li.confidence,
       low_confidence_fields: li.low_confidence_fields ?? [],
       parsed_weight: li.parsed_weight,
@@ -574,9 +571,9 @@ Deno.serve(async (req) => {
       if (duplicateId) {
         await finishAiJob(jobId, false);
         const { data: existing } = await supabase.from('invoices').select('id, invoice_date, total, vendors(name)').eq('id',duplicateId).single();
-        if (existing) return duplicateResponse(existing,false);
+        if (existing) return duplicateResponse(existing, false, noun === 'receipt');
       }
-      throw new Error('Could not save invoice. Please try again.');
+      throw new Error(`Could not save ${noun}. Please try again.`);
     }
     jobId = undefined; // commit includes quota completion in the same transaction
     const { data: updatedInvoice } = await supabase.from('invoices').select('*, vendors(name)').eq('id', invoiceId).single();

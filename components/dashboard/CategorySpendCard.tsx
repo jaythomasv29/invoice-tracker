@@ -10,7 +10,7 @@ export default function CategorySpendCard({ categorySpend, onOpenInvoices }: { c
   const {isPersonal}=useWorkspace();
   return (
     <View style={styles.card}>
-      <Touch onPress={onOpenInvoices} disabled={!onOpenInvoices} accessibilityRole="button" accessibilityLabel="View invoices behind category spending" style={{minHeight:44,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><Text style={styles.tileLabel}>Spend by category</Text>{onOpenInvoices&&<Text style={{fontSize:12,fontFamily:'Manrope_700Bold',color:Colors.primary}}>{isPersonal?'Receipts':'Invoices'} ›</Text>}</Touch>
+      <Touch onPress={onOpenInvoices} disabled={!onOpenInvoices} accessibilityRole="button" accessibilityLabel={isPersonal?'View receipts behind category spending':'View invoices behind category spending'} style={{minHeight:44,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><Text style={styles.tileLabel}>Spend by category</Text>{onOpenInvoices&&<Text style={{fontSize:12,fontFamily:'Manrope_700Bold',color:Colors.primary}}>{isPersonal?'Receipts':'Invoices'} ›</Text>}</Touch>
       <Text style={styles.tileCaption}>This week, across all {isPersonal?'stores':'suppliers'}</Text>
       <View style={styles.verifyChartRow}>
         <View style={styles.donutWrap}>

@@ -26,7 +26,10 @@ export function usePriceAlertCount() {
       .from('price_alerts')
       .select('id', { count: 'exact', head: true })
       .eq('organization_id', organization.id)
-      .gte('price_date', monthStart);
+      // Undated alerts (household receipts written before alerts carried
+      // price_date) fall back to when they were detected, else they'd never
+      // count and a consumer's teaser would always read 0.
+      .or(`price_date.gte.${monthStart},and(price_date.is.null,detected_at.gte."${new Date(now.getFullYear(), now.getMonth(), 1).toISOString()}")`);
     // Keep the last known count on a failed query instead of dropping to 0 —
     // this feeds an upgrade-teaser badge, and "0 alerts" reads as "nothing to
     // see here" rather than "we couldn't check."

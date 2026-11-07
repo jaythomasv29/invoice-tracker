@@ -75,10 +75,10 @@ export default function VendorDetailScreen() {
       void Promise.all([fetchVendorInvoices(supabase,organization.id,id),supabase.from('vendors').select('name,color,contact_name,contact_phone,account_number').eq('id',id).eq('organization_id',organization.id).single()])
         .then(([invoices,result])=>{
           if(!live||useStore.getState().activeScope!==scope)return;
-          if(result.error||!result.data)throw new Error('Could not load supplier details.');
+          if(result.error||!result.data)throw new Error(isPersonal?'Could not load store details.':'Could not load supplier details.');
           setVendorInvoices(invoices);setLoadedVendorId(id);const v=result.data;setRemoteVendor({id,name:v.name,color:v.color||fallbackVendorColor(id),contactName:v.contact_name||undefined,contactPhone:v.contact_phone||undefined,accountNumber:v.account_number||undefined});
         })
-        .catch(()=>{if(live&&useStore.getState().activeScope===scope)setLoadError('Could not refresh this supplier’s invoices.');})
+        .catch(()=>{if(live&&useStore.getState().activeScope===scope)setLoadError(isPersonal?'Could not refresh this store’s receipts.':'Could not refresh this supplier’s invoices.');})
         .finally(()=>{if(live&&useStore.getState().activeScope===scope)setLoading(false);});
       return()=>{live=false;};
     // Retry version intentionally reruns this focused fetch.
@@ -91,9 +91,9 @@ export default function VendorDetailScreen() {
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <BackButton onPress={() => router.back()} />
-          <Text style={styles.headerTitle}>{loading ? "Loading supplier…" : "Supplier details"}</Text>
+          <Text style={styles.headerTitle}>{loading ? (isPersonal ? 'Loading store…' : 'Loading supplier…') : (isPersonal ? 'Store details' : 'Supplier details')}</Text>
         </View>
-        {loading?<Spinner/>:<LoadFailure message={loadError||'Supplier could not be found.'} onRetry={()=>setRetry(n=>n+1)}/>}
+        {loading?<Spinner/>:<LoadFailure message={loadError||(isPersonal?'Store could not be found.':'Supplier could not be found.')} onRetry={()=>setRetry(n=>n+1)}/>}
       </SafeAreaView>
     );
   }
@@ -110,7 +110,7 @@ export default function VendorDetailScreen() {
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.headerTitle} numberOfLines={1}>{vendor.name}</Text>
           <Text style={styles.headerSub}>
-            {loading ? 'Loading…' : `${displayedInvoices.length} invoice${displayedInvoices.length === 1 ? '' : 's'} captured`}
+            {loading ? 'Loading…' : `${displayedInvoices.length} ${isPersonal ? 'receipt' : 'invoice'}${displayedInvoices.length === 1 ? '' : 's'} captured`}
           </Text>
         </View>
       </View>
@@ -118,10 +118,10 @@ export default function VendorDetailScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {(vendor.contactName || vendor.accountNumber || vendor.contactPhone) && (
           <View style={styles.contactCard}>
-            {vendor.contactName && <Text style={styles.contactItem}>Rep: {vendor.contactName}</Text>}
+            {vendor.contactName && !isPersonal && <Text style={styles.contactItem}>Rep: {vendor.contactName}</Text>}
             {vendor.accountNumber && <Text style={styles.contactItem}>Acct: {vendor.accountNumber}</Text>}
             {vendor.contactPhone && (
-              <TouchableOpacity onPress={() => Linking.openURL(`tel:${vendor.contactPhone}`)}>
+              <TouchableOpacity onPress={() => Linking.openURL(`tel:${vendor.contactPhone}`)} accessibilityRole="link" accessibilityLabel={`Call ${vendor.name}, ${vendor.contactPhone}`}>
                 <Text style={styles.contactPhone}>{vendor.contactPhone}</Text>
               </TouchableOpacity>
             )}
@@ -134,17 +134,17 @@ export default function VendorDetailScreen() {
           const cadence = cadenceLabel(displayedInvoices);
           return (
             <View style={styles.patternsCard}>
-              <Text style={styles.patternsHeader}>Order patterns</Text>
+              <Text style={styles.patternsHeader}>{isPersonal ? 'Shopping patterns' : 'Order patterns'}</Text>
               <View style={styles.patternsRow}>
                 <View style={styles.patternsTile}>
                   <Text style={styles.patternsValue}>
                     ${Math.round(avgOrderSize).toLocaleString('en-US')}
                   </Text>
-                  <Text style={styles.patternsLabel}>Avg order</Text>
+                  <Text style={styles.patternsLabel}>{isPersonal ? 'Avg trip' : 'Avg order'}</Text>
                 </View>
                 <View style={styles.patternsTile}>
                   <Text style={styles.patternsValue}>{orderCount}</Text>
-                  <Text style={styles.patternsLabel}>Orders</Text>
+                  <Text style={styles.patternsLabel}>{isPersonal ? 'Trips' : 'Orders'}</Text>
                 </View>
                 <View style={styles.patternsTile}>
                   <Text style={styles.patternsValue}>{cadence}</Text>
@@ -171,8 +171,8 @@ export default function VendorDetailScreen() {
             ))}
             {!loadError && displayedInvoices.length === 0 && (
               <View style={styles.empty}>
-                <Text style={styles.emptyTitle}>No invoices yet</Text>
-                <Text style={styles.emptySub}>Scanned invoices from {vendor.name} will show up here.</Text>
+                <Text style={styles.emptyTitle}>{isPersonal ? 'No receipts yet' : 'No invoices yet'}</Text>
+                <Text style={styles.emptySub}>Scanned {isPersonal ? 'receipts' : 'invoices'} from {vendor.name} will show up here.</Text>
               </View>
             )}
           </>

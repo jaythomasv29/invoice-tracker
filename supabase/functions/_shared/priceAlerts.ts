@@ -3,6 +3,12 @@ import {
   compareRetailPurchases,
 } from '../../../shared/receiptComparison.ts';
 const PRICE_ALERT_THRESHOLD_PCT = 3;
+// yyyy-mm-dd from an invoice_date (already a date) or a created_at timestamp —
+// the same `::date` cast the business trigger uses (database time zone).
+function alertDate(value: unknown): string | null {
+  const s = typeof value === 'string' ? value.slice(0, 10) : '';
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+}
 export async function detectPriceCreep(
   supabase: any,
   organizationId: string,
@@ -126,6 +132,13 @@ export async function detectPriceCreep(
           new_price: newPrice,
           unit: comparisonUnit,
           pct_change: Math.round(pctChange * 100) / 100,
+          // Date the alert by the purchases it compares (not detected_at):
+          // the Alerts list groups/sorts on these and the free-tier
+          // "increases this month" count filters on price_date.
+          price_date: alertDate(cutoff),
+          previous_price_date: alertDate(
+            mostRecent.invoices?.invoice_date ?? mostRecent.invoices?.created_at,
+          ),
         });
       } catch {
         // Best-effort — a failed comparison for one item shouldn't fail the

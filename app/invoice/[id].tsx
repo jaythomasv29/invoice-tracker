@@ -22,7 +22,8 @@ import Toast from '../../components/ui/Toast';
 export default function InvoiceDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { organization } = useWorkspace();
+  const { organization, isPersonal } = useWorkspace();
+  const noun = isPersonal ? 'receipt' : 'invoice';
   const supabase = useSupabase();
 
   const demoMode = useStore(s => s.demoMode);
@@ -48,9 +49,9 @@ export default function InvoiceDetailScreen() {
     setLoadError('');
     fetchInvoiceById(supabase, organization.id, id)
       .then(setInvoice)
-      .catch((err: any) => setLoadError(err?.message ?? 'Could not load invoice'))
+      .catch((err: any) => setLoadError(err?.message ?? `Could not load ${noun}`))
       .finally(() => setLoading(false));
-  }, [organization?.id, id, supabase, demoMode]);
+  }, [organization?.id, id, supabase, demoMode, noun]);
 
   const handleViewOriginal = async () => {
     if (!organization?.id || !id) return;
@@ -64,7 +65,7 @@ export default function InvoiceDetailScreen() {
       setImageUris(uris);
       setImageViewerOpen(true);
     } catch (err: any) {
-      showToast(err?.message ?? 'Could not load the original invoice');
+      showToast(err?.message ?? `Could not load the original ${noun}`);
     } finally {
       setImagesLoading(false);
     }
@@ -127,8 +128,8 @@ export default function InvoiceDetailScreen() {
   const handleDeleteInvoice = () => {
     if (!invoice) return;
     Alert.alert(
-      'Delete this invoice?',
-      "This can't be undone — the invoice and its line items will be permanently removed.",
+      `Delete this ${noun}?`,
+      `This can't be undone — the ${noun} and its line items will be permanently removed.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -140,7 +141,7 @@ export default function InvoiceDetailScreen() {
               await deleteInvoice(supabase, invoice.id);
               router.back();
             } catch (err: any) {
-              showToast(err?.message ?? 'Could not delete invoice');
+              showToast(err?.message ?? `Could not delete ${noun}`);
               setIsDeleting(false);
             }
           },
@@ -155,7 +156,7 @@ export default function InvoiceDetailScreen() {
         <View style={styles.header}>
           <BackButton onPress={() => router.back()} />
           <Text style={styles.headerTitle}>
-            {loading ? 'Loading…' : loadError ? 'Could not load invoice' : 'Invoice not found'}
+            {loading ? 'Loading…' : loadError ? `Could not load ${noun}` : isPersonal ? 'Receipt not found' : 'Invoice not found'}
           </Text>
         </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
@@ -171,7 +172,7 @@ export default function InvoiceDetailScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <BackButton onPress={() => router.back()} />
-        <EditDetailsButton name={vendorName} subtitle={`Invoice #${invoiceNumber || '—'} · ${date || 'Add date'}`} onPress={() => setEditingDetails(true)} />
+        <EditDetailsButton name={vendorName} subtitle={`${isPersonal ? 'Receipt' : 'Invoice'} #${invoiceNumber || '—'} · ${date || 'Add date'}`} onPress={() => setEditingDetails(true)} />
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -179,7 +180,7 @@ export default function InvoiceDetailScreen() {
           {imagesLoading ? (
             <Spinner size={16} />
           ) : (
-            <Text style={styles.imageLink}>View original invoice · {invoice.pages} page{invoice.pages !== 1 ? 's' : ''}</Text>
+            <Text style={styles.imageLink}>View original {noun} · {invoice.pages} page{invoice.pages !== 1 ? 's' : ''}</Text>
           )}
         </TouchableOpacity>
 
@@ -201,7 +202,7 @@ export default function InvoiceDetailScreen() {
           {isDeleting ? (
             <Spinner size={14} color={Colors.danger} />
           ) : (
-            <Text style={styles.removeInvoiceBtnText}>Delete this invoice</Text>
+            <Text style={styles.removeInvoiceBtnText}>Delete this {noun}</Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -211,7 +212,7 @@ export default function InvoiceDetailScreen() {
         const vendorId = demoMode ? invoice.vendorId : await updateInvoiceDetails(supabase, invoice.id, details);
         if (useStore.getState().activeScope !== scope) return;
         setInvoice(previous => previous?.id === invoice.id ? { ...previous, ...details, vendorId, date: formatDate(details.dateIso) } : previous);
-        showToast('Invoice details updated');
+        showToast(isPersonal ? 'Receipt details updated' : 'Invoice details updated');
       }} />
       <ImageViewerModal
         visible={imageViewerOpen}

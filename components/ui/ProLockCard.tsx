@@ -34,6 +34,9 @@ export default function ProLockCard({
       style={[styles.card, compact && styles.cardCompact]}
       onPress={openPaywall}
       activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel={[stat != null ? `${stat} ${statLabel ?? ''}`.trim() : null, title, body].filter(Boolean).join('. ')}
+      accessibilityHint="Opens plans to unlock with Pro"
     >
       <View style={styles.badge}>
         <Text style={styles.badgeText}>PRO</Text>

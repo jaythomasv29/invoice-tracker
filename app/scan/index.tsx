@@ -68,7 +68,7 @@ export default function ScanScreen() {
           <ProcessingSpinner variant="light" style={spinnerStyle} />
           <Text style={styles.busyTitle}>{processingStep}</Text>
           <Text style={styles.busyBody}>{elapsed >= 60 ? 'Still uploading. Keep Sift open until your photos are safely uploaded.' : 'Uploading your photos. You can continue using Sift as soon as the upload finishes.'}</Text>
-          <Text style={styles.busyElapsed}>{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')} elapsed · Timing varies by invoice</Text>
+          <Text style={styles.busyElapsed}>{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')} elapsed · Timing varies by {isPersonal?'receipt':'invoice'}</Text>
           <Text style={styles.busySteps}>Prepare → Upload · Smart Sift will read the details in your scan inbox.</Text>
         </View>
       </View>
@@ -103,7 +103,7 @@ export default function ScanScreen() {
   // a single request, returning one merged set of line items.
   const processImages = async (uris: string[]) => {
     if (!organization) {
-      showToast('No restaurant selected');
+      showToast(isPersonal?'No workspace selected':'No restaurant selected');
       return;
     }
     // Client-side pre-check: orgs already over their tier's monthly cap go
@@ -114,7 +114,7 @@ export default function ScanScreen() {
       router.push('/paywall');
       return;
     }
-    if (uris.length > 5) { showToast('Import up to 5 pages per invoice.'); return; }
+    if (uris.length > 5) { showToast(`Import up to 5 pages per ${isPersonal?'receipt':'invoice'}.`); return; }
     if (operation.current) return;
     operation.current = true;
     const capturedScope = useStore.getState().activeScope;
@@ -135,7 +135,7 @@ export default function ScanScreen() {
           return result.uri;
         })
       );
-      setProcessingStep('Uploading invoice photos');
+      setProcessingStep(isPersonal?'Uploading receipt photos':'Uploading invoice photos');
       invoiceId = await createDraftInvoice(supabase, organization.id);
       await uploadInvoiceImages(supabase, organization.id, invoiceId, jpegUris);
       if (useStore.getState().activeScope !== capturedScope) return;
@@ -144,7 +144,7 @@ export default function ScanScreen() {
       router.replace({pathname:'/(tabs)/vendors',params:{view:'invoices'}});
     } catch (err: any) {
       // Uploaded drafts are recoverable from the inbox. Never delete an uncertain result.
-      if (useStore.getState().activeScope === capturedScope) showToast(err?.message ?? 'Could not upload invoice. Please try again.');
+      if (useStore.getState().activeScope === capturedScope) showToast(err?.message ?? `Could not upload ${isPersonal?'receipt':'invoice'}. Please try again.`);
     } finally {
       operation.current = false;
       if (useStore.getState().activeScope === capturedScope) setScanStage('idle');
@@ -284,7 +284,7 @@ export default function ScanScreen() {
         <Text style={styles.alignHint}>
           {capturedPages.length > 0
             ? `Page ${capturedPages.length + 1} — align and shoot, or tap Scan`
-            : 'Align invoice within frame'}
+            : `Align ${isPersonal?'receipt':'invoice'} within frame`}
         </Text>
 
         {/* Real connectivity banner — no manual toggle, reflects actual network state */}

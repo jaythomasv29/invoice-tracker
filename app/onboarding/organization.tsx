@@ -38,6 +38,12 @@ export default function CreateWorkspace() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const memberships = user?.organizationMemberships ?? [];
+  // One household per login: once it exists, "Create household" would just
+  // reopen it (the RPC returns the existing id and ignores the new name).
+  const types = personalId ? (['business'] as const) : (['personal', 'business'] as const);
+  useEffect(() => {
+    if (personalId) setType('business');
+  }, [personalId]);
   useEffect(() => {
     if (!add && ready && organization) router.replace('/(tabs)');
   }, [add, ready, organization, router]);
@@ -74,6 +80,8 @@ export default function CreateWorkspace() {
     try {
       let id: string;
       if (type === 'personal') {
+        if (name.trim().length === 1)
+          throw new Error('Use a household name of at least 2 characters, or leave it blank.');
         const { data, error: e } = await raw.rpc('create_personal_workspace', {
           p_name: name.trim() || 'My household',
         });
@@ -112,7 +120,7 @@ export default function CreateWorkspace() {
           contentContainerStyle={s.content}
         >
           {add && (
-            <TouchableOpacity onPress={() => router.back()} style={s.back}>
+            <TouchableOpacity onPress={() => router.back()} style={s.back} accessibilityRole="button">
               <Text style={s.link}>Back</Text>
             </TouchableOpacity>
           )}
@@ -127,6 +135,7 @@ export default function CreateWorkspace() {
               style={s.existing}
               disabled={busy}
               onPress={() => choose(personalId)}
+              accessibilityRole="button"
             >
               <Text style={s.link}>Open my household →</Text>
             </TouchableOpacity>
@@ -137,12 +146,13 @@ export default function CreateWorkspace() {
               style={s.existing}
               disabled={busy}
               onPress={() => choose(m.organization.id)}
+              accessibilityRole="button"
             >
               <Text style={s.link}>Open {m.organization.name} →</Text>
             </TouchableOpacity>
           ))}
           <View style={s.options}>
-            {(['personal', 'business'] as const).map((t) => (
+            {types.map((t) => (
               <TouchableOpacity
                 key={t}
                 accessibilityRole="radio"
@@ -177,6 +187,7 @@ export default function CreateWorkspace() {
             onChangeText={setName}
             editable={!busy}
             maxLength={80}
+            accessibilityLabel={type === 'personal' ? 'Household name, optional' : 'Business name'}
             placeholder={
               type === 'personal' ? 'My household' : 'Rosa’s Kitchen'
             }
@@ -193,6 +204,7 @@ export default function CreateWorkspace() {
             <TouchableOpacity
               onPress={() => refresh().catch((e) => setError(e.message))}
               style={s.back}
+              accessibilityRole="button"
             >
               <Text style={s.link}>Retry loading workspaces</Text>
             </TouchableOpacity>
@@ -201,6 +213,8 @@ export default function CreateWorkspace() {
             disabled={busy}
             onPress={create}
             style={[s.button, busy && { opacity: 0.6 }]}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: busy, busy }}
           >
             <Text style={s.buttonText}>
               {busy

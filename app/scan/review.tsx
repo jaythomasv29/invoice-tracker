@@ -75,7 +75,7 @@ export default function ReviewScreen() {
 
   const handleSave = async () => {
     if (!organization) {
-      showToast('No restaurant selected');
+      showToast(isPersonal?'No workspace selected':'No restaurant selected');
       return;
     }
     setIsSaving(true);
@@ -86,7 +86,7 @@ export default function ReviewScreen() {
       setTimeout(() => router.replace('/(tabs)'), 900);
     } catch (err: any) {
       setIsSaving(false);
-      showToast(err?.message ?? 'Could not save invoice');
+      showToast(err?.message ?? `Could not save ${isPersonal?'receipt':'invoice'}`);
     }
   };
 
@@ -108,6 +108,9 @@ export default function ReviewScreen() {
           activeOpacity={imageUris?.length ? 0.7 : 1}
           disabled={!imageUris?.length}
           onPress={() => setImageViewerOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel={`Original ${isPersonal?'receipt':'invoice'}, ${pageCount} page${pageCount !== 1 ? 's' : ''}`}
+          accessibilityHint={imageUris?.length ? 'Opens the full image' : undefined}
         >
           {imageUris?.[0] ? (
             <Image source={{ uri: imageUris[0] }} style={styles.imageThumbnail} />
@@ -167,6 +170,9 @@ export default function ReviewScreen() {
           onPress={handleSave}
           activeOpacity={0.85}
           disabled={isSaving}
+          accessibilityRole="button"
+          accessibilityLabel={isSaving ? 'Saving' : `Save ${isPersonal?'receipt':'invoice'}`}
+          accessibilityState={{ disabled: isSaving, busy: isSaving }}
         >
           {isSaving ? (
             <View style={styles.saveBtnContent}>
@@ -195,7 +201,7 @@ export default function ReviewScreen() {
         if (useStore.getState().activeScope !== scope) return;
         const latest = useStore.getState().currentInvoice;
         if (latest?.id === currentInvoice.id) useStore.getState().setCurrentInvoice({ ...latest, ...details, vendorId, date: formatDate(details.dateIso) });
-        showToast('Invoice details updated');
+        showToast(isPersonal?'Receipt details updated':'Invoice details updated');
       }} />
       <ImageViewerModal
         visible={imageViewerOpen}

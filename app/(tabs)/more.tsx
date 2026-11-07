@@ -80,7 +80,7 @@ export default function MoreScreen() {
     try {
       const invoices = await fetchAllInvoices(supabase, organization.id);
       if (invoices.length === 0) {
-        showToast('No invoices to export yet');
+        showToast(isPersonal ? 'No receipts to export yet' : 'No invoices to export yet');
         return;
       }
       await exportInvoicesCsv(invoices);
@@ -149,7 +149,7 @@ export default function MoreScreen() {
     );
   };
 
-  const planLabel = plan === 'pro' ? 'Pro' : plan === 'plus' ? 'Plus' : 'Free';
+  const planLabel = plan === 'pro' ? (isPersonal ? 'Personal Pro' : 'Pro') : plan === 'plus' ? 'Plus' : 'Free';
 
   type Row = { label: string; detail?: string; onPress?: () => void; accent?: boolean; stacked?: boolean };
   const sections: { header: string; rows: Row[] }[] = [
@@ -176,7 +176,7 @@ export default function MoreScreen() {
       header: isPersonal?'Household':'Business',
       rows: [
         { label: isPersonal?'Household name':'Business name', detail: restaurantName },
-        { label: 'Email', detail: email || 'you@restaurant.com' },
+        { label: 'Email', detail: email || 'Not set' },
         {
           label: 'Plan',
           detail: planLabel,
@@ -184,7 +184,7 @@ export default function MoreScreen() {
           onPress: () => router.push('/paywall'),
         },
         { label: 'Apple subscription', stacked: true, detail: billingLabel, onPress: handleManageSubscription },
-        { label: 'Extractions this month', detail: `${used} of ${cap} used` },
+        { label: isPersonal ? 'Receipt scans this month' : 'Extractions this month', detail: `${used} of ${cap} used` },
         ...(isPaid
           ? [{ label: 'Manage subscription', onPress: handleManageSubscription } as Row]
           : []),
@@ -195,7 +195,7 @@ export default function MoreScreen() {
       header: 'App',
       rows: [
         { label: 'Allow Smart Sift processing', onPress: async () => { try { if (await ensureAiConsent(supabase)) showToast('Smart Sift processing allowed'); } catch (e) { showToast((e as Error).message); } } },
-        { label: 'Withdraw Smart Sift permission', onPress: () => Alert.alert('Withdraw Smart Sift permission?', 'New invoice scans and Smart Sift recipe drafts will pause. Saved records remain available.', [{ text: 'Keep permission', style: 'cancel' }, { text: 'Withdraw', onPress: async () => { try { await withdrawAiConsent(supabase); showToast('Smart Sift processing permission withdrawn'); } catch (e) { showToast((e as Error).message); } } }]) },
+        { label: 'Withdraw Smart Sift permission', onPress: () => Alert.alert('Withdraw Smart Sift permission?', isPersonal ? 'New receipt scans will pause. Saved receipts remain available.' : 'New invoice scans and Smart Sift recipe drafts will pause. Saved records remain available.', [{ text: 'Keep permission', style: 'cancel' }, { text: 'Withdraw', onPress: async () => { try { await withdrawAiConsent(supabase); showToast('Smart Sift processing permission withdrawn'); } catch (e) { showToast((e as Error).message); } } }]) },
         {
           label: 'Privacy & data',
           onPress: () => openLegalUrl(PRIVACY_POLICY_URL, () => showToast('Privacy policy coming soon')),
@@ -231,7 +231,7 @@ export default function MoreScreen() {
         </View>
         <View>
           <Text style={styles.restaurantName}>{restaurantName}</Text>
-          <Text style={styles.email}>{email || 'you@restaurant.com'}</Text>
+          {!!email && <Text style={styles.email}>{email}</Text>}
         </View>
       </View>
 
@@ -246,6 +246,8 @@ export default function MoreScreen() {
                   style={[styles.row, i > 0 && styles.rowBorder, row.stacked && {flexDirection: 'column', alignItems: 'flex-start', gap: 8}]}
                   onPress={row.onPress ? () => { Haptics.selectionAsync(); row.onPress!(); } : undefined}
                   activeOpacity={row.onPress ? 0.7 : 1}
+                  accessibilityRole={row.onPress ? 'button' : 'text'}
+                  accessibilityLabel={row.detail ? `${row.label}, ${row.detail}` : row.label}
                 >
                   <Text style={[styles.rowLabel, row.accent && styles.rowLabelAccent]}>{row.label}</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, ...(row.stacked ? {width: '100%' as const} : {}) }}>
@@ -258,7 +260,7 @@ export default function MoreScreen() {
           </View>
         ))}
 
-        <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.85}>
+        <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.85} accessibilityRole="button">
           <Text style={styles.signOutText}>Sign out</Text>
         </TouchableOpacity>
 
@@ -267,6 +269,9 @@ export default function MoreScreen() {
           onPress={handleDeleteAccount}
           activeOpacity={0.7}
           disabled={deleting}
+          accessibilityRole="button"
+          accessibilityHint="Permanently deletes your account and data"
+          accessibilityState={{ disabled: deleting, busy: deleting }}
         >
           <Text style={styles.deleteText}>{deleting ? 'Deleting account…' : 'Delete account'}</Text>
         </TouchableOpacity>
