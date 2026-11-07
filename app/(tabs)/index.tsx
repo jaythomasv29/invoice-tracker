@@ -104,6 +104,9 @@ export default function HomeScreen() {
   } = useSpendPeriod();
 
   const [retryOverview,setRetryOverview]=useState(0);
+  // Leaving the sample-data tour clears the fixture; refetch the real account
+  // right away instead of showing an empty $0 dashboard until the next focus.
+  const demoMode = useStore((s) => s.demoMode);
   const [isLoadingSummary, setIsLoadingSummary] = useState(true);
   const insets = useSafeAreaInsets();
   const scrollY = useSharedValue(0);
@@ -174,7 +177,7 @@ export default function HomeScreen() {
       return () => { active = false; subscription.remove(); };
     // Retry version intentionally reruns this focused fetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [organization?.id, supabase, isPaid, fetchDashboardSummary, fetchPriceAlerts, epoch, retryOverview]),
+    }, [organization?.id, supabase, isPaid, fetchDashboardSummary, fetchPriceAlerts, epoch, retryOverview, demoMode]),
   );
 
   return (

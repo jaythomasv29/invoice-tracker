@@ -157,10 +157,10 @@ interface AppState {
   yearsBack: number;
   selectedDay: number | null;
   weekTotal: number;
-  weekPctChange: number;
+  weekPctChange: number | null; // null = nothing to compare against
   dayData: DayData[];
   monthTotal: number;
-  monthPctChange: number;
+  monthPctChange: number | null;
   monthData: DayData[];
   // One bar per calendar year that has any invoice activity (plus the
   // current year even if empty), oldest first — the "year"/"all time"
@@ -660,7 +660,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     const weekPctChange = prevWeekTotal > 0
       ? Math.round(((weekTotal - prevWeekTotal) / prevWeekTotal) * 1000) / 10
-      : (weekTotal > 0 ? 100 : 0);
+      : null;
 
     const monthData: DayData[] = monthBucketTotals.map((total, i) => ({
       label: monthBucketLabel(i, monthYear, monthIdx),
@@ -685,7 +685,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     const monthPctChange = prevMonthTotal > 0
       ? Math.round(((monthTotal - prevMonthTotal) / prevMonthTotal) * 1000) / 10
-      : (monthTotal > 0 ? 100 : 0);
+      : null;
 
     const vendors: Vendor[] = (vendorRows ?? []).map((v: any) => {
       const stats = vendorStats.get(v.id);

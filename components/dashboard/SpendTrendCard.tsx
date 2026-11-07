@@ -31,7 +31,7 @@ interface SpendTrendCardProps {
   period: SpendPeriod;
   yearsBack: number;
   periodTotal: number;
-  periodPctChange: number;
+  periodPctChange: number | null;
   barData: DayData[];
   isLoading?: boolean;
   onOpenDetails?:()=>void;
@@ -79,7 +79,7 @@ export default function SpendTrendCard({
     ? barData.reduce((best, d, i) => (d.total > barData[best].total ? i : best), 0)
     : -1;
   const currentIndex = barData.length - 1;
-  const isUp = periodPctChange > 0;
+  const isUp = (periodPctChange ?? 0) > 0;
 
   const [w, setW] = useState(0);
   const grow = useSharedValue(0);
@@ -123,18 +123,18 @@ export default function SpendTrendCard({
           </View>
           <AnimatedNumber value={periodTotal} format={n=>`$${Math.round(n).toLocaleString()}`} contextKey={`${period}:${yearsBack}`} ready={!isLoading} style={styles.amount} />
         </View>
-        {compare && (
+        {compare && periodPctChange !== null && (
           <View style={[styles.trendPill, isUp ? styles.trendPillUp : styles.trendPillDown]}>
             <Text style={[styles.trendArrow, isUp ? styles.trendTextUp : styles.trendTextDown]}>
               {isUp ? '↑' : '↓'}
             </Text>
             <Text style={[styles.trendPct, isUp ? styles.trendTextUp : styles.trendTextDown]}>
-              {Math.abs(periodPctChange).toFixed(1)}%
+              {Math.abs(periodPctChange ?? 0).toFixed(1)}%
             </Text>
           </View>
         )}
       </Touch>
-      {compare && <Text style={styles.compareLabel}>{compare}</Text>}
+      {compare && <Text style={styles.compareLabel}>{periodPctChange === null ? 'Nothing earlier to compare yet' : compare}</Text>}
 
       {hasData ? (
         <View style={styles.chartWrap} onLayout={onLayout}>

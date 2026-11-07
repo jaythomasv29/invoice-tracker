@@ -18,7 +18,7 @@ interface SpendCardProps {
   onChangeYears: (n: number) => void;
   maxYears: number;
   periodTotal: number;
-  periodPctChange: number;
+  periodPctChange: number | null;
   barData: DayData[];
   selectedBar: number | null;
   onSelectBar: (i: number) => void;
@@ -56,7 +56,12 @@ export default function SpendCard({
             {isLoading && <Spinner size={12} color={Colors.textSecondary} />}
           </View>
           <AnimatedNumber value={periodTotal} format={n=>`$${Math.round(n).toLocaleString()}`} contextKey={`${period}:${yearsBack}`} ready={!isLoading} style={styles.spendAmount} />
-          {compare && (
+          {compare && periodPctChange === null && (
+            <View style={styles.spendChange}>
+              <Text style={styles.spendChangeLabel}>Nothing earlier to compare yet</Text>
+            </View>
+          )}
+          {compare && periodPctChange !== null && (
             <View style={styles.spendChange}>
               <Text style={[styles.spendChangeArrow, periodPctChange > 0 && styles.spendChangeUp]}>
                 {periodPctChange >= 0 ? '↑' : '↓'}

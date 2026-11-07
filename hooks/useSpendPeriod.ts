@@ -45,7 +45,7 @@ interface SpendPeriodData {
   setYearsBack: (n: number) => void;
   maxYears: number;
   periodTotal: number;
-  periodPctChange: number;
+  periodPctChange: number | null; // null when the prior period had no spend
   periodBarData: DayData[];
 }
 
@@ -69,11 +69,11 @@ export function useSpendPeriod(): SpendPeriodData {
   const priorYearTotal = priorYearSlice.reduce((a, d) => a + d.total, 0);
   const yearPctChange = priorYearTotal > 0
     ? Math.round(((yearTotal - priorYearTotal) / priorYearTotal) * 1000) / 10
-    : (yearTotal > 0 ? 100 : 0);
+    : null;
   const allTimeTotal = Math.round(allYearData.reduce((a, d) => a + d.total, 0) * 100) / 100;
 
   let periodTotal: number;
-  let periodPctChange: number;
+  let periodPctChange: number | null;
   let periodBarData: DayData[];
   switch (spendView) {
     case 'week': periodTotal = weekTotal; periodPctChange = weekPctChange; periodBarData = dayData; break;

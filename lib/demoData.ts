@@ -110,10 +110,10 @@ export interface DemoDashboard {
   spendInvoices: SpendInvoice[];
   vendors: Vendor[];
   weekTotal: number;
-  weekPctChange: number;
+  weekPctChange: number | null;
   dayData: DayData[];
   monthTotal: number;
-  monthPctChange: number;
+  monthPctChange: number | null;
   monthData: DayData[];
   allYearData: DayData[];
   categorySpend: CategorySpend[];
