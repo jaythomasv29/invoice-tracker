@@ -13,7 +13,9 @@ import media from "@/content/media.json";
 // meaning-bearing tint (price alerts orange, verification red) drawn from the
 // Sift app's own semantic palette (constants/Colors.ts).
 const BRAND = "#17624B";
-const ALERT = "#A65524";
+// App warning #A65524 is 4.3:1 on its own 12% tint (fails AA for the 12px
+// eyebrow); this one-step-darker shade keeps the hue at 4.9:1.
+const ALERT = "#9A4C1F";
 
 export default function Home() {
   return (

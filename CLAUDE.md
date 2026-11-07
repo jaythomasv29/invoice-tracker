@@ -14,7 +14,7 @@ npm run ios            # expo start --ios
 npm run android        # expo start --android
 npm run lint           # expo lint (ESLint, eslint-config-expo flat)
 # There is no typecheck script; run `npx tsc --noEmit` if you need one.
-# There is no test suite.
+node --experimental-strip-types --test tests/*.test.mjs   # unit tests
 ```
 
 Supabase backend (remote project is already linked; run from repo root):
@@ -58,7 +58,7 @@ Typed errors cross the client/server boundary as HTTP codes decoded in `extractI
 
 ### Plans / entitlements
 
-**Three tiers** (monthly only at launch; annual deferred): `free` / `plus` / `pro`, held on the **Clerk org** at `organization.publicMetadata.plan` (unrecognized → `free`). The single source of truth is `lib/entitlements.ts`: `planFromOrg`, `PLAN_INVOICE_CAPS` (`free:10, plus:300, pro:500` — every tier is capped now), `isPaidPlan`. Read client-side via `useEntitlement()` → `{ plan, isPaid, isPlus, isPro, invoiceCap }`; **gate premium features on `isPaid`** (Plus and Pro share the full feature set and differ only by invoice volume), reserve `isPro` for genuinely Pro-only gating. `useExtractionUsage` derives the meter from `invoiceCap`. Server enforcement in `extract-invoice` re-reads the plan via the Clerk Backend API and reserves against the tier's cap (has its own synced `PLAN_INVOICE_CAPS` copy — change both together). Feature matrix + price labels in `constants/plans.ts`.
+**Plans are per workspace type** (monthly only), defined once in `shared/workspacePolicy.ts` (`WORKSPACE_PLANS`, `scanCap`, `recipeCap`) and shared by the app and Edge Functions; the server enforces every allowance. **Business** (Clerk org): Free 10 scans/mo, Pro $9.99 with 100 scans + 10 recipe drafts. **Personal** (`pws_` workspace): Free 5 scans, Pro $4.99 with 40 scans, no recipes. `plus` is a retired business product kept only for existing purchases (300 scans). The plan is held on `organization.publicMetadata.plan` (unrecognized → `free`); `lib/entitlements.ts` exposes `planFromOrg`, `invoiceCapForPlan`, `isPaidPlan`. Read client-side via `useEntitlement()` → `{ plan, isPaid, isPlus, isPro, invoiceCap }`; **gate premium features on `isPaid`** (Plus and Pro share the full feature set and differ only by invoice volume), reserve `isPro` for genuinely Pro-only gating. `useExtractionUsage` derives the meter from `invoiceCap`. Server enforcement in `extract-invoice` re-reads the plan via the Clerk Backend API and reserves against the tier's cap (via `shared/workspacePolicy.ts`). Feature matrix + price labels in `constants/plans.ts`.
 
 **QA tier-switcher:** a `__DEV__`-only section in `more.tsx` sets `useStore().debugPlan`, which `useEntitlement` honors — lets you walk every gated surface at Free/Plus/Pro without a purchase (client-side only; the server still enforces the real plan). `demoMode` similarly forces `pro`.
 

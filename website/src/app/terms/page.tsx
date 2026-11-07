@@ -1,6 +1,7 @@
 import Link from 'next/link';
+import { pageMetadata } from '@/lib/pageMetadata';
 import content from '../../content/legal.json';
-export const metadata = { title: 'Terms of Service — Sift' };
+export const metadata = pageMetadata('/terms', 'Terms of Service — Sift', 'The terms for using Sift, including Free and Pro plan allowances, Apple subscriptions, AI accuracy and account deletion.');
 export default function LegalPage() {
   return <main className="mx-auto w-full max-w-2xl px-5 py-16 sm:py-24">
     <Link href="/" className="text-sm underline">Sift home</Link>

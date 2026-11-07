@@ -1,6 +1,7 @@
 import Link from 'next/link';
+import { pageMetadata } from '@/lib/pageMetadata';
 import content from '../../content/legal.json';
-export const metadata = { title: 'Privacy Policy — Sift' };
+export const metadata = pageMetadata('/privacy', 'Privacy Policy — Sift', 'How Sift handles account details, receipt and invoice photos, AI processing, subscriptions and diagnostics, and how to export or delete your data.');
 export default function LegalPage() {
   return <main className="mx-auto w-full max-w-2xl px-5 py-16 sm:py-24">
     <Link href="/" className="text-sm underline">Sift home</Link>

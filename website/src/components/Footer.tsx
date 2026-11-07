@@ -18,7 +18,7 @@ export default function Footer() {
             Terms
           </Link>
           <Link href="/support" className="transition-colors hover:text-foreground">Support</Link>
-          <span className="text-muted/70">© {year} Sift</span>
+          <span className="text-muted">© {year} Sift</span>
         </nav>
       </div>
     </footer>

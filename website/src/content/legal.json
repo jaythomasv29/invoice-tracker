@@ -1,9 +1,9 @@
 {
-  "updated": "November 4, 2026",
+  "updated": "November 7, 2026",
   "privacy": [
     {
       "title": "Who we are",
-      "text": "Sift helps people organize grocery and household receipts, and helps restaurant operators organize supplier invoices and estimate recipe costs. Personal and Business workspaces use separate records under one login. For privacy requests, contact chimpchamp92@gmail.com. This policy covers the mobile app and its supporting services."
+      "text": "Sift helps people organize grocery and household receipts, and helps restaurant operators organize supplier invoices and estimate recipe costs. Personal and Business workspaces use separate records under one login. For privacy requests, contact support@siftcosts.com. This policy covers the Sift mobile app, the siftcosts.com website and their supporting services."
     },
     {
       "title": "Information we process",
@@ -22,12 +22,16 @@
       "text": "Clerk provides account authentication and business organization membership. Supabase stores workspace records and private photos and runs backend functions. Anthropic processes AI requests with your permission. Apple processes App Store payments; RevenueCat verifies subscriptions using purchasing-owner/workspace and transaction identifiers. Personal Pro and Business Pro are separate subscriptions, with a shared purchasing-owner identity to preserve restoration across workspaces. Sentry receives technical diagnostics; Sift filters event content to avoid sending images and extracted purchase details. The website is hosted on Vercel. Providers process data as needed to supply these services."
     },
     {
+      "title": "Website and waitlist",
+      "text": "If you join the waitlist on siftcosts.com, we store your email address, the page section you signed up from and the time of signup in our Supabase database. We use it only to tell you when Sift launches; we do not sell it or share it for advertising. The website sets no advertising or analytics cookies. Our hosting provider, Vercel, processes standard request data such as IP address and browser type to deliver and secure the site. To remove your email from the waitlist, contact support@siftcosts.com."
+    },
+    {
       "title": "Storage and retention",
       "text": "Saved household and business records are retained to provide history and comparisons, including after a subscription expires. Deleting a receipt/invoice queues its stored images for removal. Account deletion removes your household, authentication account and applicable personal records. Businesses where you are the only member are deleted with their invoice/recipe records and photos; shared business records remain with remaining members. Pending deletions are retried by our backend. Minimal deletion-status records are retained for up to 30 days for retry and audit purposes. Provider backups may expire on a different schedule and are not used to restore deleted records into normal service."
     },
     {
       "title": "Your choices",
-      "text": "Use Profile to export saved purchase history as CSV, change AI processing permission, manage an Apple subscription, or delete your account. If you are the only administrator of a shared restaurant, arrange another administrator before deleting your account. Account deletion does not cancel an Apple subscription: cancel through Apple subscription settings. For access, correction, a shared-organization deletion request, or a problem completing deletion, contact chimpchamp92@gmail.com. We may need to verify your authority over the restaurant."
+      "text": "Use Profile to export saved purchase history as CSV, change AI processing permission, manage an Apple subscription, or delete your account. If you are the only administrator of a shared restaurant, arrange another administrator before deleting your account. Account deletion does not cancel an Apple subscription: cancel through Apple subscription settings. For access, correction, a shared-organization deletion request, or a problem completing deletion, contact support@siftcosts.com. We may need to verify your authority over the restaurant."
     },
     {
       "title": "Security and international processing",
@@ -35,7 +39,7 @@
     },
     {
       "title": "Children and changes",
-      "text": "Sift is intended for adults managing household shopping or business purchasing and is not directed at children under 16. We will update this policy when processing changes and request new AI permission when materially needed. Contact chimpchamp92@gmail.com with questions."
+      "text": "Sift is intended for adults managing household shopping or business purchasing and is not directed at children under 16. We will update this policy when processing changes and request new AI permission when materially needed. Contact support@siftcosts.com with questions."
     }
   ],
   "terms": [
@@ -45,7 +49,7 @@
     },
     {
       "title": "Your account and workspaces",
-      "text": "Use a valid email address and protect your sign-in access. Only upload content you have permission to process. Personal records belong to your household workspace; Business records are shared with authorized organization members. Each purchasing owner can connect one Personal and one Business workspace for subscriptions. Personal Pro and Business Pro are purchased separately. A business administrator who is not the billing owner cannot restore or purchase on the owner\u2019s behalf."
+      "text": "Use a valid email address and protect your sign-in access. Only upload content you have permission to process. Personal records belong to your household workspace; Business records are shared with authorized organization members. Each purchasing owner can connect one Personal and one Business workspace for subscriptions. Personal Pro and Business Pro are purchased separately. A business administrator who is not the billing owner cannot restore or purchase on the owner’s behalf."
     },
     {
       "title": "Free and Pro plans",
@@ -53,7 +57,7 @@
     },
     {
       "title": "Apple subscriptions",
-      "text": "The App Store displays each plan\u2019s actual localized monthly price before purchase. Personal Pro and Business Pro are separate auto-renewing subscriptions and unlock only the matching workspace type. Payment is charged to your Apple account at confirmation. Subscriptions renew automatically unless cancelled at least 24 hours before the current period ends. Cancelling renewal preserves access through the paid-through expiry shown in Profile. Manage or cancel through Apple subscription settings; account deletion does not cancel subscriptions. Apple handles refund requests under its applicable policies. Use Restore purchases while signed into the purchasing Sift owner account and Apple account."
+      "text": "The App Store displays each plan’s actual localized monthly price before purchase. Personal Pro and Business Pro are separate auto-renewing subscriptions and unlock only the matching workspace type. Payment is charged to your Apple account at confirmation. Subscriptions renew automatically unless cancelled at least 24 hours before the current period ends. Cancelling renewal preserves access through the paid-through expiry shown in Profile. Manage or cancel through Apple subscription settings; account deletion does not cancel subscriptions. Apple handles refund requests under its applicable policies. Use Restore purchases while signed into the purchasing Sift owner account and Apple account."
     },
     {
       "title": "AI and accuracy",
@@ -61,11 +65,11 @@
     },
     {
       "title": "Acceptable use",
-      "text": "Do not upload content you have no right to share, circumvent service limits, access another workspace\u2019s data, interfere with the service or use it unlawfully. We may limit or suspend abusive use. Service interruptions and model-provider availability may affect new processing."
+      "text": "Do not upload content you have no right to share, circumvent service limits, access another workspace’s data, interfere with the service or use it unlawfully. We may limit or suspend abusive use. Service interruptions and model-provider availability may affect new processing."
     },
     {
       "title": "Deletion and termination",
-      "text": "Initiate account deletion in Profile. Your household and sole-member businesses and their data are erased; legitimate shared business records remain with other members. The only administrator of a shared business must arrange another administrator before leaving. See the Privacy Policy and contact chimpchamp92@gmail.com if you need help."
+      "text": "Initiate account deletion in Profile. Your household and sole-member businesses and their data are erased; legitimate shared business records remain with other members. The only administrator of a shared business must arrange another administrator before leaving. See the Privacy Policy and contact support@siftcosts.com if you need help."
     },
     {
       "title": "Disclaimers and liability",
@@ -73,7 +77,7 @@
     },
     {
       "title": "Changes and contact",
-      "text": "We will update these terms when necessary and provide notice of material changes where required. Questions about service or billing: chimpchamp92@gmail.com. Apple\u2019s applicable licensed application terms also apply to the iOS app."
+      "text": "We will update these terms when necessary and provide notice of material changes where required. Questions about service or billing: support@siftcosts.com. Apple’s applicable licensed application terms also apply to the iOS app."
     }
   ]
 }

@@ -7,7 +7,7 @@ Subtitle: Grocery & business insights
 Primary category: Finance
 Secondary category: Business
 Initial availability: United States / English
-Support: https://siftcosts.com/support · chimpchamp92@gmail.com
+Support: https://siftcosts.com/support · support@siftcosts.com
 Privacy: https://siftcosts.com/privacy
 Terms: https://siftcosts.com/terms
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
+import Link from "next/link";
 
 type Status = "idle" | "loading" | "success" | "error";
 
@@ -18,6 +19,7 @@ export default function WaitlistForm({
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
+  const noticeId = useId();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -87,6 +89,7 @@ export default function WaitlistForm({
           }}
           placeholder="you@example.com"
           aria-label="Email address"
+          aria-describedby={noticeId}
           disabled={status === "loading"}
           className="w-full flex-1 appearance-none rounded-2xl border border-border bg-surface px-5 py-3.5 text-base text-foreground outline-none transition placeholder:text-muted focus:border-brand focus:ring-2 focus:ring-brand/30 disabled:opacity-60"
         />
@@ -98,8 +101,12 @@ export default function WaitlistForm({
           {status === "loading" ? "Joining…" : "Join the waitlist"}
         </button>
       </div>
+      <p id={noticeId} className="mt-2 px-1 text-xs leading-relaxed text-muted">
+        We’ll only use your email to tell you when Sift launches, and you can ask us to remove it at any time. See our{" "}
+        <Link href="/privacy" className="underline">Privacy Policy</Link>.
+      </p>
       {status === "error" && error && (
-        <p role="alert" className="mt-2 px-1 text-sm text-red-500">
+        <p role="alert" className="mt-2 px-1 text-sm text-red-700 dark:text-red-300">
           {error}
         </p>
       )}

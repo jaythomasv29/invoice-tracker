@@ -23,7 +23,7 @@ export async function requestDeletion(userId: string, issuer:string) {
     const members = await allMemberships(`/organizations/${encodeURIComponent(orgId)}/memberships`);
     if (members.length === 1 && members[0].public_user_data.user_id === userId) eraseOrgs.push(orgId);
     else if (membership.role === 'org:admin' && !members.some(m => m.public_user_data.user_id !== userId && m.role === 'org:admin')) {
-      throw new Error('Make another member an administrator or remove other members before deleting the only administrator account. Contact chimpchamp92@gmail.com for help.');
+      throw new Error('Make another member an administrator or remove other members before deleting the only administrator account. Contact support@siftcosts.com for help.');
     }
   }
   const { data, error: insertError } = await db.from('account_deletions').insert({ user_id: userId, owner_issuer:issuer, organization_ids: eraseOrgs }).select().single();
