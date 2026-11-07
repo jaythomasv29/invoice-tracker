@@ -4,6 +4,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { Invoice } from '../../store/useStore';
 import { money2 } from '../../lib/money';
+import { useWorkspace } from '../../lib/workspaceContext';
 
 interface InvoiceRowProps {
   invoice: Invoice;
@@ -15,19 +16,21 @@ interface InvoiceRowProps {
 }
 
 export default function InvoiceRow({ invoice: inv, onPress, showVendorName }: InvoiceRowProps) {
+  const { isPersonal } = useWorkspace();
+  const noun = isPersonal ? 'Receipt' : 'Invoice';
   return (
-    <TouchableOpacity style={styles.row} accessibilityLabel={`Open ${inv.vendorName} invoice ${inv.invoiceNumber}, ${inv.date}, $${money2(inv.total)}`} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity style={styles.row} accessibilityLabel={`Open ${inv.vendorName} ${noun.toLowerCase()} ${inv.invoiceNumber}, ${inv.date}, $${money2(inv.total)}`} onPress={onPress} activeOpacity={0.85}>
       <View style={{ flex: 1, minWidth: 0 }}>
         {showVendorName ? (
           <>
             <Text style={styles.title} numberOfLines={1}>{inv.vendorName}</Text>
             <Text style={styles.meta} numberOfLines={1}>
-              Invoice #{inv.invoiceNumber || '—'} · {inv.date} · {inv.lineItems.length} {inv.lineItems.length === 1 ? 'item' : 'items'}
+              {noun} #{inv.invoiceNumber || '—'} · {inv.date} · {inv.lineItems.length} {inv.lineItems.length === 1 ? 'item' : 'items'}
             </Text>
           </>
         ) : (
           <>
-            <Text style={styles.title}>Invoice #{inv.invoiceNumber}</Text>
+            <Text style={styles.title}>{noun} #{inv.invoiceNumber}</Text>
             <Text style={styles.meta}>{inv.date} · {inv.lineItems.length} {inv.lineItems.length === 1 ? 'item' : 'items'}</Text>
           </>
         )}

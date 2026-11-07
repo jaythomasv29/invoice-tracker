@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSupabase } from '../lib/supabase';
 import { useEntitlement } from './useEntitlement';
 import { useStore } from '../store/useStore';
-import { DEMO_EXTRACTION_USAGE } from '../lib/demoData';
+import { demoFixtures } from '../lib/demoData';
 
 // This calendar month's extraction count for the org, against the current tier's
 // monthly cap ("X of N left this month"). Counts invoices that reached extraction
@@ -15,6 +15,7 @@ export function useExtractionUsage() {
   const { organization } = useWorkspace();
   const { invoiceCap } = useEntitlement();
   const demoMode = useStore((s) => s.demoMode);
+  const demoKind = useStore((s) => s.demoKind);
   const [used, setUsed] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -41,7 +42,7 @@ export function useExtractionUsage() {
   useEffect(() => { refresh(); }, [refresh]);
 
   if (demoMode) {
-    return { ...DEMO_EXTRACTION_USAGE, loading: false, refresh: async () => {} };
+    return { ...demoFixtures(demoKind).extractionUsage, loading: false, refresh: async () => {} };
   }
   const cap = invoiceCap;
   const remaining = used == null ? cap : Math.max(0, cap - used);

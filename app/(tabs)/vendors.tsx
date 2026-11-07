@@ -86,7 +86,7 @@ export default function VendorsScreen() {
     useCallback(() => {
       if (tab !== 'invoices') return;
       // Keep sample exploration entirely local, using the tour ledger.
-      if (demoMode) { setAllInvoices(buildDemoInvoices()); setInvoicesLoading(false); return; }
+      if (demoMode) { setAllInvoices(buildDemoInvoices(useStore.getState().demoKind)); setInvoicesLoading(false); return; }
       if (!organization?.id) return;
       let live=true; const scope=useStore.getState().activeScope;
       setInvoicesLoading(true);setInvoicesError('');
@@ -243,6 +243,7 @@ export default function VendorsScreen() {
 
 function VendorCard({ vendor: v, periodAmount, periodLabel }: { vendor: Vendor; periodAmount: number; periodLabel: string }) {
   const router = useRouter();
+  const { isPersonal } = useWorkspace();
   return (
     <TouchableOpacity
       style={styles.vendorCard}
@@ -261,7 +262,7 @@ function VendorCard({ vendor: v, periodAmount, periodLabel }: { vendor: Vendor; 
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.vendorName} numberOfLines={1}>{v.name}</Text>
           <Text style={styles.vendorMeta}>
-            {v.invoiceCount} invoice{v.invoiceCount === 1 ? '' : 's'} total · last order {v.lastOrder}
+            {v.invoiceCount} {isPersonal ? 'receipt' : 'invoice'}{v.invoiceCount === 1 ? '' : 's'} total · last {isPersonal ? 'visit' : 'order'} {v.lastOrder}
           </Text>
         </View>
         <View style={styles.vendorSpendPill}>

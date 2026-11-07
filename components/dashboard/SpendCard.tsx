@@ -102,7 +102,7 @@ export default function SpendCard({
           {topVendors.map(([name, v]) => (
             <View key={name} style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: v.color }]} />
-              <Text style={styles.legendText}>{name.split(' ')[0]}</Text>
+              <Text style={styles.legendText}>{legendName(name)}</Text>
             </View>
           ))}
         </View>
@@ -183,3 +183,10 @@ const styles = StyleSheet.create({
   barLabel: { fontSize: 10.5, fontFamily: 'Manrope_600SemiBold', color: Colors.textTertiary },
   barLabelActive: { color: Colors.textSecondary },
 });
+
+// Short legend label: the first word, or the first two when the first is a
+// short generic word ("Main St Pharmacy" → "Main St", not "Main").
+function legendName(name: string): string {
+  const words = name.trim().split(/\s+/);
+  return words[0].length <= 4 && words.length > 1 ? `${words[0]} ${words[1]}` : words[0];
+}

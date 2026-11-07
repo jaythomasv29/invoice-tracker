@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSupabase } from '../lib/supabase';
 import { localDateFromTimestamp } from '../lib/invoicePipeline';
 import { useStore } from '../store/useStore';
-import { DEMO_STREAK } from '../lib/demoData';
+import { demoFixtures } from '../lib/demoData';
 
 export interface UploadStreak {
   streak: number; // consecutive local days ending today (or yesterday if today not yet logged)
@@ -43,6 +43,7 @@ export function useUploadStreak(): UploadStreak {
   const supabase = useSupabase();
   const { organization } = useWorkspace();
   const demoMode = useStore((s) => s.demoMode);
+  const demoKind = useStore((s) => s.demoKind);
   const [streak, setStreak] = useState(0);
   const [loggedToday, setLoggedToday] = useState(false);
   const [longestStreak, setLongestStreak] = useState(0);
@@ -112,6 +113,6 @@ export function useUploadStreak(): UploadStreak {
     refresh();
   }, [refresh]);
 
-  if (demoMode) return { ...DEMO_STREAK, loading: false, refresh: async () => {} };
+  if (demoMode) return { ...demoFixtures(demoKind).streak, loading: false, refresh: async () => {} };
   return { streak, loggedToday, longestStreak, loading, refresh };
 }

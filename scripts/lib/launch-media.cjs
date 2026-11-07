@@ -143,7 +143,8 @@ const SCENES = {
   'item-history': { aliases: ['item-history', 'product-history', 'carousel'], pro: null, eyebrow: 'PRODUCT HISTORY', lines: ['Every item’s price,', 'every delivery.'], sub: 'See exactly when a cost started creeping.', bg: C.cream, short: 'Every price, every delivery.' },
   library: { aliases: ['library', 'invoices'], pro: null, eyebrow: 'INVOICE LIBRARY', lines: ['Every invoice.', 'Found in seconds.'], sub: 'Search by supplier or invoice number.', bg: C.cream, short: 'Every invoice, found fast.' },
   suppliers: { aliases: ['suppliers', 'vendors'], pro: null, eyebrow: 'SUPPLIERS', lines: ['Every supplier.', 'One clear view.'], sub: 'Compare what you spend with each vendor.', bg: C.cream, short: 'Every supplier, one view.' },
-  personal: { aliases: ['personal', 'personal-home'], pro: null, eyebrow: 'PERSONAL WORKSPACE', lines: ['Groceries at home?', 'Sift does that too.'], sub: 'Household receipts, kept separate. Same login.', bg: C.cream, short: 'Groceries at home, too.' },
+  // Personal Home (Free in the Personal workspace): spend by store from saved receipts. The price watch / alerts are Personal Pro and are not on this slide.
+  personal: { aliases: ['personal', 'personal-home'], pro: null, eyebrow: 'PERSONAL WORKSPACE', lines: ['Groceries, too.', 'Every receipt, tracked.'], sub: 'Household spending by store, kept separate.', bg: C.cream, short: 'Groceries, too.' },
 };
 const sceneLabel = (key) => (SCENES[key].pro ? `${SCENES[key].short} · ${titleCase(SCENES[key].pro)}` : SCENES[key].short);
 function titleCase(s) { return s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()); }

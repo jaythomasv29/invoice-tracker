@@ -6,7 +6,7 @@
 //
 // <dir> holds raw 1320x2868 simulator PNGs named by scene (aliases in scripts/lib/launch-media.cjs):
 //   alerts.png review.png home.png recipes.png item-history.png library.png suppliers.png personal.png
-//   (intelligence.png is an optional spare; add it to --order to use it)
+//   intelligence.png, item-history.png and personal.png (or personal-home.png) are optional
 // Output (default launch-assets/screenshots/app-store-v2/):
 //   6.9/NN-<scene>.png  1320x2868 RGB, no alpha  (APP_IPHONE_67 / Dynamic Island large)
 //   6.9/NN-<scene>.svg  editable source (text as Manrope vector paths, capture embedded)
@@ -18,7 +18,7 @@ const path = require('path');
 const L = require('./lib/launch-media.cjs');
 const { C, text, fitSize, pill, svgDoc, SCENES } = L;
 
-const DEFAULT_ORDER = ['alerts', 'review', 'home', 'recipes', 'item-history', 'library', 'suppliers', 'personal'];
+const DEFAULT_ORDER = ['alerts', 'review', 'home', 'intelligence', 'recipes', 'item-history', 'library', 'suppliers', 'personal'];
 const REQUIRED = ['alerts', 'review', 'home', 'recipes', 'library', 'suppliers'];
 const SLUG = { alerts: 'price-alerts', review: 'scan-review', home: 'spending', intelligence: 'purchasing-intelligence', recipes: 'recipe-costing', 'item-history': 'item-history', library: 'invoice-library', suppliers: 'suppliers', personal: 'personal' };
 const W = 1320, H = 2868;

@@ -13,16 +13,9 @@ import Touch from '../ui/MotionTouchable';
 import { Colors } from '../../constants/Colors';
 import { useSupabase } from '../../lib/supabase';
 import { useWorkspace } from '../../lib/workspaceContext';
-import { comparablePrice } from '../../shared/receiptComparison.ts';
-type Watch = {
-  key: string;
-  name: string;
-  count: number;
-  first: number;
-  last: number;
-  unit: string;
-  vendorId: string;
-};
+import { buildPriceWatch, type PriceWatchItem } from '../../lib/householdPriceWatch';
+import { buildDemoPriceWatch } from '../../lib/demoData';
+import { useStore } from '../../store/useStore';
 export default function HouseholdInsightsCard({
   count,
   isPaid,
@@ -33,13 +26,20 @@ export default function HouseholdInsightsCard({
   const { organization } = useWorkspace();
   const db = useSupabase();
   const router = useRouter();
-  const [watch, setWatch] = useState<Watch[]>([]);
+  const demoMode = useStore((s) => s.demoMode);
+  const [watch, setWatch] = useState<PriceWatchItem[]>([]);
   const [error, setError] = useState(false);
   useFocusEffect(
     useCallback(() => {
       let active = true;
       if (!organization?.id || !isPaid) {
         setWatch([]);
+        return;
+      }
+      // Sample household: ranked from the fixture, never from the database.
+      if (demoMode) {
+        setError(false);
+        setWatch(buildDemoPriceWatch());
         return;
       }
       void (async () => {
@@ -65,50 +65,12 @@ export default function HouseholdInsightsCard({
           data.push(...(page ?? []));
           if ((page ?? []).length < 1000) break;
         }
-        const groups = new Map<string, Watch>();
-        const seen = new Set<string>();
-        for (const row of [...(data ?? [])].sort((a: any, b: any) =>
-          (a.invoices.invoice_date ?? a.invoices.created_at).localeCompare(
-            b.invoices.invoice_date ?? b.invoices.created_at,
-          ),
-        ) as any[]) {
-          const p = comparablePrice(
-            row.retail_product,
-            Number(row.qty),
-            Number(row.extended_price),
-            row.invoices.vendor_id,
-          );
-          if (!p || seen.has(`${p.key}:${row.invoice_id}`)) continue;
-          seen.add(`${p.key}:${row.invoice_id}`);
-          const g = groups.get(p.key);
-          if (g) {
-            g.count++;
-            g.last = p.price;
-          } else
-            groups.set(p.key, {
-              key: p.key,
-              name: row.clean_name,
-              count: 1,
-              first: p.price,
-              last: p.price,
-              unit: p.unit,
-              vendorId: row.invoices.vendor_id,
-            });
-        }
-        setWatch(
-          [...groups.values()]
-            .filter((g) => g.count > 1)
-            .sort(
-              (a, b) =>
-                Math.abs(b.last / b.first - 1) - Math.abs(a.last / a.first - 1),
-            )
-            .slice(0, 4),
-        );
+        setWatch(buildPriceWatch(data));
       })();
       return () => {
         active = false;
       };
-    }, [organization?.id, isPaid, db]),
+    }, [organization?.id, isPaid, db, demoMode]),
   );
   const next =
     count < 1

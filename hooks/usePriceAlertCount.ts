@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useSupabase } from '../lib/supabase';
 import { useStore } from '../store/useStore';
-import { DEMO_PRICE_ALERT_COUNT } from '../lib/demoData';
+import { demoFixtures } from '../lib/demoData';
 
 // This calendar month's price-alert count for the org — a cheap count query
 // (no rows fetched) used to tease free users on the locked Alerts tab
@@ -13,6 +13,7 @@ export function usePriceAlertCount() {
   const supabase = useSupabase();
   const { organization } = useWorkspace();
   const demoMode = useStore((s) => s.demoMode);
+  const demoKind = useStore((s) => s.demoKind);
   const [count, setCount] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
@@ -38,6 +39,6 @@ export function usePriceAlertCount() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  if (demoMode) return { count: DEMO_PRICE_ALERT_COUNT, refresh: async () => {} };
+  if (demoMode) return { count: demoFixtures(demoKind).priceAlertCount, refresh: async () => {} };
   return { count: count ?? 0, refresh };
 }

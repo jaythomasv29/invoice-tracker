@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSupabase } from '../lib/supabase';
 import { localDateFromTimestamp } from '../lib/invoicePipeline';
 import { useStore } from '../store/useStore';
-import { DEMO_MISSING_FLAGS } from '../lib/demoData';
+import { demoFixtures } from '../lib/demoData';
 
 export interface MissingInvoiceFlag {
   vendorId: string;
@@ -47,6 +47,7 @@ export function useMissingInvoices(enabled = true) {
   const supabase = useSupabase();
   const { organization } = useWorkspace();
   const demoMode = useStore((s) => s.demoMode);
+  const demoKind = useStore((s) => s.demoKind);
   const [flags, setFlags] = useState<MissingInvoiceFlag[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -110,6 +111,6 @@ export function useMissingInvoices(enabled = true) {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  if (demoMode) return { flags: DEMO_MISSING_FLAGS, loading: false, refresh: async () => {} };
+  if (demoMode) return { flags: demoFixtures(demoKind).missingFlags, loading: false, refresh: async () => {} };
   return { flags, loading, refresh };
 }

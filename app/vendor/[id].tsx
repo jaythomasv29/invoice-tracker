@@ -69,7 +69,7 @@ export default function VendorDetailScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!organization?.id || !id) return;
-      if(demoMode){setVendorInvoices(buildDemoInvoices().filter(inv=>inv.vendorId===id));setLoadedVendorId(id);setLoading(false);return;}
+      if(demoMode){setVendorInvoices(buildDemoInvoices(useStore.getState().demoKind).filter(inv=>inv.vendorId===id));setLoadedVendorId(id);setLoading(false);return;}
       let live=true;const scope=useStore.getState().activeScope;
       setLoading(true);setLoadError('');
       void Promise.all([fetchVendorInvoices(supabase,organization.id,id),supabase.from('vendors').select('name,color,contact_name,contact_phone,account_number').eq('id',id).eq('organization_id',organization.id).single()])

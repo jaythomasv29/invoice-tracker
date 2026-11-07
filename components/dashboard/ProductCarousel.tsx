@@ -43,7 +43,7 @@ import Spinner from "../ui/Spinner";
 
 function demoCatalog() {
   const map = new Map<string, PurchaseObservation[]>();
-  for (const inv of buildDemoInvoices())
+  for (const inv of buildDemoInvoices(useStore.getState().demoKind))
     for (const line of inv.lineItems) {
       const key = `${inv.vendorId}:${line.rawDesc || line.desc}:${line.unit}`;
       const row: PurchaseObservation = {

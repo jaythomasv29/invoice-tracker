@@ -216,7 +216,8 @@ export function localIso(d: Date): string {
 }
 
 // Small deterministic PRNG keyed by a string (FNV-1a → mulberry32 step).
-function rand(seed: string): number {
+// Shared with the household sample ledger (lib/demoHousehold.ts).
+export function rand(seed: string): number {
   let h = 2166136261;
   for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
   let t = (h += 0x6d2b79f5);

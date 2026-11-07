@@ -44,7 +44,7 @@ export default function InvoiceDetailScreen() {
   const showToast = useStore((s) => s.showToast);
 
   useEffect(() => {
-    if (demoMode) { setInvoice(buildDemoInvoices().find(x => x.id === id) ?? null); setLoading(false); return; }
+    if (demoMode) { setInvoice(buildDemoInvoices(useStore.getState().demoKind).find(x => x.id === id) ?? null); setLoading(false); return; }
     if (!organization?.id || !id) return;
     setLoading(true);
     setLoadError('');

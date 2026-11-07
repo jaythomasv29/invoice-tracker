@@ -13,8 +13,18 @@ import {
   buildDemoLedger, localIso, DEMO_VENDORS, DEMO_VENDOR_KEYS,
   type DemoLedger, type DemoLedgerInvoice,
 } from './demoLedger';
+import { buildHouseholdLedger, DEMO_STORES, DEMO_STORE_KEYS, type DemoHouseholdLedger, type DemoReceipt } from './demoHousehold';
+import { buildPriceWatch, type PriceWatchItem } from './householdPriceWatch';
+import type { AccountType } from '../shared/workspacePolicy';
 
 export { DEMO_RESTAURANT_NAME } from './demoLedger';
+export { DEMO_HOUSEHOLD_NAME } from './demoHousehold';
+
+// Which sample workspace is loaded: the restaurant (Business, the product
+// tour) or the household (Personal). Chosen by the caller of startDemo().
+export type DemoKind = AccountType;
+type AnyDemoInvoice = DemoLedgerInvoice | DemoReceipt;
+type DemoVendorRef = { id: string; name: string; color: string };
 
 // Client-side sample dataset that powers the first-run product tour (and the
 // App Store / website captures). The ledger itself — a fictional restaurant's
@@ -48,7 +58,7 @@ const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const pct = (cur: number, prev: number) => (prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : null);
 
-function addTo(bar: DayData, inv: DemoLedgerInvoice) {
+function addTo(bar: DayData, inv: AnyDemoInvoice) {
   bar.total += inv.total;
   const seg = bar.breakdown.find((s) => s.vendorId === inv.vendorId);
   if (seg) seg.amount += inv.total;
@@ -107,7 +117,31 @@ export interface DemoState {
 // ---- Builder ---------------------------------------------------------------
 
 export function buildDemoState(now: Date = new Date(), ledger: DemoLedger = buildDemoLedger(now)): DemoState {
-  const { invoices } = ledger;
+  const vendorRefs = DEMO_VENDOR_KEYS.map((key) => DEMO_VENDORS[key]);
+  return {
+    dashboard: buildDashboard(now, ledger.invoices, vendorRefs),
+    priceAlerts: ledger.alerts.map((a) => ({ ...a })),
+    recipes: ledger.recipes.map((r) => ({ ...r })),
+  };
+}
+
+// The Personal workspace's sample household (lib/demoHousehold.ts): same
+// reducer, receipts instead of invoices, household (net-unit-price) alerts,
+// and no recipes or delivery gaps — those are Business-only.
+export function buildHouseholdDemoState(now: Date = new Date(), ledger: DemoHouseholdLedger = buildHouseholdLedger(now)): DemoState {
+  const storeRefs = DEMO_STORE_KEYS.map((key) => DEMO_STORES[key]);
+  return {
+    dashboard: buildDashboard(now, ledger.invoices, storeRefs),
+    priceAlerts: ledger.alerts.map((a) => ({ ...a })),
+    recipes: [],
+  };
+}
+
+export function buildDemoStateFor(kind: DemoKind, now: Date = new Date()): DemoState {
+  return kind === 'personal' ? buildHouseholdDemoState(now) : buildDemoState(now);
+}
+
+function buildDashboard(now: Date, invoices: AnyDemoInvoice[], vendorRefs: DemoVendorRef[]): DemoDashboard {
   const y = now.getFullYear();
   const m = now.getMonth();
   const weekStart = mondayOf(now);
@@ -188,34 +222,27 @@ export function buildDemoState(now: Date = new Date(), ledger: DemoLedger = buil
     ...(({ label, isBackdated }) => ({ periodLabel: label, isBackdated }))(periodLabel(inv.dateIso, weekStart)),
   }));
 
-  const vendors: Vendor[] = DEMO_VENDOR_KEYS.map((key) => {
-    const v = DEMO_VENDORS[key];
-    const mine = invoices.filter((i) => i.vendor === key);
+  const vendors: Vendor[] = vendorRefs.map((v) => {
+    const mine = invoices.filter((i) => i.vendorId === v.id);
     const last = mine.reduce<string>((acc, i) => (i.dateIso > acc ? i.dateIso : acc), '');
     return { id: v.id, name: v.name, color: v.color, invoiceCount: mine.length, lastOrder: last ? formatDate(last) : '—' };
   });
 
-  const priceAlerts: PriceAlert[] = ledger.alerts.map((a) => ({ ...a }));
-
   return {
-    dashboard: {
-      spendInvoices: invoices.map((inv) => ({ id: inv.id, vendor_id: inv.vendorId, total: inv.total, invoice_date: inv.dateIso, created_at: inv.createdAt })),
-      vendors,
-      weekTotal: r2(weekTotal),
-      weekPctChange: pct(weekTotal, prevWeekTotal),
-      dayData,
-      monthTotal: r2(monthTotal),
-      monthPctChange: pct(monthTotal, prevMonthTotal),
-      monthData,
-      allYearData,
-      categorySpend,
-      topItems,
-      uploadActivity,
-      deliveryGapTotal: r2(deliveryGapTotal),
-      deliveryGapItems: deliveryGapItems.slice(0, 25), // ledger is newest first
-    },
-    priceAlerts,
-    recipes: ledger.recipes.map((r) => ({ ...r })),
+    spendInvoices: invoices.map((inv) => ({ id: inv.id, vendor_id: inv.vendorId, total: inv.total, invoice_date: inv.dateIso, created_at: inv.createdAt })),
+    vendors,
+    weekTotal: r2(weekTotal),
+    weekPctChange: pct(weekTotal, prevWeekTotal),
+    dayData,
+    monthTotal: r2(monthTotal),
+    monthPctChange: pct(monthTotal, prevMonthTotal),
+    monthData,
+    allYearData,
+    categorySpend,
+    topItems,
+    uploadActivity,
+    deliveryGapTotal: r2(deliveryGapTotal),
+    deliveryGapItems: deliveryGapItems.slice(0, 25), // ledger is newest first
   };
 }
 
@@ -226,7 +253,7 @@ export function buildDemoRecipes(): RecipeListItem[] {
 
 // ---- Invoices (library, invoice detail, vendor pages, product carousel) ----
 
-function toInvoice(inv: DemoLedgerInvoice): Invoice {
+function toInvoice(inv: AnyDemoInvoice): Invoice {
   const lineItems: LineItem[] = inv.lines.map((l, i) => ({
     id: `${inv.id}-item-${i}`,
     desc: l.name,
@@ -259,10 +286,23 @@ function toInvoice(inv: DemoLedgerInvoice): Invoice {
   };
 }
 
-// The tour's invoice library uses the same fictional ledger as the dashboard
-// (newest upload first).
-export function buildDemoInvoices(now = new Date()): Invoice[] {
-  return buildDemoLedger(now).invoices.map(toInvoice);
+// The sample library uses the same fictional ledger as the dashboard (newest
+// upload first): the restaurant's invoices, or the household's receipts.
+export function buildDemoInvoices(kind: DemoKind = 'business', now = new Date()): Invoice[] {
+  return (kind === 'personal' ? buildHouseholdLedger(now).invoices : buildDemoLedger(now).invoices).map(toInvoice);
+}
+
+// Home "Your price watch" for the sample household, ranked by the same rule
+// as the live card (lib/householdPriceWatch.ts).
+export function buildDemoPriceWatch(now = new Date()): PriceWatchItem[] {
+  return buildPriceWatch(
+    buildHouseholdLedger(now).invoices.flatMap((inv) =>
+      inv.lines.map((l) => ({
+        invoice_id: inv.id, clean_name: l.name, qty: l.qty, extended_price: l.ext, retail_product: l.retail,
+        invoices: { invoice_date: inv.dateIso, created_at: inv.createdAt, vendor_id: inv.vendorId },
+      })),
+    ),
+  );
 }
 
 // The invoice shown on the review screen in captures: the latest Cascade
@@ -294,9 +334,9 @@ export function buildDemoReviewInvoice(now = new Date()): Invoice {
 const LOADED = new Date();
 const LOADED_LEDGER = buildDemoLedger(LOADED);
 
-function streakFrom(ledger: DemoLedger, now: Date): Omit<UploadStreak, 'loading' | 'refresh'> {
+function streakFrom(invoices: AnyDemoInvoice[], now: Date): Omit<UploadStreak, 'loading' | 'refresh'> {
   const day = (iso: string) => Math.floor(Date.parse(iso + 'T00:00:00Z') / 86400000);
-  const days = new Set(ledger.invoices.map((i) => day(localIso(new Date(i.createdAt)))));
+  const days = new Set(invoices.map((i) => day(localIso(new Date(i.createdAt)))));
   const today = day(localIso(now));
   const loggedToday = days.has(today);
   let streak = 0;
@@ -306,11 +346,25 @@ function streakFrom(ledger: DemoLedger, now: Date): Omit<UploadStreak, 'loading'
   return { streak, loggedToday, longestStreak: longest };
 }
 
-export const DEMO_STREAK: Omit<UploadStreak, 'loading' | 'refresh'> = streakFrom(LOADED_LEDGER, LOADED);
+// Increases whose purchase date falls in this calendar month (usePriceAlertCount).
+function alertCountThisMonth(alerts: { priceDate: string }[], now: Date): number {
+  const monthStart = localIso(new Date(now.getFullYear(), now.getMonth(), 1));
+  return alerts.filter((a) => a.priceDate >= monthStart).length;
+}
+
+// The sample presents Pro (useEntitlement), so the meter is against the
+// workspace type's Pro cap.
+function usageFrom(invoices: AnyDemoInvoice[], now: Date, kind: DemoKind) {
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const used = invoices.filter((i) => new Date(i.createdAt).getTime() >= monthStart).length;
+  const cap = invoiceCapForPlan('pro', kind);
+  return { used, cap, remaining: cap - used };
+}
 
 // Harbor Seafood invoices about weekly, but its last two deliveries were never
-// scanned — the "you probably forgot to log an invoice" flag.
-export const DEMO_MISSING_FLAGS: MissingInvoiceFlag[] = (() => {
+// scanned — the "you probably forgot to log an invoice" flag. (Business-only;
+// the household has no missing-receipt flag.)
+const BUSINESS_MISSING_FLAGS: MissingInvoiceFlag[] = (() => {
   const harbor = LOADED_LEDGER.invoices.filter((i) => i.vendor === 'harbor');
   const last = harbor.reduce((acc, i) => (i.dateIso > acc ? i.dateIso : acc), '');
   const today = new Date(LOADED.getFullYear(), LOADED.getMonth(), LOADED.getDate());
@@ -323,14 +377,25 @@ export const DEMO_MISSING_FLAGS: MissingInvoiceFlag[] = (() => {
   }] : [];
 })();
 
-// Increases whose delivery falls in this calendar month (usePriceAlertCount).
-export const DEMO_PRICE_ALERT_COUNT = LOADED_LEDGER.alerts
-  .filter((a) => a.priceDate >= localIso(new Date(LOADED.getFullYear(), LOADED.getMonth(), 1))).length;
+export interface DemoFixtures {
+  streak: Omit<UploadStreak, 'loading' | 'refresh'>;
+  missingFlags: MissingInvoiceFlag[];
+  priceAlertCount: number;
+  extractionUsage: { used: number; cap: number; remaining: number };
+}
 
-// The tour presents Pro (useEntitlement), so the meter is against Pro's cap.
-export const DEMO_EXTRACTION_USAGE = (() => {
-  const monthStart = new Date(LOADED.getFullYear(), LOADED.getMonth(), 1).getTime();
-  const used = LOADED_LEDGER.invoices.filter((i) => new Date(i.createdAt).getTime() >= monthStart).length;
-  const cap = invoiceCapForPlan('pro');
-  return { used, cap, remaining: cap - used };
-})();
+const FIXTURES: Partial<Record<DemoKind, DemoFixtures>> = {};
+
+export function demoFixtures(kind: DemoKind): DemoFixtures {
+  const cached = FIXTURES[kind];
+  if (cached) return cached;
+  const ledger = kind === 'personal' ? buildHouseholdLedger(LOADED) : LOADED_LEDGER;
+  const built: DemoFixtures = {
+    streak: streakFrom(ledger.invoices, LOADED),
+    missingFlags: kind === 'personal' ? [] : BUSINESS_MISSING_FLAGS,
+    priceAlertCount: alertCountThisMonth(ledger.alerts, LOADED),
+    extractionUsage: usageFrom(ledger.invoices, LOADED, kind),
+  };
+  FIXTURES[kind] = built;
+  return built;
+}

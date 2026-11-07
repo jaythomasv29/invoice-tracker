@@ -1,5 +1,5 @@
 {
-  "createdAt": "2026-11-07T23:04:19.203Z",
+  "createdAt": "2026-11-07T23:42:42.860Z",
   "captures": "/Users/james/Desktop/code/InvoiceIntelligenceApp/launch-assets/captures/2026-11-07/stills",
   "sizes": {
     "6.9": [
@@ -28,13 +28,13 @@
           "path": "6.9/01-price-alerts.png",
           "width": 1320,
           "height": 2868,
-          "sha256": "49d43c4c2f0a5bde84a8bb1f054b744f3c6d3e74f5b0f56518d55b505a76a135"
+          "sha256": "df9cd231b13e2f26ab9dba8f0d39d547f2d2ea3eba303754aaa2ac87af8a9a4d"
         },
         "6.3": {
           "path": "6.3/01-price-alerts.png",
           "width": 1206,
           "height": 2622,
-          "sha256": "9923098813d64617f3a400049cd0672d3acaae9ffbc5cf14d6b30797b1c6d283"
+          "sha256": "2aefe2a6b9e8c0cc243f80f839f8f82024a12eb204bddc5cb8420788cbf7822a"
         }
       }
     },
@@ -54,13 +54,13 @@
           "path": "6.9/02-scan-review.png",
           "width": 1320,
           "height": 2868,
-          "sha256": "33343c5fe6362b420d37fa5ae303a24e1dca6c472be5e4a559848d8bbcdf9d16"
+          "sha256": "56f5dc5b04416b79602e35a0aa16b7bc7ebf2abcd74978c082fa0c8b480e27dd"
         },
         "6.3": {
           "path": "6.3/02-scan-review.png",
           "width": 1206,
           "height": 2622,
-          "sha256": "b99299c0892a0dfd931358761698f1d9e2511701d7606f87903d698a724efd78"
+          "sha256": "61845666aec6fa4177c12dd14ab7342c6c30e25bfa45bc2c4640832875c5102e"
         }
       }
     },
@@ -80,13 +80,13 @@
           "path": "6.9/03-spending.png",
           "width": 1320,
           "height": 2868,
-          "sha256": "d7c73bc497f5926a53f5d9cc2ed0c7f8870a605493986f8d4cef9470993ef5bc"
+          "sha256": "96a7fd79b6df4d8d1e4b50d4fa591cf9f538cbe15b723681864dbe662757a3d4"
         },
         "6.3": {
           "path": "6.3/03-spending.png",
           "width": 1206,
           "height": 2622,
-          "sha256": "e5d40e6937e3e69822b57c96e98616c5f81f8c13a016baa22726f0db4d1c15f6"
+          "sha256": "393d21aa8b83908b152f5d6c3190239cd7725df473156d18bfa0a05cab90a0d3"
         }
       }
     },
@@ -106,13 +106,13 @@
           "path": "6.9/04-purchasing-intelligence.png",
           "width": 1320,
           "height": 2868,
-          "sha256": "699c263af9c74e4a6178d791c9111fce7e7e4f8a5c7eab9488b7f4076ee6249e"
+          "sha256": "f58625df355099817303af33c9279640c39e7e55fed7c58ee2cbad654257cba9"
         },
         "6.3": {
           "path": "6.3/04-purchasing-intelligence.png",
           "width": 1206,
           "height": 2622,
-          "sha256": "b7fa87d4cde50876b8c7974a2b95bb4b39faf30f4a224b2bfed7e1b0845e6354"
+          "sha256": "0e5be2c599d542c925a992a21861ce8d580d3b56b3e6caa4601efe158394e014"
         }
       }
     },
@@ -132,13 +132,13 @@
           "path": "6.9/05-recipe-costing.png",
           "width": 1320,
           "height": 2868,
-          "sha256": "ea802ee1bf7fa15cecb8761abde5941314f217e03d4d91888588cc3aec2e8cc5"
+          "sha256": "a6074fab7cb89ee724396cb11a46b3b137cf0db28bc72a76e772192cb4693239"
         },
         "6.3": {
           "path": "6.3/05-recipe-costing.png",
           "width": 1206,
           "height": 2622,
-          "sha256": "f297932a963d31eb7d7ef88e73752c0de8170eeabdac793431f4d54850771b61"
+          "sha256": "b80da7404fd29e56800cdd75a985d5cbf6bc51250cd59250444fb840725955fc"
         }
       }
     },
@@ -158,13 +158,13 @@
           "path": "6.9/06-invoice-library.png",
           "width": 1320,
           "height": 2868,
-          "sha256": "8ea2ef7ba3b3207784af20acb3a8a607006d46015ce5d9bb76d70c63fdb755b6"
+          "sha256": "c3fc47894f48f8b7882492b190848fdaa078b1e0751ffd27c59189ea3eb3c3ef"
         },
         "6.3": {
           "path": "6.3/06-invoice-library.png",
           "width": 1206,
           "height": 2622,
-          "sha256": "de396d6e2b798aa8445e1b6671306366dd5d41ed5ff03b0f500be6466d1a4da7"
+          "sha256": "79c023384bd289bedcc8ff876a60312d048a5285eec089dc6ab518e2cf458166"
         }
       }
     },
@@ -184,13 +184,39 @@
           "path": "6.9/07-suppliers.png",
           "width": 1320,
           "height": 2868,
-          "sha256": "eae226579fc381c06b05d6f6355958f8f5b2f8c778deb4231f1362106adb1aeb"
+          "sha256": "4fcd6d4ce2cc0fd5e1b3c3b92ba2601cd8365f8c15df8ced6b3c653b37dc84ec"
         },
         "6.3": {
           "path": "6.3/07-suppliers.png",
           "width": 1206,
           "height": 2622,
-          "sha256": "8d5923fcc3b4799af8f817720d959dfb353683b435931fab78df134b965f935b"
+          "sha256": "64aba19c7d7b2fbe30db01b41d9945e1aa23fd98600489e252eb559ddddbe16b"
+        }
+      }
+    },
+    {
+      "scene": "personal",
+      "name": "08-personal",
+      "capture": "personal-home.png",
+      "captureSha256": "c5ee8d57e374afdf36b7157e54251d2f8f49e1abac55e6a3a5cb8961a7480e09",
+      "eyebrow": "PERSONAL WORKSPACE",
+      "headline": [
+        "Groceries, too.",
+        "Every receipt, tracked."
+      ],
+      "sub": "Household spending by store, kept separate.",
+      "files": {
+        "6.9": {
+          "path": "6.9/08-personal.png",
+          "width": 1320,
+          "height": 2868,
+          "sha256": "a26c4996fde09d1a1900b32b1bd67e28e07cd85a35c655da8d9fd69cf9d83a6c"
+        },
+        "6.3": {
+          "path": "6.3/08-personal.png",
+          "width": 1206,
+          "height": 2622,
+          "sha256": "060a6d73d27efa9f3e22df4b26680acdd9a9037ba9098e4afade355759c0f54b"
         }
       }
     }

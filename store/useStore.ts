@@ -2,7 +2,7 @@ import type { SpendInvoice } from '../lib/spendSummary';
 import { create } from 'zustand';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatDate, fallbackVendorColor, categoryColor, categoryLabel, localDateFromTimestamp } from '../lib/invoicePipeline';
-import { buildDemoState } from '../lib/demoData';
+import { buildDemoStateFor, type DemoKind } from '../lib/demoData';
 import type { Plan } from '../lib/entitlements';
 
 export type VerificationStatus = 'pending' | 'received' | 'missing';
@@ -187,7 +187,11 @@ interface AppState {
   // app returns fixture values instead of querying Supabase (the two fetch
   // actions below early-return; the store-bypassing hooks guard themselves).
   demoMode: boolean;
-  startDemo: () => void;
+  // Which sample is loaded: the restaurant (Business) or the household
+  // (Personal). Pass the active workspace's type; a workspace switch resets
+  // the store (SessionScope), so the two never mix.
+  demoKind: DemoKind;
+  startDemo: (kind?: DemoKind) => void;
   endDemo: () => void;
 
   // QA-only override of the effective plan tier, for verifying gating at each
@@ -350,14 +354,16 @@ export const useStore = create<AppState>((set, get) => ({
   vendors: [],
   toast: null,
   demoMode: false,
+  demoKind: 'business',
   debugPlan: null,
 
   setDebugPlan: (plan) => set({ debugPlan: plan }),
 
-  startDemo: () => {
-    const { dashboard, priceAlerts } = buildDemoState(new Date());
+  startDemo: (kind = 'business') => {
+    const { dashboard, priceAlerts } = buildDemoStateFor(kind, new Date());
     set({
       demoMode: true,
+      demoKind: kind,
       dashboardError: null,
       spendInvoices: dashboard.spendInvoices,
       awaitingReview: [],
@@ -389,6 +395,7 @@ export const useStore = create<AppState>((set, get) => ({
     // with the user's real data.
     set({
       demoMode: false,
+      demoKind: 'business',
       spendInvoices: [],
       awaitingReview: [],
       awaitingReviewCount: 0,

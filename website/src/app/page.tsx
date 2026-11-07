@@ -47,7 +47,7 @@ export default function Home() {
           accent={BRAND}
           title={<>Your everyday essentials.<br />A clearer picture.</>}
           subtitle="See spending by purchase date and store, with a color-coded breakdown and your saved receipts close at hand. Personal Pro compares repeat-item net prices only when product identity, package size and discounts are reliable."
-          visual={<PhoneFrame src={media.screens.personal.src} alt="Actual Sift Personal Home with fictional household receipt spending by store, date and month" maxWidthClass="max-w-[320px]" />}
+          visual={<PhoneFrame src={media.screens.personal.src} alt="Sift Personal Home showing a fictional household's October grocery and household spending, $1,141.08 across four stores, with a color-coded store breakdown and receipt metrics" maxWidthClass="max-w-[320px]" />}
         />
         <LaunchFilm />
 
