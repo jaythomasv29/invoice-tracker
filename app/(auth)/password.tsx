@@ -41,7 +41,7 @@ export default function PasswordSignIn() {
       <TextInput accessibilityLabel="Password" value={password} onChangeText={setPassword} secureTextEntry textContentType="password" autoCapitalize="none" autoCorrect={false} style={s.input} editable={!busy} onSubmitEditing={() => void submit()} />
       {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
       <MotionTouchable accessibilityRole="button" disabled={busy || !email.trim() || !password} onPress={() => void submit()} style={[s.button,(busy || !email.trim() || !password) && {opacity:0.5}]}><Text style={s.buttonText}>{busy ? 'Signing in…' : 'Sign in'}</Text></MotionTouchable>
-      <MotionTouchable accessibilityRole="button" onPress={() => router.replace('/(auth)/sign-in')} style={s.alternative}><Text style={s.link}>Use an email code instead</Text></MotionTouchable>
+      <MotionTouchable accessibilityRole="button" onPress={() => (router.canGoBack() ? router.back() : router.replace('/(auth)/sign-in'))} style={s.alternative}><Text style={s.link}>Use an email code instead</Text></MotionTouchable>
       <Text style={s.legal}>By signing in, you agree to the <Text style={s.link} onPress={() => openLegalUrl(TERMS_URL,()=>{})}>Terms</Text> and <Text style={s.link} onPress={() => openLegalUrl(PRIVACY_POLICY_URL,()=>{})}>Privacy Policy</Text>.</Text>
     </ScrollView>
   </KeyboardAvoidingView></SafeAreaView>;

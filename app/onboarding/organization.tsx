@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import SafeAreaView from '../../components/ui/Screen';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useOrganizationList, useUser } from '@clerk/clerk-expo';
+import { useAuth, useOrganizationList, useUser } from '@clerk/clerk-expo';
+import { useStore } from '../../store/useStore';
 import { useWorkspace } from '../../lib/workspaceContext';
 import { useSupabaseForWorkspace } from '../../lib/supabase';
 import { Colors } from '../../constants/Colors';
@@ -22,6 +23,7 @@ export default function CreateWorkspace() {
   const { add } = useLocalSearchParams<{ add?: string }>();
   const { user, isLoaded: userLoaded } = useUser();
   const { createOrganization, isLoaded } = useOrganizationList();
+  const { signOut } = useAuth();
   const {
     organization,
     select,
@@ -48,6 +50,20 @@ export default function CreateWorkspace() {
     } catch (e) {
       setError((e as Error).message);
     } finally {
+      setBusy(false);
+    }
+  };
+  // Signed in with the wrong account? This screen is reachable before any
+  // workspace exists, so it must offer a way out (Profile isn't reachable yet).
+  const switchAccount = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      useStore.setState(useStore.getInitialState(), true);
+      await signOut();
+      router.replace('/(auth)/sign-in');
+    } catch (e) {
+      setError((e as Error).message ?? 'Could not sign out. Try again.');
       setBusy(false);
     }
   };
@@ -195,6 +211,24 @@ export default function CreateWorkspace() {
           <Text style={s.note}>
             Start free. Add the other workspace later from Profile.
           </Text>
+          {!add && (
+            <View style={s.account}>
+              <Text style={s.accountText}>
+                Signed in as {user?.primaryEmailAddress?.emailAddress ?? 'this account'}
+              </Text>
+              <Text style={s.accountHint}>
+                Looking for an existing business? Sign in with the email that was invited to it.
+              </Text>
+              <TouchableOpacity
+                onPress={switchAccount}
+                disabled={busy}
+                style={s.back}
+                accessibilityRole="button"
+              >
+                <Text style={s.link}>Use a different account</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -250,6 +284,9 @@ const s = StyleSheet.create({
     marginTop: 8,
   },
   existing: { minHeight: 48, justifyContent: 'center' },
+  account: { alignItems: 'center', marginTop: 28, gap: 4 },
+  accountText: { fontFamily: 'Manrope_600SemiBold', fontSize: 13, color: Colors.textPrimary },
+  accountHint: { fontFamily: 'Manrope_500Medium', fontSize: 12, lineHeight: 18, color: Colors.textSecondary, textAlign: 'center' },
   link: { fontFamily: 'Manrope_700Bold', fontSize: 14, color: Colors.primary },
   label: {
     fontFamily: 'Manrope_700Bold',

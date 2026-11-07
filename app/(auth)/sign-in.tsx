@@ -23,10 +23,36 @@ export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // Set when the email has no account. Creating one is an explicit choice —
+  // a typo or the wrong address must never silently create a new account.
+  const [noAccountFor, setNoAccountFor] = useState<string | null>(null);
 
   const handleChange = (val: string) => {
     setEmail(val);
     setError('');
+    setNoAccountFor(null);
+  };
+
+  const fail = (err: any, fallback = 'Something went wrong. Try again.') => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    setError(err?.errors?.[0]?.longMessage ?? err?.errors?.[0]?.message ?? fallback);
+  };
+  const sessionExists = (err: any) => err?.errors?.some((e: any) => e.code === 'session_exists');
+
+  const handleCreateAccount = async () => {
+    if (!signUpLoaded || submitting || !noAccountFor) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      await signUp.create({ emailAddress: noAccountFor });
+      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      router.push({ pathname: '/(auth)/verify', params: { email: noAccountFor, mode: 'signUp' } });
+    } catch (err: any) {
+      if (sessionExists(err)) { router.replace('/(tabs)'); return; }
+      fail(err);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleContinue = async () => {
@@ -49,47 +75,29 @@ export default function SignInScreen() {
 
     setSubmitting(true);
     setError('');
+    setNoAccountFor(null);
     try {
-      // New email: Clerk creates the account and sends the first code.
-      await signUp.create({ emailAddress: trimmed });
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
-      router.push({ pathname: '/(auth)/verify', params: { email: trimmed, mode: 'signUp' } });
-    } catch (signUpErr: any) {
-      if (signUpErr?.errors?.some((e: any) => e.code === 'session_exists')) {
-        router.replace('/(tabs)');
+      // Sign-in first. Only an explicit "Create account" tap signs up.
+      const attempt = await signIn.create({ identifier: trimmed });
+      const emailFactor = attempt.supportedFirstFactors?.find(
+        (f: any) => f.strategy === 'email_code'
+      ) as any;
+      if (!emailFactor) {
+        throw { errors: [{ message: 'This account can’t sign in with an email code. Use password sign-in instead.' }] };
+      }
+      await signIn.prepareFirstFactor({
+        strategy: 'email_code',
+        emailAddressId: emailFactor.emailAddressId,
+      });
+      router.push({ pathname: '/(auth)/verify', params: { email: trimmed, mode: 'signIn' } });
+    } catch (err: any) {
+      if (sessionExists(err)) { router.replace('/(tabs)'); return; }
+      if (err?.errors?.some((e: any) => e.code === 'form_identifier_not_found')) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        setNoAccountFor(trimmed);
         return;
       }
-      const alreadyExists = signUpErr?.errors?.some(
-        (e: any) => e.code === 'form_identifier_exists'
-      );
-      if (!alreadyExists) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        setError(signUpErr?.errors?.[0]?.message ?? 'Something went wrong. Try again.');
-        setSubmitting(false);
-        return;
-      }
-      // Existing email: fall back to the sign-in flow instead.
-      try {
-        const attempt = await signIn.create({ identifier: trimmed });
-        const emailFactor = attempt.supportedFirstFactors?.find(
-          (f: any) => f.strategy === 'email_code'
-        ) as any;
-        if (!emailFactor) {
-          throw { errors: [{ message: 'This account can’t sign in with an email code. Contact support.' }] };
-        }
-        await signIn.prepareFirstFactor({
-          strategy: 'email_code',
-          emailAddressId: emailFactor.emailAddressId,
-        });
-        router.push({ pathname: '/(auth)/verify', params: { email: trimmed, mode: 'signIn' } });
-      } catch (signInErr: any) {
-        if (signInErr?.errors?.some((e: any) => e.code === 'session_exists')) {
-          router.replace('/(tabs)');
-          return;
-        }
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        setError(signInErr?.errors?.[0]?.message ?? 'Something went wrong. Try again.');
-      }
+      fail(err);
     } finally {
       setSubmitting(false);
     }
@@ -104,6 +112,8 @@ export default function SignInScreen() {
             onPress={() => (router.canGoBack() ? router.back() : router.replace('/(auth)'))}
             activeOpacity={0.7}
             hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
           >
             <View style={styles.backChevron} />
           </TouchableOpacity>
@@ -124,6 +134,7 @@ export default function SignInScreen() {
             <Text style={styles.label}>Email address</Text>
             <View style={[styles.inputWrap, error ? styles.inputError : null]}>
               <TextInput
+                accessibilityLabel="Email address"
                 style={styles.input}
                 value={email}
                 onChangeText={handleChange}
@@ -137,8 +148,23 @@ export default function SignInScreen() {
                 autoFocus
               />
             </View>
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {error ? <Text style={styles.errorText} accessibilityRole="alert">{error}</Text> : null}
           </View>
+
+          {noAccountFor ? (
+            <View style={styles.noAccount} accessibilityRole="alert">
+              <Text style={styles.noAccountTitle}>No Sift account for {noAccountFor}</Text>
+              <Text style={styles.noAccountBody}>Check the spelling, or try the email your team invited. New to Sift? Create an account with this email.</Text>
+              <TouchableOpacity
+                style={[styles.btnSecondary, submitting && styles.btnDisabled]}
+                onPress={() => { Haptics.selectionAsync(); handleCreateAccount(); }}
+                disabled={submitting}
+                accessibilityRole="button"
+              >
+                <Text style={styles.btnSecondaryText}>Create account</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
 
           <TouchableOpacity
             style={[styles.btn, (!EMAIL_RE.test(email.trim()) || submitting) && styles.btnDisabled]}
@@ -244,6 +270,17 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   btnDisabled: { opacity: 0.5 },
+  noAccount: {
+    backgroundColor: Colors.surface, borderRadius: 14, borderWidth: 1, borderColor: Colors.border,
+    padding: 16, gap: 8, marginBottom: 16,
+  },
+  noAccountTitle: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
+  noAccountBody: { fontSize: 13, lineHeight: 19, fontFamily: 'Manrope_500Medium', color: Colors.textSecondary },
+  btnSecondary: {
+    marginTop: 4, minHeight: 48, borderRadius: Design.radius.pill, borderWidth: 1.5, borderColor: Colors.primary,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  btnSecondaryText: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: Colors.primary },
   btnContent: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   btnText: { fontSize: 16, fontFamily: 'Manrope_700Bold', color: '#fff' },
   legal: {

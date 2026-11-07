@@ -199,7 +199,7 @@ export default function VerifyScreen() {
                 <Text style={styles.btnText}>Verifying…</Text>
               </View>
             ) : (
-              <Text style={styles.btnText}>Verify & sign in</Text>
+              <Text style={styles.btnText}>{mode === 'signUp' ? 'Verify & create account' : 'Verify & sign in'}</Text>
             )}
           </TouchableOpacity>
 
@@ -221,6 +221,13 @@ export default function VerifyScreen() {
                 ? `Resend code in ${resendSeconds}s`
                 : "Resend code"}
             </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/(auth)/sign-in'))}
+            style={styles.resendRow}
+            accessibilityRole="button"
+          >
+            <Text style={styles.resendText}>Wrong email? Use a different one</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
