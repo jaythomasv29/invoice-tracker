@@ -1,0 +1,49 @@
+{
+  "verifiedAt": "2026-11-07T00:32:18.810129+00:00",
+  "sourceCommit": "f0335c101fcc481e74925eef3323b755dddee526",
+  "channel": "beta",
+  "build": "1.0.0 (7)",
+  "updateId": "01a1b36a-2650-7634-88b6-a68309347472",
+  "groupId": "87468f3d-0a80-4776-b975-2bbe3532dc06",
+  "runtimeVersion": "062bedef39aff97c339accbe22183fe3470f622f",
+  "migration": "20261106040000_confirmed_product_grouping",
+  "nativeBuildUsed": false,
+  "functions": [
+    "delete-account",
+    "maintenance"
+  ],
+  "verification": {
+    "typecheck": "passed",
+    "lint": "passed, no lint warnings",
+    "nodeTests": 57,
+    "sqlAssertions": 25,
+    "priorCatalogAndInvoiceSql": "passed",
+    "deno": "passed",
+    "hosted": {
+      "checks": [
+        "different names remain separate before confirmation",
+        "confirmed link commits through the scoped RPC",
+        "confirmed names share a display group with separate options",
+        "grouping action records verified author",
+        "other workspace cannot read grouping history",
+        "other workspace cannot undo grouping",
+        "other workspace cannot link product names",
+        "direct alias mutations cannot bypass the confirmation RPC",
+        "future purchases with confirmed names follow the link",
+        "stale grouping decisions are rejected",
+        "an existing confirmed group can be linked with another name",
+        "older undo cannot overwrite a newer grouping decision",
+        "undo restores the earlier confirmed group",
+        "undo original link restores automatic name groups",
+        "undo history is preserved",
+        "original invoice records and totals remain unchanged",
+        "reorder evidence retains its exact supplier and printed product identity"
+      ],
+      "passed": true,
+      "cleanup": "complete"
+    },
+    "bundle": "passed",
+    "liveManifest": "passed",
+    "ui": "Real-component browser fixture: target review; confirmation disabled until acknowledgement; two cards become one; history marks Undo; previous two product cards restored. Native keyboard/sheet/VoiceOver remain phone QA."
+  }
+}
