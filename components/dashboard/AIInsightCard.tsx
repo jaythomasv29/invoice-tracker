@@ -3,6 +3,7 @@ import TouchableOpacity from '../ui/MotionTouchable';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { PriceAlert } from '../../store/useStore';
+import { groupPriceAlerts } from '../../lib/priceAlertGroups';
 
 interface AIInsightCardProps {
   priceAlerts: PriceAlert[];
@@ -16,10 +17,9 @@ interface AIInsightCardProps {
 // scanning more invoices, since the detector needs repeat purchases of the
 // same item to have anything to compare.
 export default function AIInsightCard({ priceAlerts, onPress }: AIInsightCardProps) {
-  const allIncreases = priceAlerts
-    .filter((a) => a.pctChange > 0)
-    .sort((a, b) => b.pctChange - a.pctChange);
-  const increases=allIncreases.slice(0,3);
+  // One entry per product (repeat increases grouped), biggest cumulative creep first.
+  const allIncreases = groupPriceAlerts(priceAlerts).sort((a, b) => b.totalPct - a.totalPct);
+  const increases = allIncreases.slice(0, 3);
 
   const hasData = increases.length > 0;
 
@@ -38,16 +38,16 @@ export default function AIInsightCard({ priceAlerts, onPress }: AIInsightCardPro
             {allIncreases.length === 1 ? '1 item has' : `${allIncreases.length} items have`} crept up in price recently
           </Text>
           <View style={styles.list}>
-            {increases.map((a) => (
-              <View key={a.id} style={styles.row}>
+            {increases.map((g) => (
+              <View key={g.key} style={styles.row}>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.itemName} numberOfLines={1}>{a.itemName}</Text>
-                  <Text style={styles.vendorName} numberOfLines={1}>{a.vendorName}</Text>
+                  <Text style={styles.itemName} numberOfLines={1}>{g.latest.itemName}</Text>
+                  <Text style={styles.vendorName} numberOfLines={1}>{g.latest.vendorName}</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.pctChange}>+{Math.round(a.pctChange)}%</Text>
+                  <Text style={styles.pctChange}>+{Math.round(g.totalPct)}%</Text>
                   <Text style={styles.priceChange}>
-                    ${a.previousPrice.toFixed(2)} → ${a.newPrice.toFixed(2)}
+                    ${g.firstPrice.toFixed(2)} → ${g.latestPrice.toFixed(2)}
                   </Text>
                 </View>
               </View>

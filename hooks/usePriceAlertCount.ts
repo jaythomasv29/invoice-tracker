@@ -18,13 +18,15 @@ export function usePriceAlertCount() {
   const refresh = useCallback(async () => {
     if (demoMode) return; // demo count returned below.
     if (!organization?.id) return;
+    // Count increases whose delivery falls in this (local) month — not when
+    // the comparison happened to run, which a backfill or edit can move.
     const now = new Date();
-    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
     const { count: c, error } = await supabase
       .from('price_alerts')
       .select('id', { count: 'exact', head: true })
       .eq('organization_id', organization.id)
-      .gte('detected_at', monthStart);
+      .gte('price_date', monthStart);
     // Keep the last known count on a failed query instead of dropping to 0 —
     // this feeds an upgrade-teaser badge, and "0 alerts" reads as "nothing to
     // see here" rather than "we couldn't check."

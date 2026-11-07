@@ -74,6 +74,10 @@ export interface PriceAlert {
   absChange: number;
   detectedAt: string;
   read: boolean;
+  // Delivery dates of the compared purchases (ISO yyyy-mm-dd); null on
+  // legacy alerts written before they were recorded.
+  priceDate?: string | null;
+  previousPriceDate?: string | null;
 }
 
 export interface Vendor {
@@ -777,8 +781,9 @@ export const useStore = create<AppState>((set, get) => ({
     if (get().demoMode || get().activeScope !== scope) return; // seeded by startDemo(); see fetchDashboardSummary.
     const { data, error } = await supabase
       .from('price_alerts')
-      .select('id, item_name, vendor_id, previous_price, new_price, unit, pct_change, read, detected_at, vendors(name)')
+      .select('id, item_name, vendor_id, previous_price, new_price, unit, pct_change, read, detected_at, price_date, previous_price_date, vendors(name)')
       .eq('organization_id', organizationId)
+      .order('price_date', { ascending: false, nullsFirst: false })
       .order('detected_at', { ascending: false });
     if (error) {
       get().showToast('Could not load price alerts');
@@ -797,6 +802,8 @@ export const useStore = create<AppState>((set, get) => ({
       absChange: Math.round((Number(row.new_price) - Number(row.previous_price)) * 100) / 100,
       detectedAt: new Date(row.detected_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       read: row.read ?? false,
+      priceDate: row.price_date ?? null,
+      previousPriceDate: row.previous_price_date ?? null,
     }));
 
     if (get().demoMode || get().activeScope !== scope) return; // don't clobber a seed that arrived mid-fetch.

@@ -13,6 +13,7 @@ import { useEntitlement } from '../../hooks/useEntitlement';
 import { usePriceAlertCount } from '../../hooks/usePriceAlertCount';
 import ProLockCard from '../../components/ui/ProLockCard';
 import Toast from '../../components/ui/Toast';
+import { formatAlertDate, groupPriceAlerts, type PriceAlertGroup } from '../../lib/priceAlertGroups';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -39,8 +40,13 @@ export default function AlertsScreen() {
     }, [isPaid, organization?.id, supabase, fetchPriceAlerts])
   );
 
-  const unread = priceAlerts.filter((a) => !a.read);
-  const read = priceAlerts.filter((a) => a.read);
+  // One row per product: repeat increases collapse into a single creep story.
+  const groups = groupPriceAlerts(priceAlerts);
+  const unread = groups.filter((g) => g.unread);
+  const read = groups.filter((g) => !g.unread);
+  const markGroupRead = (g: PriceAlertGroup<PriceAlert>) => {
+    for (const a of g.alerts) if (!a.read) markAlertRead(supabase, a.id);
+  };
 
   // Free orgs get the feature pitch instead of the alert list — but teased with
   // their real count of price increases (detection runs for everyone; only the
@@ -60,17 +66,17 @@ export default function AlertsScreen() {
         )}
       </View>
 
-      <Text style={{paddingHorizontal:20,paddingBottom:10,fontFamily:'Manrope_400Regular',fontSize:13,color:Colors.textSecondary}}>Supplier price changes, clearly surfaced.</Text>
+      <Text style={{paddingHorizontal:20,paddingBottom:10,fontFamily:'Manrope_400Regular',fontSize:13,color:Colors.textSecondary}}>Items your suppliers charged more for than last time, dated by delivery.</Text>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {unread.length > 0 && (
           <>
             <Text style={styles.sectionLabel}>New</Text>
-            {unread.map((a) => (
-              <AlertRow key={a.id} alert={a} onPress={() => {
+            {unread.map((g) => (
+              <AlertRow key={g.key} group={g} onPress={() => {
                 Haptics.selectionAsync();
                 LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                markAlertRead(supabase, a.id);
-                openHistory(a);
+                markGroupRead(g);
+                openHistory(g.latest);
               }} />
             ))}
           </>
@@ -79,16 +85,16 @@ export default function AlertsScreen() {
         {read.length > 0 && (
           <>
             <Text style={styles.sectionLabel}>Earlier</Text>
-            {read.map((a) => (
-              <AlertRow key={a.id} alert={a} dimmed onPress={() => {
+            {read.map((g) => (
+              <AlertRow key={g.key} group={g} dimmed onPress={() => {
                 Haptics.selectionAsync();
-                openHistory(a);
+                openHistory(g.latest);
               }} />
             ))}
           </>
         )}
 
-        {priceAlerts.length === 0 && (
+        {groups.length === 0 && (
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>✓</Text>
             <Text style={styles.emptyTitle}>No alerts right now</Text>
@@ -122,36 +128,44 @@ function FreeAlertsUpsell() {
   );
 }
 
-function AlertRow({ alert: a, onPress, dimmed }: { alert: PriceAlert; onPress?: () => void; dimmed?: boolean }) {
-  const isUp = a.pctChange > 0;
+function AlertRow({ group: g, onPress, dimmed }: { group: PriceAlertGroup<PriceAlert>; onPress?: () => void; dimmed?: boolean }) {
+  const a = g.latest;
+  const unit = a.unit ? `/${a.unit}` : '';
+  const date = formatAlertDate(a.priceDate, a.detectedAt);
+  const since = formatAlertDate(g.firstDate);
+  const label = `${a.itemName} from ${a.vendorName}, up ${Math.round(a.pctChange)} percent to $${a.newPrice.toFixed(2)}${g.increases > 1 ? `, up ${Math.round(g.totalPct)} percent over ${g.increases} increases` : ''}`;
   return (
     <TouchableOpacity
       style={[styles.alertCard, dimmed && styles.alertCardDimmed]}
       onPress={onPress}
       activeOpacity={onPress ? 0.85 : 1}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint="Opens this item's price history"
     >
-      <View style={[styles.alertIcon, { backgroundColor: isUp ? Colors.warningLight : Colors.primaryLight }]}>
-        <Text style={[styles.alertIconGlyph, { color: isUp ? Colors.warning : Colors.primary }]}>
-          {isUp ? '↑' : '↓'}
-        </Text>
+      <View style={[styles.alertIcon, { backgroundColor: Colors.warningLight }]}>
+        <Text style={[styles.alertIconGlyph, { color: Colors.warning }]}>↑</Text>
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={styles.alertItemName} numberOfLines={1}>{a.itemName}</Text>
         <Text style={styles.alertVendor}>{a.vendorName}</Text>
         <View style={styles.alertMeta}>
-          <View style={[styles.alertPctBadge, { backgroundColor: isUp ? Colors.warningLight : Colors.primaryLight }]}>
-            <Text style={[styles.alertPctText, { color: isUp ? Colors.warning : Colors.primary }]}>
-              {isUp ? '+' : ''}{Math.round(a.pctChange)}%
-            </Text>
+          <View style={[styles.alertPctBadge, { backgroundColor: Colors.warningLight }]}>
+            <Text style={[styles.alertPctText, { color: Colors.warning }]}>+{Math.round(a.pctChange)}%</Text>
           </View>
           <Text style={styles.alertDetail}>
-            ${a.previousPrice.toFixed(2)} → ${a.newPrice.toFixed(2)}{a.unit ? `/${a.unit}` : ''}
+            ${a.previousPrice.toFixed(2)} → ${a.newPrice.toFixed(2)}{unit}
           </Text>
         </View>
+        {g.increases > 1 && (
+          <Text style={styles.alertStreak}>
+            Up {Math.round(g.totalPct)}% over {g.increases} increases{since ? ` since ${since}` : ''} · ${g.firstPrice.toFixed(2)} → ${g.latestPrice.toFixed(2)}{unit}
+          </Text>
+        )}
       </View>
       <View style={styles.alertRight}>
-        <Text style={styles.alertDate}>{a.detectedAt}</Text>
-        {!a.read && <View style={styles.unreadDot} />}
+        <Text style={styles.alertDate}>{date}</Text>
+        {g.unread && <View style={styles.unreadDot} />}
       </View>
     </TouchableOpacity>
   );
@@ -187,6 +201,7 @@ const styles = StyleSheet.create({
   alertPctBadge: { borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
   alertPctText: { fontSize: 11, fontFamily: 'Manrope_700Bold' },
   alertDetail: { fontSize: 12, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary },
+  alertStreak: { fontSize: 12, lineHeight: 17, fontFamily: 'Manrope_600SemiBold', color: Colors.warning, marginTop: 6 },
   alertRight: { alignItems: 'flex-end', gap: 6 },
   alertDate: { fontSize: 11, fontFamily: 'Manrope_600SemiBold', color: Colors.textTertiary },
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.danger },
