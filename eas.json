@@ -83,6 +83,19 @@
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "channel": "beta"
+    },
+    "simulator-prod": {
+      "distribution": "internal",
+      "node": "22.13.0",
+      "environment": "production",
+      "ios": {
+        "simulator": true,
+        "buildConfiguration": "Release"
+      },
+      "env": {
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+      },
+      "developmentClient": false
     }
   },
   "submit": {
