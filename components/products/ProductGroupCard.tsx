@@ -11,11 +11,13 @@ export default function ProductGroupCard({
   metric,
   busy,
   onOpen,
+  onLink,
 }: {
   group: ProductGroup;
   metric: boolean;
   busy: boolean;
   onOpen: (option: PurchasedProduct) => void;
+  onLink?: (group: ProductGroup) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const suppliers = new Set(
@@ -26,7 +28,7 @@ export default function ProductGroupCard({
       <Touch
         accessibilityRole="button"
         accessibilityState={{ expanded }}
-        accessibilityLabel={`${group.name}. ${suppliers} suppliers. ${group.variants.length} supplier options. ${expanded ? "Collapse" : "Compare options"}`}
+        accessibilityLabel={`${group.name}. ${suppliers} supplier${suppliers === 1 ? "" : "s"}. ${group.variants.length} supplier option${group.variants.length === 1 ? "" : "s"}. ${expanded ? "Collapse" : "Compare options"}`}
         style={{ minHeight: 48, justifyContent: "center", gap: 6 }}
         onPress={() => setExpanded(!expanded)}
       >
@@ -45,6 +47,23 @@ export default function ProductGroupCard({
             Each option keeps its own package, price and purchase history.
             Compare matching unit prices before choosing.
           </Text>
+          {onLink && (
+            <Touch
+              accessibilityRole="button"
+              accessibilityLabel={`Link ${group.name} with another product name`}
+              disabled={busy}
+              style={{ minHeight: 44, justifyContent: "center" }}
+              onPress={() => onLink(group)}
+            >
+              <Text style={ui.label}>Link with another product name →</Text>
+            </Touch>
+          )}
+          {group.key.startsWith("linked:") && (
+            <Text style={ui.hint}>
+              Names linked by your team. You can restore previous groups from
+              Grouping history.
+            </Text>
+          )}
           {group.variants.map((option) => {
             const p = option.purchase;
             return (

@@ -1,3 +1,5 @@
+import ProductGroupingSheet from "../../components/products/ProductGroupingSheet";
+import Toast from "../../components/ui/Toast";
 import { useStore } from "../../store/useStore";
 import ProductGroupCard from "../../components/products/ProductGroupCard";
 import type { ProductGroup } from "../../lib/productGroups";
@@ -45,6 +47,9 @@ export default function Products() {
   const [query, setQuery] = useState(""),
     [tab, setTab] = useState<"purchases" | "saved">("purchases"),
     [metric, setMetric] = useState(false);
+  const demoMode = useStore((s) => s.demoMode);
+  const [linkSource, setLinkSource] = useState<ProductGroup | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [groups, setGroups] = useState<ProductGroup[]>([]);
   const [purchases, setPurchases] = useState<PurchasedProduct[]>([]),
     [saved, setSaved] = useState<ProductRecord[]>([]),
@@ -109,6 +114,8 @@ export default function Products() {
   useEffect(() => {
     setPurchases([]);
     setGroups([]);
+    setLinkSource(null);
+    setHistoryOpen(false);
     setSaved([]);
     setPrices(new Map());
   }, [organization?.id]);
@@ -262,6 +269,19 @@ export default function Products() {
                   <Text style={ui.label}>{metric ? "Metric" : "US units"}</Text>
                 </Touch>
               </View>
+              {!isPersonal && !demoMode && tab === "purchases" && (
+                <>
+                  <Text style={ui.hint}>
+                    Different names for the same item? Expand a product to link
+                    another name after reviewing the match.
+                  </Text>
+                  <Action
+                    secondary
+                    title="Grouping history & Undo"
+                    onPress={() => setHistoryOpen(true)}
+                  />
+                </>
+              )}
               {error ? (
                 <View style={ui.card}>
                   <Text style={ui.error}>{error}</Text>
@@ -279,6 +299,7 @@ export default function Products() {
                   metric={metric}
                   busy={busy}
                   onOpen={(row) => void open(row)}
+                  onLink={demoMode ? undefined : setLinkSource}
                 />
               );
             const purchased = item.kind === "purchase" ? item.row : null;
@@ -375,6 +396,16 @@ export default function Products() {
           }
         />
       </KeyboardAvoidingView>
+      <ProductGroupingSheet
+        source={linkSource}
+        historyOpen={historyOpen}
+        onClose={() => {
+          setLinkSource(null);
+          setHistoryOpen(false);
+        }}
+        onChanged={() => void load()}
+      />
+      <Toast />
     </Screen>
   );
 }

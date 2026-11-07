@@ -1,3 +1,4 @@
+import { productGroupAliases } from "./productGroups";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   unitDefinition,
@@ -187,14 +188,112 @@ export async function updateProduct(
   if (error) throw new Error("Could not save product. Please retry.");
 }
 
-export async function purchaseHistory(db: SupabaseClient, key: string, offset = 0): Promise<PurchaseObservation[]> {
-  const { data, error } = await db.rpc('purchase_product_history', { p_key: key, p_limit: 100, p_offset: offset });
-  if (error) throw new Error('Could not load purchase history. Please retry.');
+export async function purchaseHistory(
+  db: SupabaseClient,
+  key: string,
+  offset = 0,
+): Promise<PurchaseObservation[]> {
+  const { data, error } = await db.rpc("purchase_product_history", {
+    p_key: key,
+    p_limit: 100,
+    p_offset: offset,
+  });
+  if (error) throw new Error("Could not load purchase history. Please retry.");
   return data ?? [];
 }
 
-export async function searchProductGroups(db: SupabaseClient, query: string, offset = 0): Promise<import('./productGroups').ProductGroup[]> {
-  const {data,error}=await db.rpc('purchase_product_groups',{p_query:query.trim(),p_limit:200,p_offset:offset});
-  if(error) throw new Error('Could not load products. Please retry.');
-  return (data??[]).map((r:any)=>({key:r.group_key,name:r.group_key==='product:bean sprouts'?'Bean sprouts':r.product_name,variants:r.variants}));
+export async function searchProductGroups(
+  db: SupabaseClient,
+  query: string,
+  offset = 0,
+): Promise<import("./productGroups").ProductGroup[]> {
+  const { data, error } = await db.rpc("purchase_product_groups", {
+    p_query: query.trim(),
+    p_limit: 200,
+    p_offset: offset,
+  });
+  if (error) throw new Error("Could not load products. Please retry.");
+  return (data ?? []).map((r: any) => ({
+    key: r.group_key,
+    name:
+      r.group_key === "product:bean sprouts" ? "Bean sprouts" : r.product_name,
+    variants: r.variants,
+  }));
+}
+
+export type ProductGroupingAction = {
+  id: string;
+  sequence: number;
+  source_name: string;
+  target_name: string;
+  created_at: string;
+  undone_at: string | null;
+};
+export async function fetchProductGroupingHistory(
+  db: SupabaseClient,
+): Promise<{ actions: ProductGroupingAction[]; latestId: string | null }> {
+  const [history, latest] = await Promise.all([
+    db
+      .from("product_group_actions")
+      .select("id,sequence,source_name,target_name,created_at,undone_at")
+      .order("sequence", { ascending: false })
+      .limit(10),
+    db
+      .from("product_group_actions")
+      .select("id,sequence,source_name,target_name,created_at,undone_at")
+      .is("undone_at", null)
+      .order("sequence", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  if (history.error || latest.error)
+    throw new Error("Could not load grouping history. Please retry.");
+  const actions: ProductGroupingAction[] = [...(history.data ?? [])];
+  const latestAction = latest.data;
+  return {
+    actions: latestAction
+      ? [
+          latestAction,
+          ...actions.filter((action) => action.id !== latestAction.id),
+        ]
+      : actions,
+    latestId: latestAction?.id ?? null,
+  };
+}
+function groupingError(message?: string): Error {
+  const allowed = [
+    "Product groups changed.",
+    "Newer grouping changes exist.",
+    "Choose a different product",
+    "Business workspace required",
+    "Link fewer product names",
+  ];
+  return new Error(
+    message && allowed.some((prefix) => message.startsWith(prefix))
+      ? message
+      : "Could not update product grouping. Please retry.",
+  );
+}
+export async function linkProductGroups(
+  db: SupabaseClient,
+  source: import("./productGroups").ProductGroup,
+  target: import("./productGroups").ProductGroup,
+): Promise<string> {
+  const { data, error } = await db.rpc("link_purchase_product_groups", {
+    p_source: source.key,
+    p_target: target.key,
+    p_expected_source: productGroupAliases(source),
+    p_expected_target: productGroupAliases(target),
+  });
+  if (error || !data) throw groupingError(error?.message);
+  return data;
+}
+export async function undoProductGrouping(
+  db: SupabaseClient,
+  id: string,
+): Promise<void> {
+  const { error } = await db.rpc("undo_purchase_product_grouping", {
+    p_action: id,
+  });
+  if (error) throw groupingError(error.message);
 }

@@ -50,13 +50,13 @@ export async function runDeletion(job: any) {
   for (const orgId of job.organization_ids as string[]) {
     // Don't erase data while a model operation could still commit it.
     const { count, error: activeError } = await db.from('ai_jobs').select('id', { count: 'exact', head: true }).eq('organization_id', orgId).eq('status', 'running').gt('created_at', new Date(Date.now()-15*60*1000).toISOString());
-    if (activeError || count) throw new Error('An Smart Sift request is finishing. Account deletion has started; retry in a few minutes.');
+    if (activeError || count) throw new Error('A Smart Sift request is finishing. Account deletion has started; retry in a few minutes.');
     const {count:insights,error:insightError}=await db.from('product_insight_jobs').select('id',{count:'exact',head:true}).eq('organization_id',orgId).eq('status','running').gt('created_at',new Date(Date.now()-2*60*1000).toISOString());
-    if(insightError||insights)throw new Error('An Smart Sift product review is finishing. Retry deletion in a few minutes.');
+    if(insightError||insights)throw new Error('A Smart Sift product review is finishing. Retry deletion in a few minutes.');
     await removeFolder('invoice-images', orgId);
     await removeFolder('recipe-images', orgId);
     // Remove child records first; each deletion is idempotent and checked.
-    for (const table of ['product_insight_jobs','recipe_ingredients','recipes','price_alerts','delivery_disputes','invoice_line_items','invoices','insight_briefings','vendors','items','extraction_usage','ai_jobs','billing_sync_locks','ai_model_usage']) {
+    for (const table of ['product_group_actions','product_group_aliases','product_display_groups','product_insight_jobs','recipe_ingredients','recipes','price_alerts','delivery_disputes','invoice_line_items','invoices','insight_briefings','vendors','items','extraction_usage','ai_jobs','billing_sync_locks','ai_model_usage']) {
       const { error } = await db.from(table).delete().eq('organization_id', orgId);
       if (error) throw new Error('Data deletion is delayed. Please retry.');
     }
@@ -80,6 +80,8 @@ export async function runDeletion(job: any) {
   if (consentError) throw new Error('Permission record deletion is delayed. Please retry.');
   const { error: authorError } = await db.from('invoices').update({ created_by: null }).eq('created_by', job.user_id);
   if (authorError) throw new Error('Personal record cleanup is delayed.');
+  const {error:groupAuthorError}=await db.from('product_group_actions').update({actor_user_id:null}).eq('actor_user_id',job.user_id);
+  if(groupAuthorError)throw new Error('Product grouping author cleanup is delayed.');
   let profile: any = null;
   try { profile = await clerk(`/users/${encodeURIComponent(job.user_id)}`); } catch (error) { if (!(error instanceof ClerkNotFoundError)) throw error; }
   for (const email of profile?.email_addresses ?? []) {

@@ -26,3 +26,15 @@ test('invoice histories paginate beyond the API cap and preserve data on overlap
  const duplicate=await collectInvoicePages(async(offset)=>({data:offset===0?[{id:'a'},{id:'b'}]:offset===2?[{id:'b'},{id:'c'}]:[],error:null}),2);assert.deepEqual(duplicate.map(r=>r.id),['a','b','c']);
  await assert.rejects(()=>collectInvoicePages(async()=>({data:null,error:Error('offline')})),/Could not load invoice history/);
 });
+
+test('confirmed-group previews include inactive aliases and deduplicate their names',async()=>{
+ const {productGroupAliases}=await import('../lib/productGroups.ts');
+ const a=option('a','Bean Sprout');a.groupAliases=['mung sprouts','bean sprouts','old supplier label'];
+ const b=option('b','Mung sprouts');b.groupAliases=['old supplier label','bean sprouts','mung sprouts'];
+ assert.deepEqual(productGroupAliases({key:'linked:example',name:'Bean sprouts',variants:[a,b]}),['bean sprouts','mung sprouts','old supplier label']);
+});
+test('group previews support old catalog responses and preserve meaningful names',async()=>{
+ const {productGroupAliases}=await import('../lib/productGroups.ts');
+ assert.deepEqual(productGroupAliases({key:'product:bean sprouts',name:'Bean sprouts',variants:[option('a','Bean Sprout'),option('b','BEANSPROUTS')]}),['bean sprouts']);
+ assert.deepEqual(productGroupAliases({key:'product:milk',name:'Milk',variants:[option('a','Milk 2%')]}),['milk 2%']);
+});

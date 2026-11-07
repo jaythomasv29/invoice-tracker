@@ -27,16 +27,22 @@ At the start of this pass, commercial workspaces contained 41 invoices: 39 saved
 - Invoice libraries and supplier histories now page beyond the API's default single-response limit, with stable ordering and deduplication.
 - Product pagination failures retain the already loaded products. Supplier/package labels make comparisons explicit, and the Home option chooser stays collapsed until requested.
 
+## Phase 4 — confirmed matching (implemented)
+
+Business users can now explicitly link differently named products after reviewing the match, see a team grouping history, and undo links in reverse order. Future same-name purchases follow the confirmed association. Original supplier/package pricing, invoice records, recipe references and Smart Sift evidence stay separate. Stale reviews and cross-workspace changes are rejected. See `CONFIRMED_PRODUCT_MATCHING.md`. Procurement comparisons, receiving/credit resolution, operational phone QA and paid-experience evaluation remain the next phases.
+
+
 ## Next phases — deliberate product decisions and deeper validation
 
-1. **Confirmed product matching:** user-controlled linking/unlinking of differently named equivalents, duplicate suggestions, and an audit trail. For example, “Mung bean sprouts” should not be silently equated with a generic “sprouts”. This needs explicit user confirmation and persistent reversible mappings.
-2. **Procurement decisions:** preferred supplier per product, like-for-like normalized comparison coverage, actual fees/minimum orders, and clear provenance/freshness. No “cheapest supplier” claim without comparable packages and costs.
-3. **Receiving workflow:** received quantity vs billed quantity, partial delivery/credit resolution, and a focused outstanding-issues list. Preserve financial evidence and reversible corrections.
-4. **Operational reliability:** phone tests for interruption/offline retry, larger invoice sets, keyboard and VoiceOver, multiple collaborators and navigation; then accessibility and performance measurements on real devices. Browser fixtures and SQL tests do not establish physical-phone readiness.
-5. **Paid experience:** evaluate whether each Smart Sift result creates an actionable decision, measure unlock comprehension and review completion, and verify entitlement/error recovery across Business plans.
+1. **Procurement decisions:** preferred supplier per product, like-for-like normalized comparison coverage, actual fees/minimum orders, and clear provenance/freshness. No “cheapest supplier” claim without comparable packages and costs.
+2. **Receiving workflow:** received quantity vs billed quantity, partial delivery/credit resolution, and a focused outstanding-issues list. Preserve financial evidence and reversible corrections.
+3. **Operational reliability:** phone tests for interruption/offline retry, larger invoice sets, keyboard and VoiceOver, multiple collaborators and navigation; then accessibility and performance measurements on real devices. Browser fixtures and SQL tests do not establish physical-phone readiness.
+4. **Paid experience:** evaluate whether each Smart Sift result creates an actionable decision, measure unlock comprehension and review completion, and verify entitlement/error recovery across Business plans.
+
+5. **Matching suggestions:** propose possible equivalents with visible evidence for explicit review. Never apply uncertain matches automatically. Manual linking and Undo are already available in Phase 4.
 
 No inventory quantity or order recommendation should be asserted from invoices alone. Future phases remain open; they are not represented as shipped features.
 
-## Verification for this pass
+## Verification for phases 1–3
 
 TypeScript, lint and 55 Node tests passed. Ten PostgreSQL assertions cover grouping, search, group-level pagination, tenant boundaries, unchanged invoices and isolated reorder evidence. Eight hosted checks with disposable Clerk identities confirm the deployed RPC behavior; all synthetic records and identities were cleaned up. The actual product components were inspected in a 375px browser fixture: one product expands into both supplier options and their distinct normalized prices. Browser background-state updates correctly settle on the final total; a physical-phone foreground animation/VoiceOver check remains part of the operational reliability phase.

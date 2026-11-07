@@ -3,6 +3,8 @@ export type SupplierOption = {
   key: string;
   purchase: PurchaseObservation;
   count: number;
+  nameKey?: string;
+  groupAliases?: string[];
 };
 export type ProductGroup = {
   key: string;
@@ -36,4 +38,22 @@ export function groupSupplierOptions(
     groups.set(key, group);
   }
   return [...groups.values()].sort((a, b) => a.key.localeCompare(b.key));
+}
+
+export function productGroupAliases(group: ProductGroup): string[] {
+  return [
+    ...new Set(
+      group.variants.flatMap((option) =>
+        option.groupAliases?.length
+          ? option.groupAliases
+          : [
+              option.nameKey ||
+                commercialProductName(
+                  option.purchase.clean_name?.trim() ||
+                    option.purchase.raw_description,
+                ),
+            ],
+      ),
+    ),
+  ].sort();
 }

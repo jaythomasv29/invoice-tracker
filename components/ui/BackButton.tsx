@@ -3,10 +3,12 @@ import TouchableOpacity from './MotionTouchable';
 import { View, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
 
-export default function BackButton({ onPress }: { onPress: () => void }) {
+export default function BackButton({ onPress, disabled=false }: { onPress: () => void; disabled?:boolean }) {
   return (
     <TouchableOpacity
-      style={styles.backBtn}
+      style={[styles.backBtn,disabled&&{opacity:0.5}]}
+      disabled={disabled}
+      accessibilityState={{disabled}}
       onPress={onPress}
       activeOpacity={0.7}
       accessibilityRole="button"
