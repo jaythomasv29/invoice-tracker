@@ -11,8 +11,8 @@ export function spendPeriodLabel(period: SpendPeriod, yearsBack: number): string
 
 export function spendPeriodCompareLabel(period: SpendPeriod, yearsBack: number): string | null {
   switch (period) {
-    case 'week': return 'vs last week';
-    case 'month': return 'vs last month';
+    case 'week': return 'vs this point last week';
+    case 'month': return 'vs this point last month';
     case 'year': return yearsBack <= 1 ? 'vs last year' : `vs prior ${yearsBack}yr`;
     case 'all': return null;
   }

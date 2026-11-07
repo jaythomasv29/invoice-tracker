@@ -528,6 +528,10 @@ export const useStore = create<AppState>((set, get) => ({
     const weekStartStr = localDateStr(weekStart);
     const weekEndStr = localDateStr(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6));
     const prevWeekStartStr = localDateStr(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() - 7));
+    // Trends compare period-to-date with the SAME point of the previous period
+    // (Mon–Thu vs last Mon–Thu), not with the whole previous period — otherwise
+    // every early-week/early-month view reads as a big drop.
+    const prevWeekCutStr = localDateStr(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7));
 
     const monthYear = today.getFullYear();
     const monthIdx = today.getMonth();
@@ -537,6 +541,7 @@ export const useStore = create<AppState>((set, get) => ({
     const prevMonthIdx = monthIdx === 0 ? 11 : monthIdx - 1;
     const prevMonthStartStr = localDateStr(new Date(prevMonthYear, prevMonthIdx, 1));
     const prevMonthEndStr = localDateStr(new Date(prevMonthYear, prevMonthIdx + 1, 0));
+    const prevMonthCutStr = localDateStr(new Date(prevMonthYear, prevMonthIdx, Math.min(today.getDate(), new Date(prevMonthYear, prevMonthIdx + 1, 0).getDate())));
     const bucketCount = monthBucketCount(monthYear, monthIdx);
 
     const vendorById = new Map((vendorRows ?? []).map((v: any) => [v.id, v]));
@@ -623,7 +628,7 @@ export const useStore = create<AppState>((set, get) => ({
           const cat = (li.category ?? '').toLowerCase() || 'other';
           categoryTotals.set(cat, (categoryTotals.get(cat) ?? 0) + Number(li.extended_price ?? 0));
         }
-      } else if (dateStr >= prevWeekStartStr && dateStr < weekStartStr) {
+      } else if (dateStr >= prevWeekStartStr && dateStr < weekStartStr && dateStr <= prevWeekCutStr) {
         prevWeekTotal += amount;
       }
 
@@ -637,7 +642,7 @@ export const useStore = create<AppState>((set, get) => ({
         const existing = bucket.get(breakdownKey);
         if (existing) existing.amount += amount;
         else bucket.set(breakdownKey, { vendorId, name: vendorName, amount, color: vendorColor });
-      } else if (dateStr >= prevMonthStartStr && dateStr <= prevMonthEndStr) {
+      } else if (dateStr >= prevMonthStartStr && dateStr <= prevMonthEndStr && dateStr <= prevMonthCutStr) {
         prevMonthTotal += amount;
       }
 

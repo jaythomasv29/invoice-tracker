@@ -6,7 +6,7 @@ import { useLocalSearchParams, useRouter, Redirect } from 'expo-router';
 import { useAuth, useClerk, useSignIn } from '@clerk/clerk-expo';
 import { useStore } from '../store/useStore';
 import { markTourSeen } from '../lib/tourFlag';
-import { buildDemoInvoices } from '../lib/demoData';
+import { buildDemoReviewInvoice } from '../lib/demoData';
 import { Colors } from '../constants/Colors';
 
 export default function DesignPreview() {
@@ -24,7 +24,7 @@ export default function DesignPreview() {
       started.current = `ready:${ticket}:${screen}`;
       useStore.getState().startDemo();
       if (screen === 'review') {
-        useStore.getState().setCurrentInvoice({...buildDemoInvoices()[2], status:'scanned', imageUris:[Image.resolveAssetSource(require('../launch-assets/brand/demo-invoice.png')).uri]});
+        useStore.getState().setCurrentInvoice({...buildDemoReviewInvoice(), imageUris:[Image.resolveAssetSource(require('../launch-assets/brand/demo-invoice.png')).uri]});
         router.replace('/scan/review');
       } else router.replace('/(tabs)');
       return;

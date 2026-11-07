@@ -1,109 +1,84 @@
 import type { SpendInvoice } from './spendSummary';
 import { formatDate, categoryColor, categoryLabel } from './invoicePipeline';
+import { normalizePurchase } from '../shared/measurement';
+import { invoiceCapForPlan } from './entitlements';
 import type {
   Vendor, DayData, CategorySpend, TopItem, UploadActivityEntry,
-  DeliveryGapEntry, PriceAlert,
+  DeliveryGapEntry, PriceAlert, Invoice, LineItem,
 } from '../store/useStore';
 import type { RecipeListItem } from './recipeCosting';
 import type { MissingInvoiceFlag } from '../hooks/useMissingInvoices';
 import type { UploadStreak } from '../hooks/useUploadStreak';
+import {
+  buildDemoLedger, localIso, DEMO_VENDORS, DEMO_VENDOR_KEYS,
+  type DemoLedger, type DemoLedgerInvoice,
+} from './demoLedger';
 
-// Client-side sample dataset that powers the first-run product tour. This is a
-// port of the old demo-screenshot SQL seed (deleted) into app-shape state, so
-// the real screens render populated without ever touching Supabase.
+export { DEMO_RESTAURANT_NAME } from './demoLedger';
+
+// Client-side sample dataset that powers the first-run product tour (and the
+// App Store / website captures). The ledger itself — a fictional restaurant's
+// ~9 weeks of invoices, price-creep alerts and recipes — lives in
+// lib/demoLedger.ts; this file maps it into app-shape state so the real
+// screens render populated without ever touching Supabase.
 //
 // Key design point: the store buckets spend against `new Date()` ("this week"
-// / "this month"), so the fixture is built RELATIVE TO `now` at demo start —
-// a synthetic invoice ledger dated N days back from today, run through a
-// compact reducer that mirrors fetchDashboardSummary's bucketing. Hardcoding
-// the seed's original June–July 2026 dates would leave the spend cards empty
-// on any other calendar date.
-
-// ---- Fixed demo vendors (ids/colors from the original seed) ----------------
-
-const V = {
-  cascade: { id: 'demo-v-cascade', name: 'Cascade Foodservice', color: '#5DB075' },
-  golden: { id: 'demo-v-golden', name: 'Golden Valley Produce', color: '#5B7FD4' },
-  pinnacle: { id: 'demo-v-pinnacle', name: 'Pinnacle Meats', color: '#E09030' },
-  harbor: { id: 'demo-v-harbor', name: 'Harbor Seafood Co.', color: '#4AABB8' },
-} as const;
-
-type VendorKey = keyof typeof V;
-
-interface DemoLineItem {
-  name: string;
-  category: string;
-  ext: number;
-}
-interface DemoInvoice {
-  id: string;
-  vendor: VendorKey;
-  daysAgo: number;
-  items: DemoLineItem[];
-}
-
-// Synthetic ledger: recent first. `daysAgo` is subtracted from `now`, so some
-// invoices fall in this week, this month, and the previous month (the latter
-// gives the week/month %-change deltas real baselines). Most-recent invoice is
-// 1 day ago (not today), matching DEMO_STREAK.loggedToday = false.
-const LEDGER: DemoInvoice[] = [
-  { id: 'demo-inv-01', vendor: 'pinnacle', daysAgo: 1, items: [{ name: 'Chicken Thigh, boneless', category: 'protein', ext: 94.2 }] },
-  { id: 'demo-inv-02', vendor: 'golden', daysAgo: 2, items: [{ name: 'Roma Tomatoes, 25 lb', category: 'produce', ext: 34.5 }, { name: 'Thai basil', category: 'produce', ext: 8.0 }] },
-  { id: 'demo-inv-03', vendor: 'cascade', daysAgo: 3, items: [{ name: 'Olive Oil X-Virgin', category: 'dry_goods', ext: 41.2 }, { name: 'Rice noodles', category: 'dry_goods', ext: 22.0 }, { name: 'Coconut milk', category: 'dry_goods', ext: 18.0 }] },
-  { id: 'demo-inv-04', vendor: 'harbor', daysAgo: 5, items: [{ name: 'Shrimp 16/20', category: 'seafood', ext: 78.0 }] },
-  { id: 'demo-inv-05', vendor: 'pinnacle', daysAgo: 9, items: [{ name: 'Chicken Thigh, boneless', category: 'protein', ext: 88.5 }] },
-  { id: 'demo-inv-06', vendor: 'golden', daysAgo: 12, items: [{ name: 'Roma Tomatoes, 25 lb', category: 'produce', ext: 31.0 }, { name: 'Bean sprouts', category: 'produce', ext: 13.5 }] },
-  { id: 'demo-inv-07', vendor: 'cascade', daysAgo: 16, items: [{ name: 'Olive Oil X-Virgin', category: 'dry_goods', ext: 38.1 }, { name: 'Rice noodles', category: 'dry_goods', ext: 21.0 }] },
-  { id: 'demo-inv-08', vendor: 'harbor', daysAgo: 20, items: [{ name: 'Shrimp 16/20', category: 'seafood', ext: 72.0 }] },
-  { id: 'demo-inv-09', vendor: 'pinnacle', daysAgo: 25, items: [{ name: 'Chicken Thigh, boneless', category: 'protein', ext: 80.0 }] },
-  { id: 'demo-inv-10', vendor: 'cascade', daysAgo: 31, items: [{ name: 'Olive Oil X-Virgin', category: 'dry_goods', ext: 37.5 }, { name: 'Coconut milk', category: 'dry_goods', ext: 17.0 }] },
-  { id: 'demo-inv-11', vendor: 'golden', daysAgo: 35, items: [{ name: 'Roma Tomatoes, 25 lb', category: 'produce', ext: 30.0 }] },
-  { id: 'demo-inv-12', vendor: 'harbor', daysAgo: 39, items: [{ name: 'Shrimp 16/20', category: 'seafood', ext: 70.0 }] },
-];
+// / "this month"), so the ledger is dated RELATIVE TO `now` at demo start and
+// run through a reducer that mirrors fetchDashboardSummary's bucketing
+// (week-scoped categories, all-time Pareto, prior-period % changes).
 
 // ---- Local date helpers (mirror the private ones in store/useStore.ts) ------
 
-function localDateStr(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
 function mondayOf(d: Date): Date {
-  const day = d.getDay();
-  const diff = (day === 0 ? -6 : 1) - day;
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + diff);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7));
 }
-function dayIndexMonFirst(d: Date): number {
-  return (d.getDay() + 6) % 7;
+function isoDate(iso: string): Date {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d);
 }
 function daysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
 }
-function monthBucketCount(year: number, month: number): number {
-  return Math.ceil(daysInMonth(year, month) / 7);
-}
-function monthBucketIndex(dom: number, bucketCount: number): number {
-  return Math.min(Math.floor((dom - 1) / 7), bucketCount - 1);
-}
-function monthBucketLabel(bucketIndex: number, year: number, month: number): string {
-  const dayStart = bucketIndex * 7 + 1;
-  const dayEnd = Math.min(dayStart + 6, daysInMonth(year, month));
-  return dayStart === dayEnd ? `${dayStart}` : `${dayStart}–${dayEnd}`;
+function monthBucketLabel(i: number, year: number, month: number): string {
+  const start = i * 7 + 1;
+  const end = Math.min(start + 6, daysInMonth(year, month));
+  return start === end ? `${start}` : `${start}–${end}`;
 }
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const r2 = (n: number) => Math.round(n * 100) / 100;
+const pct = (cur: number, prev: number) => (prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : null);
 
-function addSeg(bar: DayData, vId: string, vName: string, vColor: string, amount: number) {
-  const seg = bar.breakdown.find((s) => s.vendorId === vId);
-  if (seg) seg.amount += amount;
-  else bar.breakdown.push({ vendorId: vId, name: vName, amount, color: vColor });
+function addTo(bar: DayData, inv: DemoLedgerInvoice) {
+  bar.total += inv.total;
+  const seg = bar.breakdown.find((s) => s.vendorId === inv.vendorId);
+  if (seg) seg.amount += inv.total;
+  else bar.breakdown.push({ vendorId: inv.vendorId, name: inv.vendorName, amount: inv.total, color: inv.vendorColor });
 }
 function roundBars(bars: DayData[]) {
   for (const bar of bars) {
-    bar.total = Math.round(bar.total * 100) / 100;
-    for (const seg of bar.breakdown) seg.amount = Math.round(seg.amount * 100) / 100;
+    bar.total = r2(bar.total);
+    for (const seg of bar.breakdown) seg.amount = r2(seg.amount);
   }
 }
+
+function periodLabel(dateIso: string, weekStart: Date): { label: string; isBackdated: boolean } {
+  const weeks = Math.round((weekStart.getTime() - mondayOf(isoDate(dateIso)).getTime()) / (7 * 86400000));
+  if (weeks === 0) return { label: 'This week', isBackdated: false };
+  if (weeks === 1) return { label: 'Last week', isBackdated: true };
+  return { label: `${weeks} weeks ago`, isBackdated: true };
+}
+function uploadedLabel(createdAt: string, now: Date): string {
+  const min = Math.floor((now.getTime() - new Date(createdAt).getTime()) / 60000);
+  if (min < 1) return 'Just now';
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  if (day === 1) return 'Yesterday';
+  if (day < 7) return `${day} days ago`;
+  return new Date(createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 // ---- Types -----------------------------------------------------------------
 
 export interface DemoDashboard {
@@ -131,239 +106,231 @@ export interface DemoState {
 
 // ---- Builder ---------------------------------------------------------------
 
-export function buildDemoState(now: Date = new Date()): DemoState {
+export function buildDemoState(now: Date = new Date(), ledger: DemoLedger = buildDemoLedger(now)): DemoState {
+  const { invoices } = ledger;
   const y = now.getFullYear();
   const m = now.getMonth();
   const weekStart = mondayOf(now);
-  const weekStartStr = localDateStr(weekStart);
-  const prevWeekStart = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() - 7);
-  const prevWeekStartStr = localDateStr(prevWeekStart);
+  const weekStartIso = localIso(weekStart);
+  const weekEndIso = localIso(new Date(y, m, now.getDate() - ((now.getDay() + 6) % 7) + 6));
+  const prevWeekStartIso = localIso(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() - 7));
+  const monthStartIso = localIso(new Date(y, m, 1));
+  const monthEndIso = localIso(new Date(y, m + 1, 0));
+  const prevMonthStartIso = localIso(new Date(y, m - 1, 1));
+  const prevMonthEndIso = localIso(new Date(y, m, 0));
+  // Same-point-of-period comparison, matching fetchDashboardSummary.
+  const prevWeekCutIso = localIso(new Date(y, m, now.getDate() - 7));
+  const prevMonthCutIso = localIso(new Date(y, m - 1, Math.min(now.getDate(), daysInMonth(y, m - 1))));
 
-  // Resolve each ledger entry to a concrete Date + total.
-  const resolved = LEDGER.map((inv) => {
-    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - inv.daysAgo);
-    const total = inv.items.reduce((s, it) => s + it.ext, 0);
-    return { ...inv, date, total, vendorInfo: V[inv.vendor] };
-  });
-
-  // dayData — 7 bars Mon–Sun for the current week.
   const dayData: DayData[] = DAY_LABELS.map((label) => ({ label, total: 0, breakdown: [] }));
-  // monthData — ~7-day buckets for the current month.
-  const bucketCount = monthBucketCount(y, m);
-  const monthData: DayData[] = Array.from({ length: bucketCount }, (_, i) => ({
-    label: monthBucketLabel(i, y, m), total: 0, breakdown: [],
-  }));
-  // allYearData — single bar for the current year.
-  const yearBar: DayData = { label: String(y), total: 0, breakdown: [] };
+  const bucketCount = Math.ceil(daysInMonth(y, m) / 7);
+  const monthData: DayData[] = Array.from({ length: bucketCount }, (_, i) => ({ label: monthBucketLabel(i, y, m), total: 0, breakdown: [] }));
+  const yearBars = new Map<number, DayData>([[y, { label: String(y), total: 0, breakdown: [] }]]);
+  const catMap = new Map<string, number>();
+  const itemMap = new Map<string, number>();
+  const deliveryGapItems: DeliveryGapEntry[] = [];
+  let weekTotal = 0, prevWeekTotal = 0, monthTotal = 0, prevMonthTotal = 0, deliveryGapTotal = 0;
 
-  let weekTotal = 0;
-  let monthTotal = 0;
+  for (const inv of invoices) {
+    const d = inv.dateIso;
+    if (d >= weekStartIso && d <= weekEndIso) {
+      weekTotal += inv.total;
+      addTo(dayData[(isoDate(d).getDay() + 6) % 7], inv);
+      // Category spend is week-scoped, like fetchDashboardSummary.
+      for (const l of inv.lines) catMap.set(l.category, (catMap.get(l.category) ?? 0) + l.ext);
+    } else if (d >= prevWeekStartIso && d < weekStartIso && d <= prevWeekCutIso) prevWeekTotal += inv.total;
 
-  for (const inv of resolved) {
-    const d = inv.date;
-    const v = inv.vendorInfo;
-    const dStr = localDateStr(d);
+    if (d >= monthStartIso && d <= monthEndIso) {
+      monthTotal += inv.total;
+      addTo(monthData[Math.min(Math.floor((isoDate(d).getDate() - 1) / 7), bucketCount - 1)], inv);
+    } else if (d >= prevMonthStartIso && d <= prevMonthEndIso && d <= prevMonthCutIso) prevMonthTotal += inv.total;
 
-    // Current week
-    if (dStr >= weekStartStr && dayIndexMonFirst(d) >= 0) {
-      const inThisWeek = d >= weekStart && d < new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 7);
-      if (inThisWeek) {
-        const bar = dayData[dayIndexMonFirst(d)];
-        bar.total += inv.total;
-        addSeg(bar, v.id, v.name, v.color, inv.total);
-        weekTotal += inv.total;
+    const year = Number(d.slice(0, 4));
+    if (!yearBars.has(year)) yearBars.set(year, { label: String(year), total: 0, breakdown: [] });
+    addTo(yearBars.get(year)!, inv);
+
+    for (const [i, l] of inv.lines.entries()) {
+      itemMap.set(l.name, (itemMap.get(l.name) ?? 0) + l.ext);
+      if (l.missing) {
+        deliveryGapTotal += l.ext;
+        deliveryGapItems.push({ id: `${inv.id}-item-${i}`, invoiceId: inv.id, vendorName: inv.vendorName, itemName: l.name, amount: l.ext, dateLabel: formatDate(d) });
       }
     }
-
-    // Current month
-    if (d.getFullYear() === y && d.getMonth() === m) {
-      const bar = monthData[monthBucketIndex(d.getDate(), bucketCount)];
-      bar.total += inv.total;
-      addSeg(bar, v.id, v.name, v.color, inv.total);
-      monthTotal += inv.total;
-    }
-
-    // Current year bar
-    if (d.getFullYear() === y) {
-      yearBar.total += inv.total;
-      addSeg(yearBar, v.id, v.name, v.color, inv.total);
-    }
   }
-
+  const allYearData = [...yearBars.entries()].sort((a, b) => a[0] - b[0]).map(([, bar]) => bar);
   roundBars(dayData);
   roundBars(monthData);
-  roundBars([yearBar]);
+  roundBars(allYearData);
 
-  // categorySpend — sum extended price by category across the ledger.
-  const catMap = new Map<string, number>();
-  for (const inv of resolved) {
-    for (const it of inv.items) catMap.set(it.category, (catMap.get(it.category) ?? 0) + it.ext);
-  }
   const categorySpend: CategorySpend[] = [...catMap.entries()]
-    .map(([category, amount]) => ({
-      category: categoryLabel(category),
-      amount: Math.round(amount * 100) / 100,
-      color: categoryColor(category),
-    }))
+    .map(([category, amount]) => ({ category: categoryLabel(category), amount: r2(amount), color: categoryColor(category) }))
     .sort((a, b) => b.amount - a.amount);
 
-  // topItems — Pareto over item spend across the ledger.
-  const itemMap = new Map<string, number>();
-  for (const inv of resolved) {
-    for (const it of inv.items) itemMap.set(it.name, (itemMap.get(it.name) ?? 0) + it.ext);
-  }
-  const ranked = [...itemMap.entries()].sort((a, b) => b[1] - a[1]);
-  const itemTotal = ranked.reduce((s, [, amt]) => s + amt, 0) || 1;
+  // Top-spend items (Pareto) — all-time, top 20, like fetchDashboardSummary.
+  const ranked = [...itemMap.entries()].map(([name, amount]) => ({ name, amount: r2(amount) })).sort((a, b) => b.amount - a.amount);
+  const itemTotal = ranked.reduce((s, x) => s + x.amount, 0) || 1;
   let cumulative = 0;
-  const topItems: TopItem[] = ranked.slice(0, 6).map(([name, amount]) => {
-    const p = (amount / itemTotal) * 100;
+  const topItems: TopItem[] = ranked.slice(0, 20).map((x) => {
+    const p = (x.amount / itemTotal) * 100;
     cumulative += p;
-    return {
-      name,
-      amount: Math.round(amount * 100) / 100,
-      pct: Math.round(p),
-      cumulativePct: Math.round(cumulative),
-    };
+    return { name: x.name, amount: x.amount, pct: Math.round(p * 10) / 10, cumulativePct: Math.round(cumulative * 10) / 10 };
   });
 
-  // uploadActivity — most recent invoices, with relative upload labels.
-  const uploadActivity: UploadActivityEntry[] = [...resolved]
-    .sort((a, b) => b.date.getTime() - a.date.getTime())
-    .slice(0, 8)
-    .map((inv) => {
-      const wk = localDateStr(mondayOf(inv.date));
-      let periodLabel = 'This week';
-      let isBackdated = false;
-      if (wk !== weekStartStr) {
-        isBackdated = true;
-        periodLabel = wk === prevWeekStartStr ? 'Last week' : `${Math.max(2, Math.round((weekStart.getTime() - new Date(wk + 'T00:00:00').getTime()) / (7 * 86400000)))} weeks ago`;
-      }
-      const uploadedLabel = inv.daysAgo <= 0 ? 'Today' : inv.daysAgo === 1 ? 'Yesterday' : `${inv.daysAgo} days ago`;
-      return {
-        id: inv.id,
-        vendorId: inv.vendorInfo.id,
-        vendorName: inv.vendorInfo.name,
-        vendorColor: inv.vendorInfo.color,
-        amount: Math.round(inv.total * 100) / 100,
-        invoiceDateLabel: formatDate(localDateStr(inv.date)),
-        uploadedLabel,
-        periodLabel,
-        isBackdated,
-      };
-    });
+  // Ledger is already newest-upload first.
+  const uploadActivity: UploadActivityEntry[] = invoices.slice(0, 8).map((inv) => ({
+    id: inv.id,
+    vendorId: inv.vendorId,
+    vendorName: inv.vendorName,
+    vendorColor: inv.vendorColor,
+    amount: inv.total,
+    invoiceDateLabel: formatDate(inv.dateIso),
+    uploadedLabel: uploadedLabel(inv.createdAt, now),
+    ...(({ label, isBackdated }) => ({ periodLabel: label, isBackdated }))(periodLabel(inv.dateIso, weekStart)),
+  }));
 
-  // Vendors — invoice count + last order from the ledger.
-  const vendors: Vendor[] = (Object.keys(V) as VendorKey[]).map((key) => {
-    const info = V[key];
-    const mine = resolved.filter((r) => r.vendor === key);
-    const last = mine.reduce<Date | null>((acc, r) => (!acc || r.date > acc ? r.date : acc), null);
-    return {
-      id: info.id,
-      name: info.name,
-      color: info.color,
-      invoiceCount: mine.length,
-      lastOrder: last ? formatDate(localDateStr(last)) : '',
-    };
+  const vendors: Vendor[] = DEMO_VENDOR_KEYS.map((key) => {
+    const v = DEMO_VENDORS[key];
+    const mine = invoices.filter((i) => i.vendor === key);
+    const last = mine.reduce<string>((acc, i) => (i.dateIso > acc ? i.dateIso : acc), '');
+    return { id: v.id, name: v.name, color: v.color, invoiceCount: mine.length, lastOrder: last ? formatDate(last) : '—' };
   });
 
-  // Delivery gap — the one 'missing' line item (Bean sprouts, Golden Valley).
-  const gapInv = resolved.find((r) => r.id === 'demo-inv-06')!;
-  const deliveryGapItems: DeliveryGapEntry[] = [{
-    id: 'demo-gap-01',
-    invoiceId: gapInv.id,
-    vendorName: V.golden.name,
-    itemName: 'Bean sprouts',
-    amount: 13.5,
-    dateLabel: formatDate(localDateStr(gapInv.date)),
-  }];
-  const deliveryGapTotal = 13.5;
-
-  // Price alerts — three, dated a few days back relative to now.
-  const alertDate = (daysAgo: number) =>
-    new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysAgo)
-      .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const priceAlerts: PriceAlert[] = [
-    {
-      id: 'demo-alert-01', itemName: 'Chicken Thigh, boneless', vendorId: V.pinnacle.id,
-      vendorName: V.pinnacle.name, previousPrice: 1.62, newPrice: 1.94, unit: 'lb',
-      pctChange: 19.8, absChange: 0.32, detectedAt: alertDate(3), read: false,
-    },
-    {
-      id: 'demo-alert-02', itemName: 'Olive Oil X-Virgin', vendorId: V.cascade.id,
-      vendorName: V.cascade.name, previousPrice: 38.1, newPrice: 41.2, unit: '',
-      pctChange: 8.1, absChange: 3.1, detectedAt: alertDate(3), read: true,
-    },
-    {
-      id: 'demo-alert-03', itemName: 'Roma Tomatoes, 25 lb', vendorId: V.golden.id,
-      vendorName: V.golden.name, previousPrice: 31.0, newPrice: 34.5, unit: '25lb',
-      pctChange: 11.3, absChange: 3.5, detectedAt: alertDate(9), read: true,
-    },
-  ];
-
-  const recipes: RecipeListItem[] = [
-    { id: 'demo-recipe-01', name: 'Pad Thai', costEstimate: 3.12, confidence: 0.85, menuPrice: 12.0 },
-    { id: 'demo-recipe-02', name: 'Green Curry Chicken', costEstimate: 4.35, confidence: 0.7, menuPrice: 16.0 },
-    { id: 'demo-recipe-03', name: 'Tom Yum Soup', costEstimate: 2.8, confidence: 0.5, menuPrice: 11.0 },
-  ];
+  const priceAlerts: PriceAlert[] = ledger.alerts.map((a) => ({ ...a }));
 
   return {
     dashboard: {
-      spendInvoices: resolved.map(inv => ({id:inv.id, vendor_id:inv.vendorInfo.id, total:inv.total, invoice_date:localDateStr(inv.date), created_at:inv.date.toISOString()})),
+      spendInvoices: invoices.map((inv) => ({ id: inv.id, vendor_id: inv.vendorId, total: inv.total, invoice_date: inv.dateIso, created_at: inv.createdAt })),
       vendors,
-      weekTotal: Math.round(weekTotal * 100) / 100,
-      weekPctChange: (() => { const prev = resolved.filter(r => r.date >= prevWeekStart && r.date < weekStart).reduce((sum,r) => sum+r.total,0); return prev > 0 ? Math.round((weekTotal-prev)/prev*1000)/10 : 0; })(),
+      weekTotal: r2(weekTotal),
+      weekPctChange: pct(weekTotal, prevWeekTotal),
       dayData,
-      monthTotal: Math.round(monthTotal * 100) / 100,
-      monthPctChange: (() => { const start = new Date(y,m-1,1); const end = new Date(y,m,1); const prev = resolved.filter(r => r.date >= start && r.date < end).reduce((sum,r) => sum+r.total,0); return prev > 0 ? Math.round((monthTotal-prev)/prev*1000)/10 : 0; })(),
+      monthTotal: r2(monthTotal),
+      monthPctChange: pct(monthTotal, prevMonthTotal),
       monthData,
-      allYearData: [yearBar],
+      allYearData,
       categorySpend,
       topItems,
       uploadActivity,
-      deliveryGapTotal,
-      deliveryGapItems,
+      deliveryGapTotal: r2(deliveryGapTotal),
+      deliveryGapItems: deliveryGapItems.slice(0, 25), // ledger is newest first
     },
     priceAlerts,
-    recipes,
+    recipes: ledger.recipes.map((r) => ({ ...r })),
   };
 }
 
 // Convenience for the Recipes tab, which owns its list in local state.
 export function buildDemoRecipes(): RecipeListItem[] {
-  return buildDemoState().recipes;
+  return buildDemoLedger().recipes.map((r) => ({ ...r }));
 }
 
-// ---- Static fixtures for the store-bypassing hooks -------------------------
+// ---- Invoices (library, invoice detail, vendor pages, product carousel) ----
 
-export const DEMO_STREAK: Omit<UploadStreak, 'loading' | 'refresh'> = {
-  streak: 3,
-  loggedToday: false,
-  longestStreak: 5,
-};
-
-export const DEMO_MISSING_FLAGS: MissingInvoiceFlag[] = [{
-  vendorId: V.pinnacle.id,
-  vendorName: V.pinnacle.name,
-  daysSince: 9,
-  typicalGapDays: 4,
-  cadenceLabel: 'a couple times a week',
-}];
-
-export const DEMO_PRICE_ALERT_COUNT = 1;
-export const DEMO_EXTRACTION_USAGE = { used: 6, cap: 10, remaining: 4 };
-
-// The tour's invoice library uses the same fictional ledger as the dashboard.
-export function buildDemoInvoices(now = new Date()): import('../store/useStore').Invoice[] {
-  return LEDGER.map((inv, index) => {
-    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - inv.daysAgo);
-    const dateIso = localDateStr(date);
-    const total = inv.items.reduce((sum, item) => sum + item.ext, 0);
-    return {
-      id:inv.id, vendorId:V[inv.vendor].id, vendorName:V[inv.vendor].name,
-      invoiceNumber:`JK-${String(1042-index)}`, date:formatDate(dateIso), dateIso,
-      subtotal:total, tax:0, total, status:'saved', pages:1,
-      hasMissingItems:false, hasNote:false,
-      lineItems:inv.items.map((item, i) => ({id:`${inv.id}-item-${i}`,desc:item.name,qty:1,unit:'case',unitPrice:item.ext,ext:item.ext,category:item.category,catColor:categoryColor(item.category),needsConfirm:false,confirmed:true,expanded:false,verification:'received',type:'charge',voided:false})),
-    };
-  });
+function toInvoice(inv: DemoLedgerInvoice): Invoice {
+  const lineItems: LineItem[] = inv.lines.map((l, i) => ({
+    id: `${inv.id}-item-${i}`,
+    desc: l.name,
+    rawDesc: l.raw,
+    normalizedCost: normalizePurchase({
+      id: `${inv.id}-item-${i}`, raw_description: l.raw, clean_name: l.name, qty: l.qty,
+      unit_of_measure: l.unit, unit_price: l.unitPrice, extended_price: l.ext,
+      invoices: { id: inv.id, vendor_id: inv.vendorId, invoice_date: inv.dateIso, created_at: inv.createdAt },
+    }),
+    qty: l.qty,
+    unit: l.unit,
+    unitPrice: l.unitPrice,
+    ext: l.ext,
+    category: categoryLabel(l.category),
+    catColor: categoryColor(l.category),
+    needsConfirm: false,
+    confirmed: true,
+    expanded: false,
+    verification: l.missing ? 'missing' : 'received',
+    type: 'charge',
+    voided: false,
+  }));
+  return {
+    id: inv.id, vendorId: inv.vendorId, vendorName: inv.vendorName,
+    invoiceNumber: inv.invoiceNumber, date: formatDate(inv.dateIso), dateIso: inv.dateIso,
+    uploadedAt: inv.createdAt,
+    subtotal: inv.subtotal, tax: inv.tax, total: inv.total, status: 'saved', pages: 1,
+    hasMissingItems: lineItems.some((l) => l.verification === 'missing'), hasNote: false,
+    lineItems,
+  };
 }
+
+// The tour's invoice library uses the same fictional ledger as the dashboard
+// (newest upload first).
+export function buildDemoInvoices(now = new Date()): Invoice[] {
+  return buildDemoLedger(now).invoices.map(toInvoice);
+}
+
+// The invoice shown on the review screen in captures: the latest Cascade
+// Foodservice delivery (18 lines, includes the fryer-oil increase), freshly
+// scanned — nothing confirmed yet, one handwritten quantity flagged for a
+// quick check. Its content is date-independent and is exactly what
+// launch-assets/brand/demo-invoice.svg prints (scripts/capture/render-demo-invoice.mjs).
+export function buildDemoReviewInvoice(now = new Date()): Invoice {
+  const inv = buildDemoLedger(now).invoices.find((i) => i.vendor === 'cascade' && i.k === 0)!;
+  const base = toInvoice(inv);
+  return {
+    ...base,
+    status: 'scanned',
+    lineItems: base.lineItems.map((l) => ({
+      ...l,
+      verification: 'pending',
+      confirmed: false,
+      ...(l.desc.startsWith('French Fries')
+        ? { needsConfirm: true, confirmNote: 'Uncertain: qty — please confirm' }
+        : {}),
+    })),
+  };
+}
+
+// ---- Fixtures for the store-bypassing hooks --------------------------------
+// Derived from the same ledger at module load (the tour runs within a session,
+// so a fixed `now` here is fine).
+
+const LOADED = new Date();
+const LOADED_LEDGER = buildDemoLedger(LOADED);
+
+function streakFrom(ledger: DemoLedger, now: Date): Omit<UploadStreak, 'loading' | 'refresh'> {
+  const day = (iso: string) => Math.floor(Date.parse(iso + 'T00:00:00Z') / 86400000);
+  const days = new Set(ledger.invoices.map((i) => day(localIso(new Date(i.createdAt)))));
+  const today = day(localIso(now));
+  const loggedToday = days.has(today);
+  let streak = 0;
+  for (let d = loggedToday ? today : today - 1; days.has(d); d--) streak++;
+  let longest = 0, run = 0, prev = NaN;
+  for (const d of [...days].sort((a, b) => a - b)) { run = d === prev + 1 ? run + 1 : 1; longest = Math.max(longest, run); prev = d; }
+  return { streak, loggedToday, longestStreak: longest };
+}
+
+export const DEMO_STREAK: Omit<UploadStreak, 'loading' | 'refresh'> = streakFrom(LOADED_LEDGER, LOADED);
+
+// Harbor Seafood invoices about weekly, but its last two deliveries were never
+// scanned — the "you probably forgot to log an invoice" flag.
+export const DEMO_MISSING_FLAGS: MissingInvoiceFlag[] = (() => {
+  const harbor = LOADED_LEDGER.invoices.filter((i) => i.vendor === 'harbor');
+  const last = harbor.reduce((acc, i) => (i.dateIso > acc ? i.dateIso : acc), '');
+  const today = new Date(LOADED.getFullYear(), LOADED.getMonth(), LOADED.getDate());
+  return last ? [{
+    vendorId: DEMO_VENDORS.harbor.id,
+    vendorName: DEMO_VENDORS.harbor.name,
+    daysSince: Math.round((today.getTime() - isoDate(last).getTime()) / 86400000),
+    typicalGapDays: 7,
+    cadenceLabel: 'about weekly',
+  }] : [];
+})();
+
+// Increases whose delivery falls in this calendar month (usePriceAlertCount).
+export const DEMO_PRICE_ALERT_COUNT = LOADED_LEDGER.alerts
+  .filter((a) => a.priceDate >= localIso(new Date(LOADED.getFullYear(), LOADED.getMonth(), 1))).length;
+
+// The tour presents Pro (useEntitlement), so the meter is against Pro's cap.
+export const DEMO_EXTRACTION_USAGE = (() => {
+  const monthStart = new Date(LOADED.getFullYear(), LOADED.getMonth(), 1).getTime();
+  const used = LOADED_LEDGER.invoices.filter((i) => new Date(i.createdAt).getTime() >= monthStart).length;
+  const cap = invoiceCapForPlan('pro');
+  return { used, cap, remaining: cap - used };
+})();
