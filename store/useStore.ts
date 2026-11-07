@@ -57,6 +57,9 @@ export interface Invoice {
   // invoice list rows without every list needing its own line-item scan.
   hasMissingItems: boolean;
   hasNote: boolean;
+  // Extraction-time cautions (missing page, hidden vendor name, merged
+  // wrapped rows) shown as a banner on the review screen.
+  warnings?: string[];
 }
 
 export interface PriceAlert {

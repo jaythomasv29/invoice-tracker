@@ -18,6 +18,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   dairy: '#5B7FD4',
   dry_goods: '#9B8A50',
   seafood: '#4AABB8',
+  beverage: '#718E58',
+  paper_packaging: '#A58D65',
 };
 const DEFAULT_CATEGORY_COLOR = '#9696A8';
 
@@ -104,6 +106,7 @@ interface DbInvoice {
   total: number | null;
   status: 'pending' | 'scanned' | 'saved';
   image_urls: string[] | null;
+  raw_ai_response?: { sift_warnings?: unknown } | null;
 }
 
 function mapLineItem(row: DbLineItem): LineItem {
@@ -164,6 +167,9 @@ export function mapInvoice(dbInvoice: DbInvoice, dbLineItems: DbLineItem[]): Inv
     pages: dbInvoice.image_urls?.length ?? 1,
     hasMissingItems: activeItems.some((it) => it.verification === 'missing'),
     hasNote: activeItems.some((it) => !!it.note),
+    warnings: Array.isArray(dbInvoice.raw_ai_response?.sift_warnings)
+      ? (dbInvoice.raw_ai_response!.sift_warnings as unknown[]).filter((w): w is string => typeof w === 'string')
+      : [],
   };
 }
 

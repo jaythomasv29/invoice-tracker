@@ -66,7 +66,7 @@ export default function ReviewScreen() {
     return null;
   }
 
-  const { vendorName, invoiceNumber, date, lineItems, subtotal, tax, total, imageUris } = currentInvoice;
+  const { vendorName, invoiceNumber, date, lineItems, subtotal, tax, total, imageUris, warnings } = currentInvoice;
   const pageCount = imageUris?.length ?? 1;
 
   const missingTotal = lineItems
@@ -119,6 +119,14 @@ export default function ReviewScreen() {
             {!!imageUris?.length && <Text style={styles.imageLink}>tap to view full image</Text>}
           </View>
         </TouchableOpacity>
+
+        {!!warnings?.length && (
+          <View style={styles.warningBanner} accessibilityRole="alert">
+            {warnings.map((w) => (
+              <Text key={w} style={styles.warningText}>{w}</Text>
+            ))}
+          </View>
+        )}
 
         {/* Line items */}
         {lineItems.map((item) => (
@@ -202,6 +210,8 @@ export default function ReviewScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
+  warningBanner: { backgroundColor: Colors.warningLight, borderRadius: 12, padding: 12, gap: 4, marginBottom: 12 },
+  warningText: { fontSize: 13, lineHeight: 19, fontFamily: 'Manrope_600SemiBold', color: Colors.warning },
   savedWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
   savedCheckCircle: {
     width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.primaryLight,

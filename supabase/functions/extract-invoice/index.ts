@@ -1,8 +1,8 @@
 import type { RetailProduct } from '../../../shared/receiptComparison.ts';
-import { detectPriceCreep } from '../_shared/priceAlerts.ts';
 import { scanCap, accountTypeForId } from '../../../shared/workspacePolicy.ts';
 import { compareInvoiceIdentity } from '../_shared/invoiceIdentity.ts';
 import { getOrganization } from '../_shared/clerkAuth.ts';
+import { isPlaceholderVendorName, matchVendor, missingPages, normalizeVendorName, repairLineItems, UNKNOWN_VENDOR_NAME } from '../_shared/extractionRepair.ts';
 // Invoice extraction pipeline — PRD section 6.3 / 9.
 //
 // Flow: the client uploads invoice photo(s) to Supabase Storage, creates a
@@ -55,14 +55,6 @@ async function getOrgPlan(orgId: string): Promise<Plan> {
 // one runs on Deno and the other in the RN bundle.
 const VENDOR_COLOR_PALETTE = ['#5DB075', '#5B7FD4', '#E09030', '#4AABB8', '#E07A30', '#9B7FD4'];
 
-function normalizeVendorName(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[.,'"()&]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 // Strict schema for the extraction tool call — see PRD 6.3 for the field list.
 const EXTRACTION_TOOL = {
   name: 'record_invoice_extraction',
@@ -77,12 +69,24 @@ const EXTRACTION_TOOL = {
           contact_name: { type: 'string' },
           contact_phone: { type: 'string' },
           account_number: { type: 'string' },
+          address: { type: 'string', description: 'Vendor street address as printed, if visible' },
+          name_visible: { type: 'boolean', description: 'true only if the vendor name/logo is legibly printed on the photo; false if inferred from other details' },
         },
         required: ['name'],
       },
       invoice_number: { type: 'string' },
+      invoice_number_label: { type: 'string', description: 'The printed label next to the number you used, e.g. "Invoice No", "Invoice #"' },
+      page_info: {
+        type: 'array',
+        description: 'One entry per photo, in order, for any "Page n of m" marking that is printed',
+        items: { type: 'object', properties: { page: { type: 'number' }, of: { type: 'number' } } },
+      },
+      header_low_confidence_fields: {
+        type: 'array',
+        items: { type: 'string', enum: ['vendor', 'invoice_number', 'invoice_date', 'subtotal', 'tax', 'total'] },
+      },
       invoice_date: { type: 'string', description: 'ISO 8601 date, e.g. 2026-07-14' },
-      subtotal: { type: 'number' },
+      subtotal: { type: 'number', description: 'Omit if no subtotal is printed — never 0 as a placeholder' },
       tax: { type: 'number' },
       total: { type: 'number' },
       line_items: {
@@ -95,23 +99,33 @@ const EXTRACTION_TOOL = {
               type: 'string',
               description: 'Short, human-readable product name with item codes, mark codes, return-policy notes, and redundant bilingual text stripped — see prompt for the sanitization rules',
             },
+            item_code: { type: 'string', description: "The vendor's item/SKU/product code for this line exactly as printed (e.g. \"MN-724B\", \"#50\", \"1234567\"); omit if none" },
             quantity: { type: 'number' },
-            unit_of_measure: { type: 'string', description: 'Exactly as printed: CS, LB, EA, BX, OZ, etc.' },
+            unit_of_measure: { type: 'string', description: 'Exactly as printed: CS, LB, EA, BX, OZ, etc. Empty string if the invoice has no unit for this line — never invent one' },
+            pricing_basis: { type: 'string', enum: ['per_unit', 'per_weight'], description: 'per_weight when the price is charged per pound/kg of actual (catch) weight' },
+            catch_weight: { type: 'number', description: 'Total printed actual weight for a per_weight line' },
+            weight_unit: { type: 'string', enum: ['lb', 'kg'] },
             unit_price: { type: 'number' },
             extended_price: { type: 'number' },
             line_item_type: { type: 'string', enum: ['charge', 'credit'] },
-            category: { type: 'string', description: 'protein | produce | dairy | dry_goods | seafood | other' },
+            category: { type: 'string', description: 'One category from the list in the instructions' },
             retail_product: {type:'object',properties:{barcode:{type:'string'},store_sku:{type:'string'},brand:{type:'string'},variant:{type:'string'},package_quantity:{type:'number'},package_count:{type:'number'},package_unit:{type:'string',enum:['g','kg','oz','lb','ml','l','fl_oz','count','each']},net_line_total:{type:'number'},discount_complete:{type:'boolean'},identity_confident:{type:'boolean'}}},
             confidence: { type: 'number' , description: '0-1 confidence for this line item as a whole' },
             low_confidence_fields: { type: 'array', items: { type: 'string' } },
           },
-          required: ['description', 'clean_name', 'quantity', 'unit_of_measure', 'unit_price', 'extended_price', 'line_item_type', 'confidence'],
+          required: ['description', 'clean_name', 'quantity', 'unit_of_measure', 'unit_price', 'extended_price', 'line_item_type', 'category', 'confidence'],
         },
       },
     },
     required: ['vendor', 'line_items'],
   },
 };
+
+const BUSINESS_CATEGORIES = ['protein', 'produce', 'dairy', 'dry_goods', 'seafood', 'beverage', 'paper_packaging', 'cleaning', 'other'];
+function businessCategory(c?: string): string {
+  const k = (c ?? '').toLowerCase().trim().replace(/[\s-]+/g, '_');
+  return BUSINESS_CATEGORIES.includes(k) ? k : 'other';
+}
 
 const EXTRACTION_PROMPT = `You are extracting structured data from a photo of a restaurant food-distributor invoice (Sysco, US Foods, PFG, or a local produce/meat/seafood vendor).
 
@@ -133,6 +147,17 @@ Examples from a real invoice:
 - "Firm Tofu·FONG KEE·60PC·方记散装硬豆腐<MarkCode/Label>【Return on the spot only.仅限即场退货】" → "Firm Tofu"
 - "PC-Mexico Basil·#1·墨西哥九层塔【Return on the spot only.仅限即场退货】·<MarkCode/Label>" → "Mexico Basil"
 
+Layout rules (each of these caused real errors before):
+- Wrapped / continued rows: a description often wraps onto the next printed line or continues at the top of the next page. Text with no quantity, price or amount of its own belongs to the item directly above it (on the previous page if at the top of a page). Append it to that item's description — never emit it as its own line item. Every line item must have a printed amount.
+- Catch weight: meat/seafood is often sold by the case but priced per pound of actual weight (e.g. "1 CS  8.830 LB  13.65/LB  120.53"). For those lines set pricing_basis "per_weight", catch_weight to the printed total weight, weight_unit "lb", unit_price to the per-pound price, and keep quantity/unit as the cases shipped. Otherwise pricing_basis is "per_unit". Check that quantity × unit_price (or catch_weight × unit_price) equals extended_price; if it doesn't, re-read the line and flag the fields you're unsure of.
+- Item codes: put the vendor's item/SKU code into item_code (it's how we recognise the same product next time) while still stripping it from clean_name.
+- Invoice number: use the number labelled Invoice No / Invoice # (often also encoded in the barcode). Never use Pick Slip, S.O./Sales Order, Order #, PO, Pack #, Route, Customer/Account # as the invoice number. Put the label you used in invoice_number_label.
+- Vendor: report the vendor exactly as printed. If the name/logo is obscured (e.g. under a clipboard clip), set name_visible false, give your best reading from other printed details (address, phone, website), lower confidence and include "vendor" in header_low_confidence_fields. Never substitute a different, well-known distributor name. Always copy the vendor phone, address and the customer account number if printed.
+- Pages: if photos show "Page n of m", report it in page_info for each photo.
+- Units: if the invoice has no unit column for a line, use an empty unit_of_measure rather than guessing CS/EA.
+- Header: include a header field in header_low_confidence_fields whenever you are not sure of it. Omit subtotal/tax when they aren't printed.
+- category must be one of: protein, produce, dairy, dry_goods, seafood, beverage, paper_packaging, cleaning, other.
+
 Call record_invoice_extraction with the complete result.`;
 
 const HOUSEHOLD_PROMPT = `Extract a grocery or household shopping receipt. Preserve every printed item and amount, credits/returns, coupons, deposits and taxes. Never invent a number or identity. Receipt date is the purchase date, not today. Read store name and transaction/reference number only if actually printed. Never use a generic terminal/store number as the unique receipt number.
@@ -141,8 +166,11 @@ For retail_product include barcode or store_sku ONLY when explicitly printed. id
 net_line_total is the attributable net item charge after explicit item-specific discounts, before tax. discount_complete=true ONLY if this is known, no ambiguous receipt-wide coupons apply, and all product fields are unambiguous. Otherwise discount_complete=false. Coupons or loyalty adjustments not allocated to a specific product must not become invented unit savings. Never allocate blanket coupons proportionally. Weighted produce can use explicitly printed measured weight and rate; otherwise omit package details. Low confidence fields must be flagged. Call record_invoice_extraction with the complete result.`;
 
 interface ExtractionResult {
-  vendor: { name: string; contact_name?: string; contact_phone?: string; account_number?: string };
+  vendor: { name: string; contact_name?: string; contact_phone?: string; account_number?: string; address?: string; name_visible?: boolean };
   invoice_number?: string;
+  invoice_number_label?: string;
+  page_info?: Array<{ page?: number; of?: number }>;
+  header_low_confidence_fields?: string[];
   invoice_date?: string;
   subtotal?: number;
   tax?: number;
@@ -150,6 +178,10 @@ interface ExtractionResult {
   line_items: Array<{
     description: string;
     clean_name: string;
+    item_code?: string;
+    pricing_basis?: 'per_unit' | 'per_weight';
+    catch_weight?: number;
+    weight_unit?: 'lb' | 'kg';
     quantity: number;
     unit_of_measure: string;
     unit_price: number;
@@ -186,7 +218,7 @@ async function extractWithModel(
 ): Promise<ExtractionResult> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    signal: AbortSignal.timeout(75000),
+    signal: AbortSignal.timeout(140000),
     headers: {
       'content-type': 'application/json',
       'x-api-key': ANTHROPIC_API_KEY,
@@ -194,7 +226,9 @@ async function extractWithModel(
     },
     body: JSON.stringify({
       model,
-      max_tokens: 4096,
+      // A dense 3-page invoice used 3,878 tokens and twice hit the old 4,096
+      // cap mid-tool-call. Leave real headroom and treat truncation as an error.
+      max_tokens: 16000,
       tools: [EXTRACTION_TOOL],
       tool_choice: { type: 'tool', name: 'record_invoice_extraction' },
       messages: [
@@ -219,6 +253,7 @@ async function extractWithModel(
 
   const json = await res.json();
   if(jobId&&workspaceId&&json.usage){await adminClient().from('ai_model_usage').insert({job_id:jobId,organization_id:workspaceId,model,input_tokens:json.usage.input_tokens??0,output_tokens:json.usage.output_tokens??0});}
+  if (json.stop_reason === 'max_tokens') throw new Error('This invoice is too long to read in one pass. Try importing fewer pages at a time.');
   const toolUse = json.content?.find((b: any) => b.type === 'tool_use');
   if (!toolUse) throw new Error('Model did not return a structured extraction.');
   return toolUse.input as ExtractionResult;
@@ -277,7 +312,7 @@ async function fingerprintWithModel(
     },
     body: JSON.stringify({
       model,
-      max_tokens: 256,
+      max_tokens: 512,
       tools: [FINGERPRINT_TOOL],
       tool_choice: { type: 'tool', name: 'record_invoice_fingerprint' },
       messages: [
@@ -302,6 +337,9 @@ async function fingerprintWithModel(
 
   const json = await res.json();
   if(jobId&&workspaceId&&json.usage){await adminClient().from('ai_model_usage').insert({job_id:jobId,organization_id:workspaceId,model,input_tokens:json.usage.input_tokens??0,output_tokens:json.usage.output_tokens??0});}
+  // A truncated fingerprint is unusable for matching; treat it as "no match"
+  // rather than comparing half-read fields.
+  if (json.stop_reason === 'max_tokens') return { vendor_name: '' };
   const toolUse = json.content?.find((b: any) => b.type === 'tool_use');
   if (!toolUse) throw new Error('Model did not return a structured fingerprint.');
   return toolUse.input as FingerprintResult;
@@ -328,15 +366,6 @@ function duplicateResponse(existing: any, canOverride = true): Response {
     { status: 409, headers: { ...corsHeaders, 'content-type': 'application/json' } }
   );
 }
-
-const PRICE_ALERT_THRESHOLD_PCT = 3;
-
-// Fires right after extraction — comparing at whatever unit the vendor
-// printed (case, lb, box, ...) needs no weight/unit normalization to work.
-// Matching is by vendor + clean_name + unit_of_measure (case-insensitive
-// exact match) against the item's own most recent prior invoice from the
-// same vendor; the canonical cross-vendor items catalog (item_id) is a
-// separate, not-yet-built follow-up (see file header).
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -446,29 +475,46 @@ Deno.serve(async (req) => {
     const result = await extractWithModel(MODEL_SONNET, images, invoice.organization_id.startsWith('pws_'), jobId, invoice.organization_id);
     await setAiJobPhase(jobId, 'saving');
 
-    // Resolve or create the vendor. OCR reads of the same vendor's name
-    // drift between scans in trivial ways ("S.J. Distributors LLC" vs
-    // "S. J. Distributors LLC") that an exact ILIKE match misses, so match
-    // on a normalized form and fall back to each vendor's `aliases` (a
-    // column that already existed in the schema but was never populated).
-    const normalizedTarget = normalizeVendorName(result.vendor.name);
+    const personal = invoice.organization_id.startsWith('pws_');
+    const warnings: string[] = [];
+
+    // Deterministic repairs before anything is written (wrapped/overflow rows,
+    // catch weight, qty × price ≠ amount flags) — see _shared/extractionRepair.ts.
+    const repaired = personal
+      ? { lines: (result.line_items ?? []).map((li) => ({ ...li, parsed_weight: null, weight_source: 'none' as const, weight_basis: null, normalized_price_per_lb: null })), mergedOverflowRows: 0 }
+      : repairLineItems(result.line_items ?? []);
+    if (repaired.mergedOverflowRows > 0) warnings.push(`Merged ${repaired.mergedOverflowRows} wrapped description row(s) into the item above.`);
+    const missing = missingPages(result.page_info);
+    if (missing.length) warnings.push(`Page ${missing.join(', ')} of this invoice wasn't photographed. Add it so no items are missed.`);
+
+    // Resolve or create the vendor: normalized name/alias first; the printed
+    // phone / account number when the name is obscured or unknown; a single
+    // shared "Unknown vendor" row instead of a new vendor named after a
+    // placeholder like "<UNKNOWN>".
     const { data: orgVendors } = await supabase
       .from('vendors')
-      .select('id, name, aliases')
+      .select('id, name, aliases, contact_phone, account_number')
       .eq('organization_id', invoice.organization_id);
+    const vendors = orgVendors ?? [];
+    const placeholder = isPlaceholderVendorName(result.vendor?.name) || /^<.*>$/.test((result.vendor?.name ?? '').trim());
+    const vendorName = placeholder ? UNKNOWN_VENDOR_NAME : result.vendor.name.trim();
+    const match = matchVendor({ ...result.vendor, name: placeholder ? '' : vendorName }, vendors);
 
-    const existingVendor = (orgVendors ?? []).find((v: any) =>
-      normalizeVendorName(v.name) === normalizedTarget ||
-      (v.aliases ?? []).some((a: string) => normalizeVendorName(a) === normalizedTarget)
-    );
-
-    let vendorId = existingVendor?.id as string | undefined;
-    if (existingVendor && existingVendor.name !== result.vendor.name &&
-        !(existingVendor.aliases ?? []).includes(result.vendor.name)) {
-      await supabase
-        .from('vendors')
-        .update({ aliases: [...(existingVendor.aliases ?? []), result.vendor.name] })
-        .eq('id', existingVendor.id);
+    let vendorId: string | undefined;
+    if (match.kind === 'name') {
+      vendorId = match.vendor.id;
+      // Only a confirmed name match teaches a new spelling.
+      if (match.vendor.name !== vendorName && !(match.vendor.aliases ?? []).includes(vendorName)) {
+        await supabase.from('vendors').update({ aliases: [...(match.vendor.aliases ?? []), vendorName] }).eq('id', match.vendor.id);
+      }
+    } else if (match.kind === 'contact') {
+      vendorId = match.vendor.id;
+      if (!placeholder && normalizeVendorName(match.vendor.name) !== normalizeVendorName(vendorName)) {
+        warnings.push(`Vendor read as "${vendorName}" but its phone/account matches ${match.vendor.name}; filed under ${match.vendor.name}.`);
+      }
+    } else if (placeholder) {
+      vendorId = vendors.find((v: any) => normalizeVendorName(v.name) === normalizeVendorName(UNKNOWN_VENDOR_NAME))?.id;
+      warnings.push('The vendor name could not be read. Set it before saving.');
     }
     if (!vendorId) {
       // Assigned once at creation so it's stable in the DB — the client
@@ -479,39 +525,48 @@ Deno.serve(async (req) => {
       const { data: newVendor, error: vendorErr } = await supabase
         .rpc('create_vendor_with_palette_color', {
           p_organization_id: invoice.organization_id,
-          p_name: result.vendor.name,
-          p_contact_name: result.vendor.contact_name ?? null,
-          p_contact_phone: result.vendor.contact_phone ?? null,
-          p_account_number: result.vendor.account_number ?? null,
+          p_name: vendorName,
+          p_contact_name: placeholder ? null : result.vendor.contact_name ?? null,
+          p_contact_phone: placeholder ? null : result.vendor.contact_phone ?? null,
+          p_account_number: placeholder ? null : result.vendor.account_number ?? null,
           p_palette: VENDOR_COLOR_PALETTE,
         })
         .single();
       if (vendorErr) throw new Error(`Could not create vendor: ${vendorErr.message}`);
       vendorId = (newVendor as any).id;
     }
+    if (!personal && result.vendor?.name_visible === false && !placeholder) {
+      warnings.push('The vendor name was partly hidden in the photo. Check it before saving.');
+    }
 
-    const lineItemRows = result.line_items.map((li) => ({
+    const lineItemRows = repaired.lines.map((li) => ({
       organization_id: invoice.organization_id,
       invoice_id: invoiceId,
       raw_description: li.description,
       clean_name: li.clean_name,
+      item_code: li.item_code ?? null,
       qty: li.quantity,
       unit_of_measure: li.unit_of_measure,
       unit_price: li.unit_price,
       extended_price: li.extended_price,
       line_item_type: li.line_item_type,
-      category: li.category,
+      category: personal ? li.category : businessCategory(li.category),
       confidence: li.confidence,
       low_confidence_fields: li.low_confidence_fields ?? [],
+      parsed_weight: li.parsed_weight,
+      weight_source: li.weight_source,
+      weight_basis: li.weight_basis,
+      normalized_price_per_lb: li.normalized_price_per_lb,
       reconciliation_status: 'pending',
-      retail_product: invoice.organization_id.startsWith('pws_') ? li.retail_product ?? null : null,
+      retail_product: personal ? li.retail_product ?? null : null,
     }));
 
     const { error: commitErr } = await adminClient().rpc('complete_invoice_extraction', {
       p_job: jobId, p_vendor: vendorId,
       p_patch: { invoice_number: result.invoice_number, invoice_date: result.invoice_date,
-        subtotal: result.subtotal, tax: result.tax, total: result.total,
-        raw_ai_response: result, image_hashes: imageHashes },
+        tax: result.tax, total: result.total,
+        raw_ai_response: { ...result, sift_warnings: warnings }, image_hashes: imageHashes,
+        subtotal: result.subtotal ?? null },
       p_lines: lineItemRows,
     });
     if (commitErr) {
@@ -527,17 +582,13 @@ Deno.serve(async (req) => {
     const { data: updatedInvoice } = await supabase.from('invoices').select('*, vendors(name)').eq('id', invoiceId).single();
     const { data: insertedLineItems } = await supabase.from('invoice_line_items').select('*').eq('invoice_id', invoiceId);
 
-    // Always detect price creep so free orgs can see the *count* as an upgrade
-    // teaser ("3 price increases this month"); the alert *details* stay
-    // Pro-gated in the UI. Detection is cheap SQL (no Smart Sift spend), so running it
-    // for everyone is fine — and it means a converting user immediately sees the
-    // alerts that were already waiting for them.
-    if (vendorId && !invoice.organization_id.startsWith('pws_')) {
-      try { await detectPriceCreep(supabase, invoice.organization_id, vendorId, invoiceId, insertedLineItems ?? []); } catch { console.error('Price alert refresh failed'); }
-    }
+    // Business price-creep alerts are derived in the database whenever an
+    // invoice is saved or a saved invoice/line changes (migration
+    // 20261107010000_reliable_price_alerts.sql), so nothing to do here: the
+    // invoice is only 'scanned' at this point and must not compare yet.
 
     return new Response(
-      JSON.stringify({ invoice: updatedInvoice, lineItems: insertedLineItems }),
+      JSON.stringify({ invoice: updatedInvoice, lineItems: insertedLineItems, warnings }),
       { headers: { ...corsHeaders, 'content-type': 'application/json' } }
     );
   } catch (err) {
