@@ -40,6 +40,7 @@ import {
   type ProductRecord,
   type ProductPricing,
 } from "../../shared/productCost";
+import { money2 } from '../../lib/money';
 export default function Products() {
   const db = useSupabase(),
     router = useRouter(),
@@ -327,7 +328,7 @@ export default function Products() {
                     {source.invoices.invoice_date ||
                       source.invoices.created_at.slice(0, 10)}
                     {!source.invoices.invoice_date ? " (upload date)" : ""}
-                    {"\n"}${Number(source.extended_price).toFixed(2)} for{" "}
+                    {"\n"}${money2(Number(source.extended_price))} for{" "}
                     {source.qty} {source.unit_of_measure}
                   </Text>
                 )}

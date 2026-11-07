@@ -34,6 +34,7 @@ import { recipeLaborBreakdown } from "../../../shared/recipeLabor";
 import { displayUnitCost } from "../../../shared/measurement";
 import RecipeLaborEditor from "../../../components/products/RecipeLaborEditor";
 import { ui } from "../../../components/products/ProductUI";
+import DemoUnavailable, { useDemoMode } from '../../../components/tour/DemoUnavailable';
 
 function confidenceMeta(confidence: number): { label: string; color: string } {
   if (confidence >= 0.8) return { label: "High", color: Colors.primary };
@@ -41,7 +42,7 @@ function confidenceMeta(confidence: number): { label: string; color: string } {
   return { label: "Low", color: Colors.textTertiary };
 }
 
-export default function RecipeDetailScreen() {
+function RecipeDetailScreenInner() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const supabase = useSupabase();
@@ -606,3 +607,8 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
   },
 });
+
+
+export default function RecipeDetailScreen() {
+  return useDemoMode() ? <DemoUnavailable what="This dish" /> : <RecipeDetailScreenInner />;
+}

@@ -21,6 +21,7 @@ import Spinner from '../../components/ui/Spinner';
 import ImageViewerModal from '../../components/ui/ImageViewerModal';
 import BackButton from '../../components/ui/BackButton';
 import LineItemDisplay from '../../components/ui/LineItemDisplay';
+import { money2 } from '../../lib/money';
 
 export default function ReviewScreen() {
   const router = useRouter();
@@ -149,20 +150,20 @@ export default function ReviewScreen() {
       <View style={styles.footer}>
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Subtotal</Text>
-          <Text style={styles.totalValue}>${subtotal.toFixed(2)}</Text>
+          <Text style={styles.totalValue}>${money2(subtotal)}</Text>
         </View>
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Tax</Text>
-          <Text style={styles.totalValue}>${tax.toFixed(2)}</Text>
+          <Text style={styles.totalValue}>${money2(tax)}</Text>
         </View>
         <View style={[styles.totalRow, styles.totalRowGrand]}>
           <Text style={styles.grandLabel}>Total</Text>
-          <Text style={styles.grandValue}>${total.toFixed(2)}</Text>
+          <Text style={styles.grandValue}>${money2(total)}</Text>
         </View>
         {missingTotal > 0 && (
           <View style={styles.missingRow}>
             <Text style={styles.missingLabel}>Marked missing</Text>
-            <Text style={styles.missingValue}>${missingTotal.toFixed(2)}</Text>
+            <Text style={styles.missingValue}>${money2(missingTotal)}</Text>
           </View>
         )}
         <TouchableOpacity

@@ -18,6 +18,7 @@ import BackButton from '../../components/ui/BackButton';
 import LineItemDisplay from '../../components/ui/LineItemDisplay';
 import EditLineItemModal from '../../components/ui/EditLineItemModal';
 import Toast from '../../components/ui/Toast';
+import { money2 } from '../../lib/money';
 
 export default function InvoiceDetailScreen() {
   const router = useRouter();
@@ -232,15 +233,15 @@ export default function InvoiceDetailScreen() {
       <View style={styles.footer}>
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Subtotal</Text>
-          <Text style={styles.totalValue}>${subtotal.toFixed(2)}</Text>
+          <Text style={styles.totalValue}>${money2(subtotal)}</Text>
         </View>
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Tax</Text>
-          <Text style={styles.totalValue}>${tax.toFixed(2)}</Text>
+          <Text style={styles.totalValue}>${money2(tax)}</Text>
         </View>
         <View style={[styles.totalRow, styles.totalRowGrand]}>
           <Text style={styles.grandLabel}>Total</Text>
-          <Text style={styles.grandValue}>${total.toFixed(2)}</Text>
+          <Text style={styles.grandValue}>${money2(total)}</Text>
         </View>
       </View>
     </SafeAreaView>

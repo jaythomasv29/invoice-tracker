@@ -20,7 +20,9 @@ import {
 import { useSupabase } from "../../lib/supabase";
 import { fetchProduct, updateProduct } from "../../lib/products";
 import { normalizePurchase } from "../../shared/measurement";
-export default function ProductDetail() {
+import { money2 } from '../../lib/money';
+import DemoUnavailable, { useDemoMode } from '../../components/tour/DemoUnavailable';
+function ProductDetailInner() {
   const { id } = useLocalSearchParams<{ id: string }>(),
     db = useSupabase(),
     router = useRouter();
@@ -201,7 +203,7 @@ export default function ProductDetail() {
                       {!row.invoices.invoice_date ? " · upload date" : ""}
                       {"\n"}
                       {row.raw_description}
-                      {"\n"}${Number(row.extended_price).toFixed(2)} for{" "}
+                      {"\n"}${money2(Number(row.extended_price))} for{" "}
                       {row.qty} {row.unit_of_measure}
                     </Text>
                     <UnitPrice price={normalizePurchase(row, data.product)} />
@@ -224,4 +226,9 @@ export default function ProductDetail() {
       </KeyboardAvoidingView>
     </Screen>
   );
+}
+
+
+export default function ProductDetail() {
+  return useDemoMode() ? <DemoUnavailable what="Product history" /> : <ProductDetailInner />;
 }

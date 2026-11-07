@@ -185,6 +185,7 @@ export default function RecipesTabScreen() {
                   activeOpacity={0.7}
                   onPress={() => {
                     Haptics.selectionAsync();
+                    if (useStore.getState().demoMode) { useStore.getState().showToast('Dish details open with your own recipes'); return; }
                     router.push(`/recipes/${recipe.id}`);
                   }}
                 >

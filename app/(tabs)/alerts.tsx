@@ -27,6 +27,8 @@ export default function AlertsScreen() {
   const { priceAlerts, markAlertRead, fetchPriceAlerts } = useStore();
 
   const openHistory = (a: PriceAlert) => {
+    // Sample data has no database rows behind it; item history would error.
+    if (useStore.getState().demoMode) { useStore.getState().showToast('Price history opens with your own invoices'); return; }
     router.push({
       pathname: '/item-history',
       params: { itemName: a.itemName, ...(a.vendorId ? { vendorId: a.vendorId } : {}) },

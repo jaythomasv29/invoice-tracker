@@ -5,6 +5,7 @@ import { Modal, View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platfor
 import { Colors } from '../../constants/Colors';
 import { LineItem } from '../../store/useStore';
 import Spinner from './Spinner';
+import { money2 } from '../../lib/money';
 
 interface EditLineItemModalProps {
   item: LineItem | null;
@@ -83,7 +84,7 @@ export default function EditLineItemModal({ item, isSaving, onCancel, onSave }: 
           </>}
           <View style={styles.extRow}>
             <Text style={styles.extLabel}>New total</Text>
-            <Text style={styles.extValue}>${ext.toFixed(2)}</Text>
+            <Text style={styles.extValue}>${money2(ext)}</Text>
           </View>
 
           <View style={styles.btnRow}>

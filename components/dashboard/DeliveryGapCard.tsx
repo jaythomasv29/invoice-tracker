@@ -3,6 +3,7 @@ import TouchableOpacity from '../ui/MotionTouchable';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { DeliveryGapEntry } from '../../store/useStore';
+import { money2 } from '../../lib/money';
 
 interface DeliveryGapCardProps {
   total: number;
@@ -28,7 +29,7 @@ export default function DeliveryGapCard({ total, items, onPressInvoice }: Delive
             Paid for, marked missing on arrival — worth a call to the vendor
           </Text>
         </View>
-        <Text style={styles.total}>${total.toFixed(2)}</Text>
+        <Text style={styles.total}>${money2(total)}</Text>
       </View>
 
       <View style={styles.list}>
@@ -43,7 +44,7 @@ export default function DeliveryGapCard({ total, items, onPressInvoice }: Delive
               <Text style={styles.itemName} numberOfLines={1}>{it.itemName}</Text>
               <Text style={styles.meta} numberOfLines={1}>{it.vendorName} · {it.dateLabel}</Text>
             </View>
-            <Text style={styles.amount}>${it.amount.toFixed(2)}</Text>
+            <Text style={styles.amount}>${money2(it.amount)}</Text>
           </TouchableOpacity>
         ))}
       </View>

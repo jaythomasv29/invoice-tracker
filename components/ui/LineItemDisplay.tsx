@@ -7,6 +7,7 @@ import { categoryLabel } from '../../lib/invoicePipeline';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { LineItem } from '../../store/useStore';
+import { money2 } from '../../lib/money';
 
 interface LineItemDisplayProps {
   item: LineItem;
@@ -54,12 +55,12 @@ export default function LineItemDisplay({
             <Text style={styles.itemRawDesc} numberOfLines={1}>Printed as: {item.rawDesc}</Text>
           )}
           <Text style={[styles.itemMeta, item.voided && styles.itemTextVoided]}>
-            {catchWeight ? `${item.qty} ${item.unit} · ${catchWeight} lb billed @ $${item.unitPrice.toFixed(2)}/lb` : `${item.qty} ${item.unit} @ $${item.unitPrice.toFixed(2)}`}
+            {catchWeight ? `${item.qty} ${item.unit} · ${catchWeight} lb billed @ $${money2(item.unitPrice)}/lb` : `${item.qty} ${item.unit} @ $${money2(item.unitPrice)}`}
           </Text>
           {common&&<Text style={styles.itemMeta}>${common.value.toFixed(3)} / {common.unit} · {item.normalizedCost?.basis}</Text>}
         </View>
         <View style={{ alignItems: 'flex-end', gap: 6 }}>
-          <Text style={[styles.itemExt, item.voided && styles.itemTextVoided]}>${item.ext.toFixed(2)}</Text>
+          <Text style={[styles.itemExt, item.voided && styles.itemTextVoided]}>${money2(item.ext)}</Text>
           <View style={styles.actionLinkRow}>
             {onEdit && !item.voided && (
               <TouchableOpacity onPress={onEdit} activeOpacity={0.7} hitSlop={8}>

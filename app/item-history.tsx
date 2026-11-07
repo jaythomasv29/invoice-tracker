@@ -12,6 +12,7 @@ import { useSupabase } from '../lib/supabase';
 import { fetchItemPriceHistory, ItemPricePoint } from '../lib/invoicePipeline';
 import BackButton from '../components/ui/BackButton';
 import Spinner from '../components/ui/Spinner';
+import DemoUnavailable, { useDemoMode } from '../components/tour/DemoUnavailable';
 
 const CHART_H = 130;
 const CHART_PAD_X = 14;
@@ -22,7 +23,7 @@ const CHART_PAD_Y = 16;
 // time, oldest first, with the price-per-unit chart and the raw invoice list
 // underneath it. All of this data already existed (line items always carried
 // unit_price + a date); it just had no dedicated view before.
-export default function ItemHistoryScreen() {
+function ItemHistoryScreenInner() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const { itemName, vendorId, comparisonKey } = useLocalSearchParams<{ itemName: string; vendorId?: string; comparisonKey?:string }>();
@@ -193,3 +194,8 @@ const styles = StyleSheet.create({
   rowDate: { fontSize: 11.5, fontFamily: 'Manrope_500Medium', color: Colors.textTertiary, marginTop: 1 },
   rowPrice: { fontSize: 13.5, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
 });
+
+
+export default function ItemHistoryScreen() {
+  return useDemoMode() ? <DemoUnavailable what="Price history" /> : <ItemHistoryScreenInner />;
+}

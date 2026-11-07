@@ -6,6 +6,7 @@ import { normalizePurchase } from "../../shared/measurement";
 import { displayPurchaseDate } from "./PurchaseHistorySheet";
 import Touch from "../ui/MotionTouchable";
 import { UnitPrice, ui } from "./ProductUI";
+import { money2 } from '../../lib/money';
 export default function ProductGroupCard({
   group,
   metric,
@@ -79,7 +80,7 @@ export default function ProductGroupCard({
                   {"\n"}Last purchased{" "}
                   {displayPurchaseDate(p.invoices.invoice_date)}
                   {!p.invoices.invoice_date ? " · purchase date missing" : ""}
-                  {"\n"}${Number(p.extended_price ?? 0).toFixed(2)} for {p.qty}{" "}
+                  {"\n"}${money2(Number(p.extended_price ?? 0))} for {p.qty}{" "}
                   {p.unit_of_measure}
                 </Text>
                 <UnitPrice metric={metric} price={normalizePurchase(p)} />
