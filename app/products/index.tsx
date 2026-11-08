@@ -25,6 +25,7 @@ import {
 } from "../../components/products/ProductUI";
 import { useSupabase } from "../../lib/supabase";
 import { useWorkspace } from "../../lib/workspaceContext";
+import { formatDate, localDateFromTimestamp } from "../../lib/invoicePipeline";
 import {
   searchPurchases,
   searchProductGroups,
@@ -324,9 +325,13 @@ export default function Products() {
                 </Text>
                 {source && (
                   <Text style={ui.hint}>
-                    {source.invoices.vendors?.name || "Supplier"} ·{" "}
-                    {source.invoices.invoice_date ||
-                      source.invoices.created_at.slice(0, 10)}
+                    {source.invoices.vendors?.name ||
+                      (isPersonal ? "Store" : "Supplier")}{" "}
+                    ·{" "}
+                    {formatDate(
+                      source.invoices.invoice_date ||
+                        localDateFromTimestamp(source.invoices.created_at),
+                    )}
                     {!source.invoices.invoice_date ? " (upload date)" : ""}
                     {"\n"}${money2(Number(source.extended_price))} for{" "}
                     {source.qty} {source.unit_of_measure}

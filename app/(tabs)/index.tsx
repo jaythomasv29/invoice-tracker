@@ -47,6 +47,7 @@ import CategorySpendCard from "../../components/dashboard/CategorySpendCard";
 import UploadActivityCard from "../../components/dashboard/UploadActivityCard";
 import DeliveryGapCard from "../../components/dashboard/DeliveryGapCard";
 import KitchenMomentumCard from "../../components/dashboard/KitchenMomentumCard";
+import HomeWelcomeCard from "../../components/dashboard/HomeWelcomeCard";
 import { TourTarget } from "../../components/tour/TourTarget";
 import { useTour } from "../../components/tour/TourProvider";
 
@@ -108,6 +109,9 @@ export default function HomeScreen() {
   // right away instead of showing an empty $0 dashboard until the next focus.
   const demoMode = useStore((s) => s.demoMode);
   const [isLoadingSummary, setIsLoadingSummary] = useState(true);
+  // Which workspace has finished at least one load. A refocus refetch flips
+  // isLoadingSummary, so gating the welcome card on it alone would flicker.
+  const [loadedOrgId, setLoadedOrgId] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
   const scrollY = useSharedValue(0);
   const viewport = useSharedValue(0);
@@ -134,7 +138,7 @@ export default function HomeScreen() {
 
   // Let the product tour scroll this screen so targets below the fold can be
   // brought into view before the spotlight measures them.
-  const { registerScroller } = useTour();
+  const { registerScroller, start: startTour } = useTour();
   const scrollRef = useRef<ScrollView>(null);
   useEffect(() => {
     registerScroller("index", {
@@ -162,6 +166,7 @@ export default function HomeScreen() {
         }).finally(() => {
           if (!active || current !== request || scope !== useStore.getState().activeScope) return;
           setIsLoadingSummary(false);
+          setLoadedOrgId(organization.id);
           epoch.value += 1;
         });
       };
@@ -179,6 +184,11 @@ export default function HomeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [organization?.id, supabase, isPaid, fetchDashboardSummary, fetchPriceAlerts, epoch, retryOverview, demoMode]),
   );
+
+  // A workspace with nothing saved yet gets one onboarding explainer instead of
+  // a stack of $0.00 tiles. Demo mode always has data, so it never lands here.
+  const isNewWorkspace = !demoMode && !dashboardError && loadedOrgId === organization?.id && spendInvoices.length === 0;
+  const startSample = isPersonal ? () => useStore.getState().startDemo('personal') : startTour;
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -230,6 +240,7 @@ export default function HomeScreen() {
       >
         {dashboardError&&<LoadFailure message={dashboardError} hasData={spendInvoices.length>0} onRetry={()=>setRetryOverview(n=>n+1)}/>}
         <ScanInboxCard />
+        {isNewWorkspace ? <RevealPanel><HomeWelcomeCard isPersonal={isPersonal} onScan={() => router.push('/scan')} onSample={startSample} /></RevealPanel> : <>
         <RevealPanel><View style={styles.overviewHeading}>
           <Text style={styles.overviewStatus}>{isLoadingSummary ? 'Updating your overview…' : 'Your spending, in perspective.'}</Text>
           <TouchableOpacity onPress={() => router.push('/scan')} accessibilityRole="button" accessibilityLabel={isPersonal?'Scan a new receipt':'Scan a new invoice'} style={styles.quickScan}><Text style={styles.quickScanText}>+ Scan</Text></TouchableOpacity>
@@ -264,6 +275,7 @@ export default function HomeScreen() {
             {!isPersonal&&topItems.length>0&&<RevealPanel><TopItemsCard topItems={topItems} onPressItem={name=>router.push({pathname:'/item-history',params:{itemName:name}})} /></RevealPanel>}
           </> : <RevealPanel><ProLockCard stat={monthTotal>0?`$${Math.round(monthTotal).toLocaleString('en-US')}`:undefined} statLabel={monthTotal>0?'spent this month':undefined} title={isPersonal?'See the patterns behind your shopping':'See the patterns behind your purchasing'} body={isPersonal?'Personal Pro connects your store trends, category breakdowns and comparable item prices.':'Pro connects supplier trends, price-change alerts and recipe costing to your invoices.'} /></RevealPanel>}
         {uploadActivity.length>0 && <RevealPanel><UploadActivityCard entries={uploadActivity} onPressInvoice={id=>router.push(`/invoice/${id}`)} /></RevealPanel>}
+        </>}
       </Animated.ScrollView>
       </DashboardMotionContext.Provider>
 

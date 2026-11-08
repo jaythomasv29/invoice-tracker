@@ -1,78 +1,157 @@
 {
-  "verifiedAt": "2026-11-05T02:15:42.449Z",
+  "verifiedAt": "2026-11-08T01:11:17.575Z",
   "screenshots": [
     {
-      "file": "screenshots/app-store/01-overview.png",
+      "file": "screenshots/app-store-v2/6.9/01-price-alerts.png",
       "state": "COMPLETE",
+      "checksumMatches": true,
       "errors": []
     },
     {
-      "file": "screenshots/app-store/02-invoices.png",
+      "file": "screenshots/app-store-v2/6.9/02-scan-review.png",
       "state": "COMPLETE",
+      "checksumMatches": true,
       "errors": []
     },
     {
-      "file": "screenshots/app-store/03-review.png",
+      "file": "screenshots/app-store-v2/6.9/03-spending.png",
       "state": "COMPLETE",
+      "checksumMatches": true,
       "errors": []
     },
     {
-      "file": "screenshots/app-store/04-recipes.png",
+      "file": "screenshots/app-store-v2/6.9/04-purchasing-intelligence.png",
       "state": "COMPLETE",
+      "checksumMatches": true,
       "errors": []
     },
     {
-      "file": "screenshots/app-store/05-alerts.png",
+      "file": "screenshots/app-store-v2/6.9/05-recipe-costing.png",
       "state": "COMPLETE",
+      "checksumMatches": true,
       "errors": []
     },
     {
-      "file": "screenshots/app-store/06-suppliers.png",
+      "file": "screenshots/app-store-v2/6.9/06-invoice-library.png",
       "state": "COMPLETE",
+      "checksumMatches": true,
       "errors": []
     },
     {
-      "file": "screenshots/app-store/07-personal.png",
+      "file": "screenshots/app-store-v2/6.9/07-suppliers.png",
       "state": "COMPLETE",
+      "checksumMatches": true,
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.9/08-personal.png",
+      "state": "COMPLETE",
+      "checksumMatches": true,
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.3/01-price-alerts.png",
+      "state": "COMPLETE",
+      "checksumMatches": true,
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.3/02-scan-review.png",
+      "state": "COMPLETE",
+      "checksumMatches": true,
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.3/03-spending.png",
+      "state": "COMPLETE",
+      "checksumMatches": true,
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.3/04-purchasing-intelligence.png",
+      "state": "COMPLETE",
+      "checksumMatches": true,
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.3/05-recipe-costing.png",
+      "state": "COMPLETE",
+      "checksumMatches": true,
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.3/06-invoice-library.png",
+      "state": "COMPLETE",
+      "checksumMatches": true,
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.3/07-suppliers.png",
+      "state": "COMPLETE",
+      "checksumMatches": true,
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.3/08-personal.png",
+      "state": "COMPLETE",
+      "checksumMatches": true,
       "errors": []
     }
   ],
   "previews": [
     {
-      "file": "previews/sift-app-preview-886x1920.mp4",
+      "file": "previews/v2/sift-app-preview-886x1920.mp4",
+      "displayType": "IPHONE_61",
       "state": "COMPLETE",
+      "checksumMatches": true,
+      "errors": []
+    },
+    {
+      "file": "previews/v2/sift-app-preview-886x1920.mp4",
+      "displayType": "IPHONE_67",
+      "state": "COMPLETE",
+      "checksumMatches": true,
       "errors": []
     }
   ],
   "creative": [
     {
       "file": "creative/product-page-header-3840x1646.png",
-      "state": "PREPARE_FOR_SUBMISSION",
-      "errors": []
+      "state": "READY_FOR_REVIEW"
     },
     {
-      "file": "creative/search-results-3840x2560.png",
-      "state": "PREPARE_FOR_SUBMISSION",
-      "errors": []
+      "file": "creative/v2/search-results-3840x2560.png",
+      "state": "READY_FOR_REVIEW"
     }
   ],
-  "draftState": "PREPARE_FOR_SUBMISSION",
+  "draftState": "READY_FOR_REVIEW",
   "releaseType": "MANUAL",
   "metadata": {
-    "description": true,
+    "smartSiftPromotionalText": true,
     "supportUrl": "https://siftcosts.com/support",
     "marketingUrl": "https://siftcosts.com",
-    "keywordLength": 85
+    "descriptionIncludesTerms": true,
+    "reviewerCredentialsPresent": true,
+    "reviewContactComplete": true,
+    "descriptionIncludesAppleEula": true
   },
-  "build": "7",
+  "build": "9",
   "reviewerCredentialsPresent": true,
-  "attachments": [
-    {
-      "filename": "sift-fictional-test-invoice.jpg",
-      "state": "COMPLETE"
-    }
-  ],
-  "ageRating": "SEVENTEEN_PLUS",
+  "contentRightsDeclaration": "DOES_NOT_USE_THIRD_PARTY_CONTENT",
+  "remainingOwnerConfirmations": {
+    "contentRights": "confirmed by owner: only original content and private user uploads",
+    "dualPlanPurchaseAndRestore": "owner requested agent testing; in progress"
+  },
+  "subscriptionNotifications": {
+    "productionConfigured": true,
+    "sandboxConfigured": true,
+    "blocker": null,
+    "productionVersion": "V2",
+    "sandboxVersion": "V2",
+    "sandboxTestDelivery": "SUCCESS (Apple App Store Server API confirmed)",
+    "productionTestRequest": "HTTP 401; delivery not verified"
+  },
+  "publicReviewSubmitted": false,
   "/privacy": 200,
   "/terms": 200,
   "/support": 200

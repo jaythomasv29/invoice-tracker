@@ -28,13 +28,13 @@ export default function HistoryMilestone({ invoices, loading, onPress }: {
     <View style={s.top}>
       <View style={s.titleGroup}>
         <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={Colors.accent} strokeWidth={1.8} strokeLinejoin="round" accessible={false}><Path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z" /></Svg>
-        <Text style={s.title}>{progress.count ? 'Your history is growing' : 'Your first milestone'}</Text>
+        <Text style={s.title}>{progress.count ? 'Your history is growing' : `Save your first ${isPersonal ? 'receipt' : 'invoice'}`}</Text>
       </View>
       {!loading && earned && <View style={s.badge}><Text style={s.badgeText}>✓ {earned.value} saved</Text></View>}
     </View>
-    <View style={s.row}><Text style={s.caption}>SAVED HISTORY · ALL TIME</Text><Text style={s.count}>{loading ? '—' : `${progress.count} / ${progress.target}`}</Text></View>
+    <View style={s.row}><Text style={s.caption}>SAVED · NEXT MILESTONE</Text><Text style={s.count}>{loading ? '—' : `${progress.count} / ${progress.target}`}</Text></View>
     <View style={s.track} accessible={false}><Animated.View style={[s.fill, fillStyle]} /></View>
-    <Text style={s.note}>{loading ? 'Updating your progress…' : `${progress.remaining} more saved ${progress.remaining === 1 ? (isPersonal ? 'receipt' : 'invoice') : noun} to your next milestone`} <Text>›</Text></Text>
+    <Text style={s.note}>{loading ? 'Updating your progress…' : `Open your ${isPersonal ? 'receipt' : 'invoice'} library`} <Text>›</Text></Text>
   </Touch>;
 }
 const s = StyleSheet.create({

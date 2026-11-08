@@ -17,6 +17,7 @@ import {
 } from "../../lib/invoiceDetails";
 import Touch from "./MotionTouchable";
 import Spinner from "./Spinner";
+import { useWorkspace } from "../../lib/workspaceContext";
 
 export default function EditInvoiceDetailsModal({
   invoice,
@@ -28,6 +29,8 @@ export default function EditInvoiceDetailsModal({
   onSave: (details: InvoiceDetails) => Promise<void>;
 }) {
   const reducedMotion = useReducedMotion();
+  const { isPersonal } = useWorkspace();
+  const doc = isPersonal ? "receipt" : "invoice";
   const [vendor, setVendor] = useState(""),
     [number, setNumber] = useState(""),
     [date, setDate] = useState("");
@@ -57,7 +60,7 @@ export default function EditInvoiceDetailsModal({
     };
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    const problem = validateInvoiceDetails(details, today);
+    const problem = validateInvoiceDetails(details, today, isPersonal);
     if (problem) {
       setError(problem);
       return;
@@ -80,12 +83,12 @@ export default function EditInvoiceDetailsModal({
   };
   if (!invoice) return null;
   const fields = [
-    ["Vendor / store", vendor, setVendor, false],
-    ["Invoice / receipt number", number, setNumber, false],
+    [isPersonal ? "Store" : "Vendor", vendor, setVendor, false],
+    [isPersonal ? "Receipt number" : "Invoice number", number, setNumber, false],
     ["Purchase date · YYYY-MM-DD", date, setDate, false],
     ["Subtotal", subtotal, setSubtotal, true],
     ["Tax", tax, setTax, true],
-    ["Total printed on invoice", total, setTotal, true],
+    [`Total printed on ${doc}`, total, setTotal, true],
   ] as const;
   return (
     <Modal
@@ -102,11 +105,11 @@ export default function EditInvoiceDetailsModal({
       >
         <View style={s.card} accessibilityViewIsModal>
           <Text style={s.title} accessibilityRole="header">
-            Edit invoice details
+            Edit {doc} details
           </Text>
           <Text style={s.help}>
-            Correct the details against your original. Changing the vendor
-            applies to this invoice only.
+            Correct the details against your original. Changing the{" "}
+            {isPersonal ? "store" : "vendor"} applies to this {doc} only.
           </Text>
           <ScrollView
             keyboardShouldPersistTaps="handled"
@@ -159,7 +162,7 @@ export default function EditInvoiceDetailsModal({
             </Touch>
             <Touch
               accessibilityRole="button"
-              accessibilityLabel="Save invoice details"
+              accessibilityLabel={`Save ${doc} details`}
               disabled={saving}
               onPress={() => void save()}
               style={[s.save, saving && { opacity: 0.6 }]}

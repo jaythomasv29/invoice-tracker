@@ -43,6 +43,7 @@ import {
 import { ingredientCost } from "../../../shared/recipeIngredients";
 import { savePurchaseProduct } from "../../../lib/products";
 import { displayUnitCost, convertQuantity } from "../../../shared/measurement";
+import { money2 } from "../../../lib/money";
 const UNIT_OPTIONS = [
   "g",
   "kg",
@@ -89,7 +90,7 @@ function costIndicator(ing: RecipeIngredient): {
     };
   const p = ing.unitCost ? displayUnitCost(ing.unitCost) : null;
   return {
-    text: `${result.source === "purchase" ? "Purchased" : "Estimated"} $${result.amount.toFixed(2)}${p ? ` · $${p.value.toFixed(3)}/${p.unit}` : ""} · tap to match`,
+    text: `${result.source === "purchase" ? "Purchased" : "Estimated"} $${money2(result.amount)}${p ? ` · $${p.value.toFixed(3)}/${p.unit}` : ""} · tap to match`,
     tone: result.source === "purchase" ? "positive" : "muted",
   };
 }
@@ -709,7 +710,7 @@ function CostHeaderCard({
           ? "Estimated batch ingredients"
           : "Known ingredient subtotal"}
       </Text>
-      <Text style={styles.costEstimate}>${cost.estimate.toFixed(2)}</Text>
+      <Text style={styles.costEstimate}>${money2(cost.estimate)}</Text>
       <Text style={styles.costRange}>
         {cost.missingCount} unpriced · {cost.estimatedCount} estimated. Labor is
         shown on dish details.

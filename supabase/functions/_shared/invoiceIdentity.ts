@@ -9,6 +9,9 @@ const normalize = (value: string) =>
     .normalize("NFKC")
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]/gu, "");
+// The vendor key compareInvoiceIdentity matches on (exact, after this
+// normalization) — exported so callers can narrow candidate lookups.
+export const normalizeIdentityVendor = normalize;
 export function compareInvoiceIdentity(
   a: InvoiceIdentity,
   b: InvoiceIdentity,

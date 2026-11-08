@@ -3,8 +3,11 @@ import { WORKSPACE_PLANS } from '../shared/workspacePolicy.ts';
 import { useWorkspace } from '../lib/workspaceContext';
 import TouchableOpacity from '../components/ui/MotionTouchable';
 import { useSupabase } from '../lib/supabase';
+import { confirmPurchaseActivation } from '../lib/purchaseActivation';
+import { scanLimitMessage } from '../lib/entitlements';
+import { useStore } from '../store/useStore';
 import { syncSubscription } from '../lib/subscriptionSync';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
 import SafeAreaView from '../components/ui/Screen';
 import { useRouter } from 'expo-router';
@@ -37,7 +40,13 @@ export default function PaywallScreen() {
   const features=featuresFor(accountType);
   const policy=WORKSPACE_PLANS[accountType];
   const { plan, isPaid } = useEntitlement();
-  const { used, cap } = useExtractionUsage();
+  const { used, cap, remaining, loading: usageLoading } = useExtractionUsage();
+  const scope = useStore(s => s.activeScope);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const [activationPending, setActivationPending] = useState(false);
+  const [activationExpected, setActivationExpected] = useState<'plus' | 'pro'>('pro');
+  const capped = !usageLoading && remaining <= 0;
   const [busy, setBusy] = useState(false);
   const [restoring, setRestoring] = useState(false);
   // Plus + Pro packages from RevenueCat — each carries the store-localized price
@@ -62,20 +71,34 @@ export default function PaywallScreen() {
 
   const usagePct = cap > 0 ? Math.min(1, used / cap) : 0;
 
-  // After a purchase/restore that RevenueCat confirms locally, the app-wide
-  // entitlement (and the server extraction gate) still read the Clerk org's
-  // `plan` flag, which the revenuecat-webhook writes a few seconds later. Poll
-  // the org so the paywall flips to the "on a paid plan" state without a manual
-  // reload, then auto-close back to wherever the user came from (often mid-scan).
-  const awaitEntitlementAndClose = async (expectedPlan: string) => {
-    const confirmed = await syncSubscription(supabase);
-    await organization?.reload();
-    if (confirmed !== expectedPlan) throw new Error('Your purchase is pending verification. Please retry Restore purchases shortly.');
-    router.back();
+  const awaitEntitlementAndClose = async (expected: 'plus' | 'pro') => {
+    setActivationPending(true);
+    setActivationExpected(expected);
+    const captured = scope;
+    const result = await confirmPurchaseActivation({
+      expected,
+      sync: () => syncSubscription(supabase),
+      reload: () => organization?.reload() ?? Promise.resolve(),
+      current: () => mounted.current && useStore.getState().activeScope === captured,
+      // ~20s of polling (sync round-trips + 1.5s gaps) before settling on the
+      // calm "purchase received" state — the webhook usually lands well within.
+      attempts: 10,
+    });
+    if (result === 'active') {
+      setActivationPending(false);
+      if (router.canGoBack()) router.back(); else router.replace('/(tabs)');
+    }
+  };
+
+  const checkActivation = async () => {
+    if (busy || restoring) return;
+    setBusy(true);
+    try { await awaitEntitlementAndClose(activationExpected); }
+    finally { if (mounted.current) setBusy(false); }
   };
 
   const handleUpgrade = async () => {
-    if (busy || restoring || !organization?.canPurchase) return;
+    if (busy || restoring || activationPending || !organization?.canPurchase) return;
     // RevenueCat project/key not wired yet (migration in progress) or the
     // selected package isn't configured — don't dead-end the button.
     if (!purchasesReady() || !selectedPkg) {
@@ -84,15 +107,14 @@ export default function PaywallScreen() {
     }
     setBusy(true);
     try {
-      const { plan: purchasedPlan, cancelled } = await purchaseTier(selectedPkg, organization!.billingCustomerId, accountType);
+      const { cancelled } = await purchaseTier(selectedPkg, organization!.billingCustomerId, accountType);
       if (cancelled) return; // user backed out of the native sheet — no error
-      if (purchasedPlan !== 'free') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        await awaitEntitlementAndClose(purchasedPlan);
-      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await awaitEntitlementAndClose('pro');
     } catch (e: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Purchase failed', e?.message ?? 'Could not complete the purchase. Please try again.');
+      console.warn('[paywall] purchase result unconfirmed', e?.code);
+      Alert.alert('Purchase not confirmed', 'We couldn’t confirm the result. Check your Apple subscription or use Restore purchases before trying again.');
     } finally {
       setBusy(false);
     }
@@ -123,7 +145,7 @@ export default function PaywallScreen() {
       <View style={styles.topBar}>
         <TouchableOpacity
           style={styles.closeBtn}
-          onPress={() => router.back()}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))}
           activeOpacity={0.7}
           hitSlop={8}
           accessibilityRole="button"
@@ -139,6 +161,21 @@ export default function PaywallScreen() {
           <Text style={styles.subhead}>{`${isPersonal?'Personal':'Business'} Pro includes ${policy.pro.scans} scans per calendar month${isPersonal?'':', plus 10 Smart Sift recipe draft attempts'}. ${PAYWALL_SUBHEAD}`}</Text>
         </View>
 
+        {activationPending && (
+          <View style={styles.proBanner} accessibilityLiveRegion="polite">
+            <Text style={styles.proBannerText}>Purchase received — confirming access</Text>
+            <Text style={styles.disclosure}>You don’t need to buy again. Your access is still being confirmed. You can keep using Sift and check again shortly.</Text>
+            <TouchableOpacity accessibilityRole="button" onPress={checkActivation} disabled={busy || restoring} style={{minHeight:48,justifyContent:'center'}}>
+              <Text style={styles.legalLink}>{busy || restoring ? 'Confirming…' : 'Check access again'}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        {capped && <View style={styles.usageCard} accessibilityLiveRegion="polite">
+          <Text style={styles.usageText}>{scanLimitMessage(isPaid, cap)} Your saved history is still available.</Text>
+          <TouchableOpacity accessibilityRole="button" onPress={() => router.replace({pathname:'/(tabs)/vendors',params:{view:'invoices'}})} style={{minHeight:48,justifyContent:'center'}}>
+            <Text style={styles.legalLink}>View saved {isPersonal ? 'receipts' : 'invoices'}</Text>
+          </TouchableOpacity>
+        </View>}
         {isPaid ? (
           <View style={styles.proBanner}>
             <Text style={styles.proBannerText}>✓ You&apos;re on {planLabel}</Text>
@@ -147,7 +184,7 @@ export default function PaywallScreen() {
           <View style={styles.usageCard}>
             <Text style={styles.usageText}>
               You&apos;ve used <Text style={styles.usageStrong}>{used}</Text> of{' '}
-              <Text style={styles.usageStrong}>{cap}</Text> free {isPersonal ? 'receipt scans' : 'extractions'} this month.
+              <Text style={styles.usageStrong}>{cap}</Text> free {isPersonal ? 'receipt scans' : 'invoice scans'} this month.
             </Text>
             <View style={styles.meterTrack}>
               <View style={[styles.meterFill, { width: `${usagePct * 100}%` }]} />
@@ -193,10 +230,17 @@ export default function PaywallScreen() {
           ))}
         </View>
 
-        {isPaid ? (
-          <View style={[styles.cta, styles.ctaDisabled]}>
-            <Text style={styles.ctaTextDisabled}>You&apos;re on {planLabel}</Text>
-          </View>
+        {isPaid || activationPending ? (
+          // Nothing to buy here: a real way out instead of a disabled button.
+          <TouchableOpacity
+            style={[styles.cta, styles.ctaDisabled]}
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={activationPending ? 'Purchase received. Done' : `You’re on ${planLabel}. Done`}
+          >
+            <Text style={styles.ctaTextDisabled}>{activationPending ? 'Purchase received · Done' : `You’re on ${planLabel} · Done`}</Text>
+          </TouchableOpacity>
         ) : (
           <>
             {/* Plus / Pro tier selector — Pro (flagship) is the default. */}
@@ -207,7 +251,9 @@ export default function PaywallScreen() {
                 caption={`${policy.pro.scans} ${isPersonal?'receipts':'invoices'} / mo`}
                 badge="Recommended"
                 selected
-                onPress={() => Haptics.selectionAsync()}
+                // The only tier: tapping its card starts the same purchase as
+                // the button below rather than silently doing nothing.
+                onPress={() => { Haptics.selectionAsync(); void handleUpgrade(); }}
               />
             </View>
 
@@ -286,7 +332,9 @@ function TierOption({
       style={[styles.planOption, selected && styles.planOptionSelected]}
       onPress={onPress}
       activeOpacity={0.85}
-      accessibilityRole="radio"
+      accessibilityRole="button"
+      accessibilityLabel={`${label}, ${price}${caption ? `, ${caption}` : ''}`}
+      accessibilityHint="Starts the subscription purchase"
       accessibilityState={{ selected }}
     >
       <View style={styles.planOptionHeader}>

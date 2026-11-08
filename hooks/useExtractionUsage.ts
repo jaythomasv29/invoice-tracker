@@ -1,10 +1,20 @@
 import { useWorkspace } from '../lib/workspaceContext';
 import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 
 import { useSupabase } from '../lib/supabase';
 import { useEntitlement } from './useEntitlement';
 import { useStore } from '../store/useStore';
 import { demoFixtures } from '../lib/demoData';
+import { usageResetLabel } from '../lib/entitlements';
+
+// Every mounted meter re-reads its count when a scan finishes (the scan queue
+// calls notifyExtractionUsageChanged), so tab screens that stay mounted —
+// Profile's "X of N used" — don't show a stale number until relaunch.
+const usageListeners = new Set<() => void>();
+export function notifyExtractionUsageChanged() {
+  usageListeners.forEach((listener) => listener());
+}
 
 // This calendar month's extraction count for the org, against the current tier's
 // monthly cap ("X of N left this month"). Counts invoices that reached extraction
@@ -39,12 +49,18 @@ export function useExtractionUsage() {
     setLoading(false);
   }, [supabase, organization?.id, demoMode]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  // Refresh whenever the screen regains focus (covers the initial mount too).
+  useFocusEffect(useCallback(() => { void refresh(); }, [refresh]));
+  useEffect(() => {
+    const listener = () => { void refresh(); };
+    usageListeners.add(listener);
+    return () => { usageListeners.delete(listener); };
+  }, [refresh]);
 
   if (demoMode) {
-    return { ...demoFixtures(demoKind).extractionUsage, loading: false, refresh: async () => {} };
+    return { ...demoFixtures(demoKind).extractionUsage, loading: false, refresh: async () => {}, resetsOn: usageResetLabel() };
   }
   const cap = invoiceCap;
   const remaining = used == null ? cap : Math.max(0, cap - used);
-  return { used: used ?? 0, cap, remaining, loading, refresh };
+  return { used: used ?? 0, cap, remaining, loading, refresh, resetsOn: usageResetLabel() };
 }

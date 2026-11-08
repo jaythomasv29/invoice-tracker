@@ -9,6 +9,7 @@ import { purchaseHistory, type PurchasedProduct } from "../../lib/products";
 import { useSupabase } from "../../lib/supabase";
 import type { PurchaseObservation } from "../../shared/measurement";
 import { useRouter } from "expo-router";
+import { useWorkspace } from "../../lib/workspaceContext";
 export const displayPurchaseDate = (value: string | null) => {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return "Date not recorded";
   const d = new Date(value + "T00:00:00Z");
@@ -32,6 +33,7 @@ export default function PurchaseHistorySheet({
   const db = useSupabase(),
     router = useRouter(),
     reduced = useReducedMotion();
+  const { isPersonal } = useWorkspace();
   const [rows, setRows] = useState<PurchaseObservation[]>([]),
     [loading, setLoading] = useState(false),
     [more, setMore] = useState(false),
@@ -148,7 +150,7 @@ export default function PurchaseHistorySheet({
                 </Text>
                 <Text style={s.note}>
                   {r.qty ?? "—"} {r.unit_of_measure ?? "units"} ·{" "}
-                  {r.invoices.vendors?.name ?? "Supplier"}
+                  {r.invoices.vendors?.name ?? (isPersonal ? "Store" : "Supplier")}
                 </Text>
                 {!r.invoices.invoice_date && (
                   <Text style={s.note}>

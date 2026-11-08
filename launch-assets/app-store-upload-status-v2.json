@@ -1,0 +1,209 @@
+{
+  "appId": "6797084602",
+  "localization": "en-US",
+  "verifiedAt": "2026-11-08T01:11:17.575Z",
+  "screenshotSets": [
+    {
+      "id": "9219b51e-3f03-4fda-bfb8-96882d524448",
+      "displayType": "APP_IPHONE_67",
+      "size": "6.9",
+      "count": 8
+    },
+    {
+      "id": "f0b67cbd-3a17-4d1c-9ba0-156b2b5f8589",
+      "displayType": "APP_IPHONE_61",
+      "size": "6.3",
+      "count": 8
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "screenshots/app-store-v2/6.9/01-price-alerts.png",
+      "id": "e9bc7a19-05e0-4f1e-8dac-9c188d74dd9a",
+      "displayType": "APP_IPHONE_67",
+      "sha256": "df9cd231b13e2f26ab9dba8f0d39d547f2d2ea3eba303754aaa2ac87af8a9a4d",
+      "checksumMatches": true,
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.9/02-scan-review.png",
+      "id": "d68958f5-bae7-4a08-bdb8-915b39799052",
+      "displayType": "APP_IPHONE_67",
+      "sha256": "56f5dc5b04416b79602e35a0aa16b7bc7ebf2abcd74978c082fa0c8b480e27dd",
+      "checksumMatches": true,
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.9/03-spending.png",
+      "id": "8baa7530-2fa2-431f-be00-c57d06236602",
+      "displayType": "APP_IPHONE_67",
+      "sha256": "96a7fd79b6df4d8d1e4b50d4fa591cf9f538cbe15b723681864dbe662757a3d4",
+      "checksumMatches": true,
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.9/04-purchasing-intelligence.png",
+      "id": "8f6d4ce6-8a84-4c8c-90cc-18b8aa7d91bc",
+      "displayType": "APP_IPHONE_67",
+      "sha256": "f58625df355099817303af33c9279640c39e7e55fed7c58ee2cbad654257cba9",
+      "checksumMatches": true,
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.9/05-recipe-costing.png",
+      "id": "c23f3fa1-51af-4d91-b590-219114bce966",
+      "displayType": "APP_IPHONE_67",
+      "sha256": "a6074fab7cb89ee724396cb11a46b3b137cf0db28bc72a76e772192cb4693239",
+      "checksumMatches": true,
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.9/06-invoice-library.png",
+      "id": "9d000019-5234-87ba-8008-d5d421304927",
+      "displayType": "APP_IPHONE_67",
+      "sha256": "c3fc47894f48f8b7882492b190848fdaa078b1e0751ffd27c59189ea3eb3c3ef",
+      "checksumMatches": true,
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.9/07-suppliers.png",
+      "id": "0210f4f7-c9ca-4cfc-a78a-f8dcabee5e7a",
+      "displayType": "APP_IPHONE_67",
+      "sha256": "4fcd6d4ce2cc0fd5e1b3c3b92ba2601cd8365f8c15df8ced6b3c653b37dc84ec",
+      "checksumMatches": true,
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.9/08-personal.png",
+      "id": "e729d33f-47bc-4b40-a241-4aaf44f48a59",
+      "displayType": "APP_IPHONE_67",
+      "sha256": "a26c4996fde09d1a1900b32b1bd67e28e07cd85a35c655da8d9fd69cf9d83a6c",
+      "checksumMatches": true,
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.3/01-price-alerts.png",
+      "id": "d1c00019-5234-87ba-8013-ba04b69b4964",
+      "displayType": "APP_IPHONE_61",
+      "sha256": "2aefe2a6b9e8c0cc243f80f839f8f82024a12eb204bddc5cb8420788cbf7822a",
+      "checksumMatches": true,
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.3/02-scan-review.png",
+      "id": "aefadaad-5d17-40ae-ad54-eb67c1e608af",
+      "displayType": "APP_IPHONE_61",
+      "sha256": "61845666aec6fa4177c12dd14ab7342c6c30e25bfa45bc2c4640832875c5102e",
+      "checksumMatches": true,
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.3/03-spending.png",
+      "id": "548e376a-cdb3-45fe-a985-305c7944cbc8",
+      "displayType": "APP_IPHONE_61",
+      "sha256": "393d21aa8b83908b152f5d6c3190239cd7725df473156d18bfa0a05cab90a0d3",
+      "checksumMatches": true,
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.3/04-purchasing-intelligence.png",
+      "id": "5aa6c661-d045-4d29-8db9-8b493a56ebeb",
+      "displayType": "APP_IPHONE_61",
+      "sha256": "0e5be2c599d542c925a992a21861ce8d580d3b56b3e6caa4601efe158394e014",
+      "checksumMatches": true,
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.3/05-recipe-costing.png",
+      "id": "7aff9dff-f921-4ee9-8aab-cf6d8b3cfeb7",
+      "displayType": "APP_IPHONE_61",
+      "sha256": "b80da7404fd29e56800cdd75a985d5cbf6bc51250cd59250444fb840725955fc",
+      "checksumMatches": true,
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.3/06-invoice-library.png",
+      "id": "27c00019-5234-87ba-8002-268177a421e3",
+      "displayType": "APP_IPHONE_61",
+      "sha256": "79c023384bd289bedcc8ff876a60312d048a5285eec089dc6ab518e2cf458166",
+      "checksumMatches": true,
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.3/07-suppliers.png",
+      "id": "339b59f6-96ed-4693-8e3f-8348caaf506b",
+      "displayType": "APP_IPHONE_61",
+      "sha256": "64aba19c7d7b2fbe30db01b41d9945e1aa23fd98600489e252eb559ddddbe16b",
+      "checksumMatches": true,
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "screenshots/app-store-v2/6.3/08-personal.png",
+      "id": "40e30d44-a496-4115-b4d2-cc5aaba2dfec",
+      "displayType": "APP_IPHONE_61",
+      "sha256": "060a6d73d27efa9f3e22df4b26680acdd9a9037ba9098e4afade355759c0f54b",
+      "checksumMatches": true,
+      "state": "COMPLETE",
+      "errors": []
+    }
+  ],
+  "previews": [
+    {
+      "file": "previews/v2/sift-app-preview-886x1920.mp4",
+      "id": "cec00019-5234-87ba-810b-2849fe5ca11d",
+      "displayType": "IPHONE_61",
+      "sha256": "bfdd6951562f5ea9b6088b88e82354c36b96a70e4e6ebe5b47d064ac69ac09b4",
+      "checksumMatches": true,
+      "posterFrame": "00:00:05:01",
+      "state": "COMPLETE",
+      "errors": []
+    },
+    {
+      "file": "previews/v2/sift-app-preview-886x1920.mp4",
+      "id": "4d3edde2-f385-4827-b089-902d6fd35038",
+      "displayType": "IPHONE_67",
+      "sha256": "bfdd6951562f5ea9b6088b88e82354c36b96a70e4e6ebe5b47d064ac69ac09b4",
+      "checksumMatches": true,
+      "posterFrame": "00:00:09:15",
+      "state": "COMPLETE",
+      "errors": []
+    }
+  ],
+  "creative": [
+    {
+      "file": "creative/product-page-header-3840x1646.png",
+      "id": "24400019-5234-87ba-802b-0855af2749f4",
+      "sha256": "1cfadb62afb1ecbba48b9ad686d3958ab3022314b786181429710305cde4c723",
+      "state": "READY_FOR_REVIEW",
+      "placement": "e6c00019-5234-87ba-8f19-122e059ea356",
+      "previousAssetId": "ec400019-5234-87ba-8021-55e8a7ae589c",
+      "previousPlacement": "32800019-5234-87ba-8f32-d4030de233c1",
+      "orderingRequest": "77081466-85ac-432f-8609-221096da199b"
+    },
+    {
+      "file": "creative/v2/search-results-3840x2560.png",
+      "id": "26000019-5234-87ba-8026-836e3ec5ae60",
+      "sha256": "d81a16971b24949b33dc4c261f3860670e5ba37e09aaac9b4ca188770bb18df1",
+      "placement": "3f400019-5234-87ba-8f07-7b85f1a0dd21",
+      "orderingRequest": "069eed2e-cd44-49d2-8154-04dc6b7f68c7",
+      "previousAssetId": "00c00019-5234-87ba-8032-25760892e22d",
+      "previousPlacement": "79400019-5234-87ba-8f34-c99ecd874d98",
+      "state": "READY_FOR_REVIEW"
+    }
+  ]
+}

@@ -7,7 +7,7 @@ import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { useEffect, useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, Image,
+  View, Text, ScrollView, StyleSheet, Image, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import SafeAreaView from '../../components/ui/Screen';
 import { useRouter } from 'expo-router';
@@ -46,8 +46,11 @@ export default function ReviewScreen() {
   } = useStore();
 
   useEffect(() => {
+    // The review was cleared (workspace switch, sign-out reset). Go back to
+    // where the user came from (usually the scan inbox), never the camera.
     if (!currentInvoice && !isSaving && !justSaved) {
-      router.replace('/scan');
+      if (router.canGoBack()) router.back();
+      else router.replace('/(tabs)');
     }
   }, [currentInvoice, isSaving, justSaved, router]);
 
@@ -73,6 +76,13 @@ export default function ReviewScreen() {
   const missingTotal = lineItems
     .filter((it) => it.verification === 'missing')
     .reduce((a, b) => a + b.ext, 0);
+  const activeLines = lineItems.filter((it) => !it.voided);
+  const lineSum = activeLines.reduce((a, b) => a + b.ext, 0);
+  // The app-shape Invoice maps a missing printed subtotal/total to 0. A 0
+  // next to real line amounts is "not printed", not "$0.00", so show a dash.
+  const amountLabel = (value: number, missing: boolean) => (missing ? '—' : `$${money2(value)}`);
+  const subtotalMissing = subtotal === 0 && (total !== 0 || lineSum !== 0);
+  const totalMissing = total === 0 && lineSum !== 0;
 
   const handleSave = async () => {
     if (!organization) {
@@ -102,7 +112,8 @@ export default function ReviewScreen() {
         </View>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
         {/* Original image */}
         <TouchableOpacity
           style={styles.imageTile}
@@ -133,6 +144,14 @@ export default function ReviewScreen() {
         )}
 
         {/* Line items */}
+        {lineItems.length === 0 && (
+          <View style={styles.emptyLines} accessibilityRole="summary">
+            <Text style={styles.emptyLinesTitle}>No items were read</Text>
+            <Text style={styles.emptyLinesBody}>
+              Smart Sift couldn’t find any line items on this {isPersonal ? 'receipt' : 'invoice'}. Check the photo above, then tap the {isPersonal ? 'store' : 'vendor'} name to set the details and total before saving — or go back and discard it from the scan inbox to scan a clearer photo.
+            </Text>
+          </View>
+        )}
         {lineItems.map((item) => (
           <LineItemDisplay
             key={item.id}
@@ -150,7 +169,7 @@ export default function ReviewScreen() {
       <View style={styles.footer}>
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Subtotal</Text>
-          <Text style={styles.totalValue}>${money2(subtotal)}</Text>
+          <Text style={styles.totalValue}>{amountLabel(subtotal, subtotalMissing)}</Text>
         </View>
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Tax</Text>
@@ -158,7 +177,7 @@ export default function ReviewScreen() {
         </View>
         <View style={[styles.totalRow, styles.totalRowGrand]}>
           <Text style={styles.grandLabel}>Total</Text>
-          <Text style={styles.grandValue}>${money2(total)}</Text>
+          <Text style={styles.grandValue}>{amountLabel(total, totalMissing)}</Text>
         </View>
         {missingTotal > 0 && (
           <View style={styles.missingRow}>
@@ -185,6 +204,7 @@ export default function ReviewScreen() {
           )}
         </TouchableOpacity>
       </View>
+      </KeyboardAvoidingView>
 
       <EditLineItemModal item={editingItem} isSaving={savingItem} onCancel={() => setEditingItem(null)} onSave={async updates => {
         if (!editingItem || savingItem) return;
@@ -239,6 +259,12 @@ const styles = StyleSheet.create({
   scannedText: { fontSize: 10, fontFamily: 'Manrope_700Bold', letterSpacing: 0.6, color: Colors.primaryDark },
 
   scroll: { padding: 16, gap: 11, paddingBottom: 8 },
+  emptyLines: {
+    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 14, padding: 16, gap: 6,
+  },
+  emptyLinesTitle: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
+  emptyLinesBody: { fontSize: 13, lineHeight: 19, fontFamily: 'Manrope_500Medium', color: Colors.textSecondary },
 
   imageTile: {
     flexDirection: 'row', alignItems: 'center', gap: 12,

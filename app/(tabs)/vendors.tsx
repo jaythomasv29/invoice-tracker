@@ -15,7 +15,9 @@ import { Colors } from '../../constants/Colors';
 import { useStore, Vendor, Invoice, vendorAmountFromBars } from '../../store/useStore';
 import { useSpendPeriod, spendPeriodShortLabel } from '../../hooks/useSpendPeriod';
 import { useSupabase } from '../../lib/supabase';
-import { fetchAllInvoices } from '../../lib/invoicePipeline';
+import { fetchAllInvoices, formatDate } from '../../lib/invoicePipeline';
+import { money2 } from '../../lib/money';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { initialsFor } from '../../lib/initials';
 import Toast from '../../components/ui/Toast';
 import Spinner from '../../components/ui/Spinner';
@@ -62,6 +64,8 @@ export default function VendorsScreen() {
   const hasRange=!!rangeFrom&&!!rangeTo;
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const insets = useSafeAreaInsets();
+  const scrollStyle = [styles.scroll, { paddingBottom: 112 + insets.bottom }];
 
   const goToScan = () => {
     Haptics.selectionAsync();
@@ -101,8 +105,10 @@ export default function VendorsScreen() {
   );
 
   const shortLabel = spendPeriodShortLabel(spendView, yearsBack);
+  // Vendors with no saved invoices (left behind by a discarded scan or a
+  // relinked invoice) have nothing to show, so they stay off the list.
   const withPeriodAmount = useMemo(() => (
-    vendors.map((v) => ({ vendor: v, periodAmount: vendorAmountFromBars(periodBarData, v.id) }))
+    vendors.filter((v) => v.invoiceCount > 0).map((v) => ({ vendor: v, periodAmount: vendorAmountFromBars(periodBarData, v.id) }))
   ), [vendors, periodBarData]);
   const sorted = useMemo(
     () => [...withPeriodAmount].sort((a, b) => b.periodAmount - a.periodAmount),
@@ -135,7 +141,7 @@ export default function VendorsScreen() {
 
       {tab==='vendors'&&dashboardError&&<LoadFailure message={dashboardError} hasData={vendors.length>0} onRetry={()=>setRetrySummary(n=>n+1)}/>}
       <ScanInboxCard />
-      {tab==='invoices'&&hasRange&&<View style={{marginHorizontal:16,marginBottom:10,paddingHorizontal:12,borderRadius:12,backgroundColor:Colors.primaryLight,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8}}><Text style={{flex:1,fontFamily:'Manrope_600SemiBold',fontSize:12,color:Colors.primaryDark}}>{rangeFrom} — {rangeTo}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel={isPersonal?'Clear receipt date filter':'Clear invoice date filter'} onPress={()=>router.setParams({from:'',to:''})} style={{minHeight:44,justifyContent:'center',paddingHorizontal:8}}><Text style={{fontFamily:'Manrope_700Bold',fontSize:12,color:Colors.primary}}>Clear</Text></TouchableOpacity></View>}
+      {tab==='invoices'&&hasRange&&<View style={{marginHorizontal:16,marginBottom:10,paddingHorizontal:12,borderRadius:12,backgroundColor:Colors.primaryLight,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8}}><Text style={{flex:1,fontFamily:'Manrope_600SemiBold',fontSize:12,color:Colors.primaryDark}}>{formatDate(rangeFrom)} – {formatDate(rangeTo)}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel={isPersonal?'Clear receipt date filter':'Clear invoice date filter'} onPress={()=>router.setParams({from:'',to:''})} style={{minHeight:44,justifyContent:'center',paddingHorizontal:8}}><Text style={{fontFamily:'Manrope_700Bold',fontSize:12,color:Colors.primary}}>Clear</Text></TouchableOpacity></View>}
       <View style={styles.segmentRow}>
         <TouchableOpacity
           accessibilityRole="button" accessibilityState={{selected: tab === 'vendors'}}
@@ -156,7 +162,7 @@ export default function VendorsScreen() {
       </View>
 
       {tab === 'vendors' ? (
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={scrollStyle} showsVerticalScrollIndicator={false}>
           {/* Mix of all vendors — moved here from the home screen so the
               timeline lives alongside the vendors it's breaking down. */}
           <SpendCard
@@ -175,8 +181,8 @@ export default function VendorsScreen() {
 
           {!dashboardError && sorted.length === 0 && (
             <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>No vendors yet</Text>
-              <Text style={styles.emptySub}>Scan an invoice and the vendor will show up here automatically.</Text>
+              <Text style={styles.emptyTitle}>{isPersonal ? 'No stores yet' : 'No vendors yet'}</Text>
+              <Text style={styles.emptySub}>{isPersonal ? 'Save a receipt and the store will show up here automatically.' : 'Save an invoice and the vendor will show up here automatically.'}</Text>
             </View>
           )}
 
@@ -204,7 +210,7 @@ export default function VendorsScreen() {
                 />
               </View>
 
-              <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+              <ScrollView contentContainerStyle={scrollStyle} showsVerticalScrollIndicator={false}>
                 {invoicesLoading && !allInvoices.length ? (
                   <View style={styles.empty}><Spinner /></View>
                 ) : (
@@ -247,6 +253,9 @@ function VendorCard({ vendor: v, periodAmount, periodLabel }: { vendor: Vendor; 
   return (
     <TouchableOpacity
       style={styles.vendorCard}
+      accessibilityRole="button"
+      accessibilityLabel={`${v.name}, $${money2(periodAmount)} ${periodLabel}, ${v.invoiceCount} ${isPersonal ? 'receipt' : 'invoice'}${v.invoiceCount === 1 ? '' : 's'}`}
+      accessibilityHint={isPersonal ? 'Opens this store' : 'Opens this vendor'}
       onPress={() => {
         Haptics.selectionAsync();
         router.push(`/vendor/${v.id}`);
@@ -266,7 +275,7 @@ function VendorCard({ vendor: v, periodAmount, periodLabel }: { vendor: Vendor; 
           </Text>
         </View>
         <View style={styles.vendorSpendPill}>
-          <Text style={styles.vendorSpendAmt}>${Math.round(periodAmount).toLocaleString()}</Text>
+          <Text style={styles.vendorSpendAmt}>${money2(periodAmount)}</Text>
           <Text style={styles.vendorSpendLabel}>{periodLabel}</Text>
         </View>
       </View>
@@ -280,7 +289,12 @@ function VendorCard({ vendor: v, periodAmount, periodLabel }: { vendor: Vendor; 
             <Text style={styles.vendorContactItem}>Acct: {v.accountNumber}</Text>
           )}
           {v.contactPhone && (
-            <TouchableOpacity onPress={() => Linking.openURL(`tel:${v.contactPhone}`)}>
+            <TouchableOpacity
+              onPress={() => Linking.openURL(`tel:${v.contactPhone}`)}
+              accessibilityRole="link"
+              accessibilityLabel={`Call ${v.contactName ?? v.name} at ${v.contactPhone}`}
+              style={{ minHeight: 44, justifyContent: 'center' }}
+            >
               <Text style={styles.vendorPhone}>{v.contactPhone}</Text>
             </TouchableOpacity>
           )}

@@ -1,10 +1,12 @@
+import { useAuth } from '@clerk/clerk-expo';
+import { captureDraftFolder, captureDrafts, releaseTemporaryCapture } from '../../lib/captureDrafts';
 import { useScanQueue } from '../../components/ScanQueueProvider';
 import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
 import { ensureAiConsent } from '../../lib/aiConsent';
 import { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, Modal, Image, ScrollView, BackHandler,
+  View, Text, StyleSheet, Modal, Image, ScrollView, BackHandler, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useNavigation } from 'expo-router';
@@ -21,14 +23,19 @@ import Animated, {
 import { Colors } from '../../constants/Colors';
 import { useStore } from '../../store/useStore';
 import { useSupabase } from '../../lib/supabase';
-import { createDraftInvoice, uploadInvoiceImages } from '../../lib/invoicePipeline';
+import { createDraftInvoice, discardDraftInvoice, uploadInvoiceImages } from '../../lib/invoicePipeline';
 import { useExtractionUsage } from '../../hooks/useExtractionUsage';
+import { useEntitlement } from '../../hooks/useEntitlement';
+import { scanLimitMessage } from '../../lib/entitlements';
 import Toast from '../../components/ui/Toast';
+
+const MAX_PAGES = 5;
 
 export default function ScanScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const operation = useRef(false);
+  const capturing = useRef(false);
   const { start: startScan } = useScanQueue();
   const [processingStep, setProcessingStep] = useState('Preparing photos');
   const [startedAt, setStartedAt] = useState<number | null>(null);
@@ -36,10 +43,21 @@ export default function ScanScreen() {
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const { organization, isPersonal } = useWorkspace();
+  const { userId } = useAuth();
+  const captureFolder = userId && organization?.id ? captureDraftFolder(userId, organization.id) : null;
+  const [draftReady, setDraftReady] = useState(false);
+  const [recoveryAttempt, setRecoveryAttempt] = useState(0);
+  const [savingPages, setSavingPages] = useState(false);
+  const pagesRef = useRef<string[]>([]);
   const supabase = useSupabase();
   const network = useNetworkState();
   const cameraRef = useRef<CameraView>(null);
-  const { remaining } = useExtractionUsage();
+  const { remaining, cap } = useExtractionUsage();
+  const { isPaid } = useEntitlement();
+  // A draft row created for an upload that then failed. A retry from this
+  // screen reuses it (storage upserts the same paths) instead of leaving a
+  // stray "needs attention" draft per attempt (persisted with the capture draft).
+  const failedDraft = useRef<{ id: string; scope: string | null } | null>(null);
   const {
     scanStage, setScanStage,
     showToast,
@@ -54,13 +72,59 @@ export default function ScanScreen() {
   const [capturedPages, setCapturedPages] = useState<string[]>([]);
   const isOffline = network.isConnected === false || network.isInternetReachable === false;
   const processing = scanStage === 'processing';
+  const noun = isPersonal ? 'receipt' : 'invoice';
   useEffect(() => {
-    navigation.setOptions({ gestureEnabled: !processing });
-    if (!processing) return;
+    let current = true;
+    setDraftReady(false);
+    pagesRef.current = [];
+    setCapturedPages([]);
+    failedDraft.current = null;
+    if (!captureFolder) return;
+    void captureDrafts.load(captureFolder).then((draft) => {
+      if (!current) return;
+      pagesRef.current = draft.pages;
+      setCapturedPages(draft.pages);
+      failedDraft.current = draft.invoiceId ? { id: draft.invoiceId, scope: useStore.getState().activeScope } : null;
+      setDraftReady(true);
+    }).catch(() => {
+      if (current) Alert.alert('Saved photos unavailable', 'Your saved draft could not be opened. Retry recovery, or discard this device’s draft and start again. Uploaded scans stay in your inbox.', [
+        {text:'Retry recovery',onPress:()=>setRecoveryAttempt(value=>value+1)},
+        {text:'Discard draft',style:'destructive',onPress:()=>{ void captureDrafts.clear(captureFolder).then(()=>setRecoveryAttempt(value=>value+1)).catch(()=>showToast('Could not discard the draft. Please retry.')); }},
+      ]);
+    });
+    return () => { current = false; };
+  }, [captureFolder, recoveryAttempt, showToast]);
+  const retainPages = async (uris: string[], invoiceId?: string) => {
+    if (!captureFolder) throw new Error('Choose a workspace before saving photos.');
+    const scope = useStore.getState().activeScope;
+    setSavingPages(true);
+    try {
+      const draft = await captureDrafts.save(captureFolder, uris, invoiceId);
+      if (useStore.getState().activeScope === scope) {
+        pagesRef.current = draft.pages;
+        setCapturedPages(draft.pages);
+      }
+      return draft.pages;
+    } finally { setSavingPages(false); }
+  };
+  const discardPages = async () => {
+    if (!captureFolder || operation.current) return;
+    try {
+      const draft = failedDraft.current;
+      if (draft?.scope === useStore.getState().activeScope) await discardDraftInvoice(supabase, draft.id, { onlyIfNoPhotos: true });
+      await captureDrafts.clear(captureFolder);
+      failedDraft.current = null;
+      pagesRef.current = [];
+      setCapturedPages([]);
+    } catch { showToast('Could not discard these photos. Please retry.'); }
+  };
+  useEffect(() => {
+    navigation.setOptions({ gestureEnabled: !(processing || savingPages) });
+    if (!processing && !savingPages) return;
     const back = BackHandler.addEventListener('hardwareBackPress', () => true);
     const timer = setInterval(() => setElapsed(startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0), 1000);
     return () => { back.remove(); clearInterval(timer); };
-  }, [processing, startedAt, navigation]);
+  }, [processing, savingPages, startedAt, navigation]);
   const renderProcessing = () => (
     <Modal visible={processing} transparent animationType="fade" onRequestClose={() => {}}>
       <View style={styles.busyBackdrop} accessibilityViewIsModal>
@@ -102,6 +166,7 @@ export default function ScanScreen() {
   // as {orgId}/{invoiceId}/{n}.jpg and the edge function sends them to Claude in
   // a single request, returning one merged set of line items.
   const processImages = async (uris: string[]) => {
+    if (!draftReady || savingPages) return;
     if (!organization) {
       showToast(isPersonal?'No workspace selected':'No restaurant selected');
       return;
@@ -111,22 +176,52 @@ export default function ScanScreen() {
     // enforces the same limit server-side, so this is UX, not the security
     // boundary. `remaining` uses the active workspace’s plan allowance.
     if (remaining <= 0) {
-      router.push('/paywall');
+      // Paid workspaces have no higher tier to buy — tell them when scanning
+      // resumes instead of opening a paywall with nothing to purchase.
+      if (isPaid) Alert.alert('Monthly scans used', scanLimitMessage(true, cap), [{text:'OK',style:'cancel'},{text:'View saved history',onPress:()=>router.replace({pathname:'/(tabs)/vendors',params:{view:'invoices'}})}]);
+      else router.push('/paywall');
       return;
     }
-    if (uris.length > 5) { showToast(`Import up to 5 pages per ${isPersonal?'receipt':'invoice'}.`); return; }
+    if (uris.length > MAX_PAGES) { showToast(`Import up to ${MAX_PAGES} pages per ${noun}.`); return; }
     if (operation.current) return;
     operation.current = true;
+    const initiatingScope = useStore.getState().activeScope;
+    try { uris = await retainPages(uris, failedDraft.current?.id); }
+    catch { operation.current = false; showToast('Could not save these photos on this device. Keep Sift open and try again.'); return; }
+    if (useStore.getState().activeScope !== initiatingScope) { operation.current = false; return; }
+    // Offline: keep the photos on this screen and let the user upload once the
+    // connection is back (the Upload button re-enables automatically).
+    if (isOffline) {
+      operation.current = false;
+      showToast('You’re offline. Your photos are saved on this device — upload when you’re back online.');
+      return;
+    }
     const capturedScope = useStore.getState().activeScope;
     // Upload before leaving the camera; extraction belongs to the app-level queue.
     let invoiceId: string | undefined;
     let jpegUris: string[] = [];
     try {
+      const reusable = failedDraft.current?.scope === capturedScope ? failedDraft.current.id : undefined;
+      if (reusable) {
+        const { data, error } = await supabase.from('invoices').select('id,status,image_urls').eq('id', reusable).eq('organization_id', organization.id).maybeSingle();
+        if (error) throw new Error('Could not check the previous upload. Your photos are saved — please retry.');
+        if (data?.image_urls?.length) {
+          if (captureFolder) await captureDrafts.clear(captureFolder);
+          if (useStore.getState().activeScope !== capturedScope) return;
+          failedDraft.current = null;
+          pagesRef.current = []; setCapturedPages([]);
+          if (data.status === 'pending') startScan(reusable);
+          router.replace('/scan/activity');
+          return;
+        }
+        if (!data) failedDraft.current = null;
+      }
       // Photos from the library can come back as HEIC (Apple's default) or
       // other formats — Claude's vision API only accepts jpeg/png/gif/webp,
       // so every image is re-encoded to a guaranteed-real JPEG regardless of
       // source format before it ever gets uploaded.
       if (!(await ensureAiConsent(supabase))) return;
+      if (useStore.getState().activeScope !== capturedScope) return;
       setStartedAt(Date.now()); setElapsed(0); setProcessingStep('Preparing photos');
       setScanStage('processing');
       jpegUris = await Promise.all(
@@ -135,34 +230,51 @@ export default function ScanScreen() {
           return result.uri;
         })
       );
-      setProcessingStep(isPersonal?'Uploading receipt photos':'Uploading invoice photos');
-      invoiceId = await createDraftInvoice(supabase, organization.id);
+      setProcessingStep(`Uploading ${noun} photos`);
+      invoiceId = failedDraft.current?.id ?? await createDraftInvoice(supabase, organization.id);
+      failedDraft.current = { id: invoiceId, scope: capturedScope };
+      await retainPages(uris, invoiceId);
       await uploadInvoiceImages(supabase, organization.id, invoiceId, jpegUris);
+      if (captureFolder) await captureDrafts.clear(captureFolder);
+      failedDraft.current = null;
       if (useStore.getState().activeScope !== capturedScope) return;
+      pagesRef.current = []; setCapturedPages([]);
       startScan(invoiceId);
       setScanStage('idle');
       router.replace({pathname:'/(tabs)/vendors',params:{view:'invoices'}});
     } catch (err: any) {
-      // Uploaded drafts are recoverable from the inbox. Never delete an uncertain result.
-      if (useStore.getState().activeScope === capturedScope) showToast(err?.message ?? `Could not upload ${isPersonal?'receipt':'invoice'}. Please try again.`);
+      // The draft (if any) stays in failedDraft for reuse on retry; the photos
+      // stay in the tray so nothing has to be re-shot or re-picked.
+      if (useStore.getState().activeScope === capturedScope) {
+        setCapturedPages((prev) => (prev.length ? prev : uris));
+        showToast(err?.message ?? `Could not upload this ${noun}. Your photos are saved on this device — please try again.`);
+      }
     } finally {
+      await Promise.all(jpegUris.map(uri => releaseTemporaryCapture(uri).catch(() => {})));
       operation.current = false;
       if (useStore.getState().activeScope === capturedScope) setScanStage('idle');
     }
   };
 
   const handleCapture = async () => {
-    if (!cameraRef.current || !cameraReady || scanStage === 'processing') return;
+    if (!cameraRef.current || !cameraReady || scanStage === 'processing' || savingPages || !draftReady || capturing.current) return;
+    if (capturedPages.length >= MAX_PAGES) { showToast(`Up to ${MAX_PAGES} pages per ${noun}. Tap Upload to continue.`); return; }
+    const captureScope = useStore.getState().activeScope;
+    capturing.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     flashOpacity.value = withSequence(withTiming(0.85, { duration: 60 }), withTiming(0, { duration: 220 }));
+    let unsavedPhoto: string | undefined;
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
       if (!photo) return;
-      setCapturedPages((prev) => [...prev, photo.uri]);
+      if (useStore.getState().activeScope !== captureScope) { await releaseTemporaryCapture(photo.uri); return; }
+      unsavedPhoto = photo.uri;
+      await retainPages([...pagesRef.current, photo.uri], failedDraft.current?.id);
     } catch (err: any) {
       console.error('[scan] capture failed:', err);
-      showToast(err?.message ?? 'Could not take photo');
-    }
+      if (unsavedPhoto) { pagesRef.current = [...pagesRef.current, unsavedPhoto]; setCapturedPages(pagesRef.current); }
+      showToast('Could not save the photo on this device. Keep Scan open, check device storage, and retry.');
+    } finally { capturing.current = false; }
   };
 
   // Send every captured page through as one invoice. processImages navigates
@@ -170,16 +282,18 @@ export default function ScanScreen() {
   // failure it stays put and the batch is preserved so the user can retry.
   const handleProcessPages = async () => {
     if (capturedPages.length === 0 || scanStage === 'processing') return;
+    if (isOffline) { showToast('You’re offline. Your photos are saved on this device — upload when you’re back online.'); return; }
     await processImages(capturedPages);
   };
 
   const removePage = (index: number) => {
     Haptics.selectionAsync();
-    setCapturedPages((prev) => prev.filter((_, i) => i !== index));
+    if (!draftReady || savingPages) return;
+    void retainPages(pagesRef.current.filter((_, i) => i !== index), failedDraft.current?.id).catch(() => showToast('Could not remove the page. Please retry.'));
   };
 
   const handleImport = async () => {
-    if (operation.current || processing) return;
+    if (operation.current || processing || savingPages || !draftReady) return;
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
@@ -189,6 +303,7 @@ export default function ScanScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsMultipleSelection: true,
+        selectionLimit: MAX_PAGES,
         quality: 0.9,
       });
       if (!result.canceled && result.assets.length > 0) {
@@ -196,7 +311,7 @@ export default function ScanScreen() {
       }
     } catch (err: any) {
       console.error('[scan] import failed:', err);
-      showToast(err?.message ?? 'Could not import photos');
+      showToast('Could not import photos. Please try again.');
     }
   };
 
@@ -230,12 +345,20 @@ export default function ScanScreen() {
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 20 }}>
           <Text style={styles.permDeniedTitle}>Camera access needed</Text>
           <Text style={styles.permDeniedSub}>
-            Allow camera access to scan invoices, or import photos from your library.
+            Allow camera access to scan {noun}s, or import photos from your library.
           </Text>
-          <TouchableOpacity style={styles.permBtn} onPress={requestPermission} activeOpacity={0.85}>
+          {isOffline && (
+            <Text style={styles.permDeniedSub}>You’re offline. You can pick photos now and upload when you’re back online.</Text>
+          )}
+          <TouchableOpacity style={styles.permBtn} onPress={requestPermission} activeOpacity={0.85} accessibilityRole="button">
             <Text style={styles.permBtnText}>Allow camera access</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.importBtn} onPress={handleImport} activeOpacity={0.85}>
+          {capturedPages.length > 0 && (
+            <TouchableOpacity style={styles.permBtn} onPress={handleProcessPages} disabled={isOffline || processing} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ disabled: isOffline || processing }}>
+              <Text style={styles.permBtnText}>{isOffline ? 'Waiting for connection…' : `Upload ${capturedPages.length} photo${capturedPages.length > 1 ? 's' : ''}`}</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={styles.importBtn} onPress={handleImport} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Import photos from library">
             <Text style={styles.importBtnText}>Import from library</Text>
           </TouchableOpacity>
         </View>
@@ -283,14 +406,20 @@ export default function ScanScreen() {
 
         <Text style={styles.alignHint}>
           {capturedPages.length > 0
-            ? `Page ${capturedPages.length + 1} — align and shoot, or tap Scan`
+            ? capturedPages.length >= MAX_PAGES
+              ? `${MAX_PAGES} pages — tap Scan to upload`
+              : `Page ${capturedPages.length + 1} — align and shoot, or tap Scan`
             : `Align ${isPersonal?'receipt':'invoice'} within frame`}
         </Text>
 
         {/* Real connectivity banner — no manual toggle, reflects actual network state */}
         {isOffline && (
           <View style={styles.offlineBanner}>
-            <Text style={styles.offlineText}>No signal · will retry when reconnected</Text>
+            <Text style={styles.offlineText}>
+              {capturedPages.length > 0
+                ? 'You’re offline — your photos are kept here. Upload when you’re back online.'
+                : 'You’re offline — you can still take photos and upload when you’re back online.'}
+            </Text>
           </View>
         )}
 
@@ -318,7 +447,7 @@ export default function ScanScreen() {
                 <TouchableOpacity
                   style={styles.thumbRemove}
                   onPress={() => removePage(i)}
-                  hitSlop={6}
+                  hitSlop={12}
                   disabled={processing}
                   accessibilityRole="button"
                   accessibilityLabel={`Remove page ${i + 1}`}
@@ -331,17 +460,20 @@ export default function ScanScreen() {
             ))}
           </ScrollView>
           <TouchableOpacity
-            style={[styles.scanAllBtn, processing && styles.scanAllBtnDisabled]}
+            style={[styles.scanAllBtn, (processing || isOffline || savingPages || !draftReady) && styles.scanAllBtnDisabled]}
             onPress={handleProcessPages}
             activeOpacity={0.85}
-            disabled={processing}
+            disabled={processing || isOffline || savingPages || !draftReady}
             accessibilityRole="button"
-            accessibilityLabel={`Scan ${capturedPages.length} page${capturedPages.length > 1 ? 's' : ''}`}
+            accessibilityState={{ disabled: processing || isOffline, busy: processing }}
+            accessibilityLabel={isOffline ? 'Offline. Upload when back online' : `Scan ${capturedPages.length} page${capturedPages.length > 1 ? 's' : ''}`}
           >
             <Text style={styles.scanAllText}>
               {processing
-                ? 'Reading…'
-                : `Scan ${capturedPages.length} page${capturedPages.length > 1 ? 's' : ''}`}
+                ? 'Uploading…'
+                : isOffline
+                  ? 'Waiting for connection…'
+                  : `Scan ${capturedPages.length} page${capturedPages.length > 1 ? 's' : ''}`}
             </Text>
           </TouchableOpacity>
         </View>
@@ -377,7 +509,7 @@ export default function ScanScreen() {
 
         {capturedPages.length > 0 ? (
           <TouchableOpacity
-            onPress={() => { Haptics.selectionAsync(); setCapturedPages([]); }}
+            onPress={() => { Haptics.selectionAsync(); void discardPages(); }}
             activeOpacity={0.7}
             style={styles.bottomSideBtn}
             disabled={processing}
@@ -387,7 +519,14 @@ export default function ScanScreen() {
             <Text style={[styles.bottomSideBtnText, { textAlign: 'right' }]}>Clear</Text>
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity onPress={handleImport} activeOpacity={0.7} style={styles.bottomSideBtn}>
+          <TouchableOpacity
+            onPress={handleImport}
+            activeOpacity={0.7}
+            style={styles.bottomSideBtn}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Import photos from library"
+          >
             <Text style={[styles.bottomSideBtnText, { textAlign: 'right' }]}>Import</Text>
           </TouchableOpacity>
         )}
@@ -545,42 +684,4 @@ const styles = StyleSheet.create({
     borderRadius: 14, height: 50, paddingHorizontal: 28, alignItems: 'center', justifyContent: 'center',
   },
   importBtnText: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
-
-  // Possible-duplicate confirmation modal — mirrors OnboardingExplainerSheet's
-  // backdrop + centered card convention (Colors + Manrope tokens only).
-  dupBackdrop: {
-    flex: 1, backgroundColor: 'rgba(10,10,16,0.5)',
-    alignItems: 'center', justifyContent: 'center', padding: 24,
-  },
-  dupCard: {
-    width: '100%', maxWidth: 380, backgroundColor: Colors.background,
-    borderRadius: 24, paddingHorizontal: 24, paddingTop: 26, paddingBottom: 20,
-  },
-  dupTitle: {
-    fontSize: 21, fontFamily: 'Manrope_800ExtraBold', color: Colors.textPrimary,
-    letterSpacing: -0.4, textAlign: 'center', marginBottom: 8,
-  },
-  dupSubtitle: {
-    fontSize: 14.5, fontFamily: 'Manrope_500Medium', color: Colors.textSecondary,
-    lineHeight: 21, textAlign: 'center', marginBottom: 16,
-  },
-  dupExisting: {
-    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
-    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 20,
-    alignItems: 'center',
-  },
-  dupVendor: { fontSize: 16, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary, textAlign: 'center' },
-  dupDetail: { fontSize: 13.5, fontFamily: 'Manrope_600SemiBold', color: Colors.textSecondary, marginTop: 4 },
-  dupPrimaryBtn: {
-    width: '100%', backgroundColor: Colors.primary, borderRadius: 14, height: 52,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 10,
-  },
-  dupPrimaryText: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: '#fff' },
-  dupSecondaryBtn: {
-    width: '100%', backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
-    borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center', marginBottom: 6,
-  },
-  dupSecondaryText: { fontSize: 15, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
-  dupCancelBtn: { width: '100%', height: 44, alignItems: 'center', justifyContent: 'center' },
-  dupCancelText: { fontSize: 14, fontFamily: 'Manrope_600SemiBold', color: Colors.textTertiary },
 });

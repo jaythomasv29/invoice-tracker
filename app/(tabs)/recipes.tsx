@@ -20,6 +20,9 @@ import { buildDemoRecipes } from '../../lib/demoData';
 import { TourTarget } from '../../components/tour/TourTarget';
 import { useTour } from '../../components/tour/TourProvider';
 import Spinner from '../../components/ui/Spinner';
+import LoadFailure from '../../components/ui/LoadFailure';
+import { money2 } from '../../lib/money';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ProLockCard from '../../components/ui/ProLockCard';
 import InfoButton from '../../components/ui/InfoButton';
 import {
@@ -72,6 +75,10 @@ export default function RecipesTabScreen() {
   const demoMode = useStore((s) => s.demoMode);
   const [recipes, setRecipes] = useState<RecipeListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const insets = useSafeAreaInsets();
+  const scrollStyle = [styles.scroll, { paddingBottom: 112 + insets.bottom }];
   const [infoOpen, setInfoOpen] = useState(false);
 
   const { registerScroller } = useTour();
@@ -87,14 +94,22 @@ export default function RecipesTabScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (demoMode) { setRecipes(buildDemoRecipes()); setLoading(false); return; }
+      if (demoMode) { setRecipes(buildDemoRecipes()); setLoadError(false); setLoading(false); return; }
       if (!isPaid || !organization?.id) return;
+      let live = true;
+      const scope = useStore.getState().activeScope;
+      const current = () => live && scope === useStore.getState().activeScope && !useStore.getState().demoMode;
       setLoading(true);
+      // A failed fetch keeps whatever was last loaded and shows a retry, never
+      // the first-run explainer (that would read as "your dishes are gone").
       fetchRecipes(supabase, organization.id)
-        .then(setRecipes)
-        .catch(() => setRecipes([]))
-        .finally(() => setLoading(false));
-    }, [isPaid, organization?.id, supabase, demoMode])
+        .then((rows) => { if (current()) { setRecipes(rows); setLoadError(false); } })
+        .catch(() => { if (current()) setLoadError(true); })
+        .finally(() => { if (current()) setLoading(false); });
+      return () => { live = false; };
+    // Retry version intentionally reruns this focused fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isPaid, organization?.id, supabase, demoMode, retry])
   );
 
   const {average: averageFoodCost} = averageIngredientCostShare(recipes);
@@ -129,22 +144,27 @@ export default function RecipesTabScreen() {
         {recipes.length > 0 && <InfoButton onPress={() => setInfoOpen(true)} />}
       </View>
 
-      {loading ? (
+      {loading && recipes.length === 0 ? (
         <View style={styles.centerFill}>
           <Spinner />
         </View>
+      ) : loadError && recipes.length === 0 ? (
+        <ScrollView contentContainerStyle={scrollStyle}>
+          <LoadFailure message="Could not load your dishes." onRetry={() => setRetry((n) => n + 1)} />
+        </ScrollView>
       ) : recipes.length === 0 ? (
         <OnboardingExplainer config={RECIPE_EXPLAINER} onCta={goToNew} />
       ) : (
         <ScrollView
           ref={scrollRef}
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={scrollStyle}
           showsVerticalScrollIndicator={false}
           scrollEventThrottle={16}
           onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
             scrollOffset.current = e.nativeEvent.contentOffset.y;
           }}
         >
+          {loadError && <LoadFailure message="Could not refresh your dishes." hasData onRetry={() => setRetry((n) => n + 1)} />}
           <View style={styles.summaryRow}>
             <View style={styles.summaryStat}><Text style={styles.summaryNumber}>{recipes.length}</Text><Text style={styles.summaryLabel}>Recipes in your menu</Text></View>
             <View style={styles.summaryStat}><Text style={styles.summaryNumber}>{averageFoodCost == null ? '—' : `${Math.round(averageFoodCost)}%`}</Text><Text style={styles.summaryLabel}>Avg. ingredient cost share</Text></View>
@@ -156,7 +176,7 @@ export default function RecipesTabScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.cta} onPress={goToNew} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.cta} onPress={goToNew} activeOpacity={0.85} accessibilityRole="button">
             <Text style={styles.ctaText}>Start a dish</Text>
           </TouchableOpacity>
 
@@ -183,6 +203,8 @@ export default function RecipesTabScreen() {
                   key={recipe.id}
                   style={styles.card}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${recipe.name}, ingredient cost ${recipe.costEstimate != null ? `$${money2(recipe.costEstimate)}` : 'not yet priced'}${margin ? `, ${margin}` : ''}, ${confidence.label}`}
                   onPress={() => {
                     Haptics.selectionAsync();
                     if (useStore.getState().demoMode) { useStore.getState().showToast('Dish details open with your own recipes'); return; }
@@ -193,7 +215,7 @@ export default function RecipesTabScreen() {
                     <Text style={styles.cardName} numberOfLines={1}>{recipe.name}</Text>
                     <View style={styles.cardMetaRow}>
                       <Text style={styles.cardCost}>
-                        {recipe.costEstimate != null ? `$${recipe.costEstimate.toFixed(2)}` : '—'}
+                        {recipe.costEstimate != null ? `$${money2(recipe.costEstimate)}` : '—'}
                       </Text>
                       {margin && <Text style={styles.cardMargin}>{margin}</Text>}
                     </View>

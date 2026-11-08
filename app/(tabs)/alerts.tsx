@@ -1,6 +1,6 @@
 import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, LayoutAnimation, Platform, UIManager } from 'react-native';
 import SafeAreaView from '../../components/ui/Screen';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -13,7 +13,18 @@ import { useEntitlement } from '../../hooks/useEntitlement';
 import { usePriceAlertCount } from '../../hooks/usePriceAlertCount';
 import ProLockCard from '../../components/ui/ProLockCard';
 import Toast from '../../components/ui/Toast';
+import BackButton from '../../components/ui/BackButton';
+import Spinner from '../../components/ui/Spinner';
+import { money2 } from '../../lib/money';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { formatAlertDate, groupPriceAlerts, type PriceAlertGroup } from '../../lib/priceAlertGroups';
+
+// Alerts is a hidden tab pushed from the Home bell, so it needs its own way back.
+function AlertsHeaderBack() {
+  const router = useRouter();
+  return <BackButton onPress={() => (router.canGoBack() ? router.back() : router.navigate('/(tabs)'))} />;
+}
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -25,6 +36,10 @@ export default function AlertsScreen() {
   const { organization, isPersonal } = useWorkspace();
   const { isPaid } = useEntitlement();
   const { priceAlerts, markAlertRead, fetchPriceAlerts } = useStore();
+  const insets = useSafeAreaInsets();
+  // Hold the empty state until the first fetch settles so "No alerts right
+  // now" never flashes ahead of real alerts.
+  const [loaded, setLoaded] = useState(false);
 
   const openHistory = (a: PriceAlert) => {
     // Sample data has no database rows behind it; item history would error.
@@ -38,7 +53,10 @@ export default function AlertsScreen() {
   useFocusEffect(
     useCallback(() => {
       // Price-creep detection is Pro-only — don't fetch for free orgs.
-      if (isPaid && organization?.id) fetchPriceAlerts(supabase, organization.id);
+      if (!isPaid || !organization?.id) return;
+      let live = true;
+      void fetchPriceAlerts(supabase, organization.id).finally(() => { if (live) setLoaded(true); });
+      return () => { live = false; };
     }, [isPaid, organization?.id, supabase, fetchPriceAlerts])
   );
 
@@ -60,7 +78,8 @@ export default function AlertsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Price Alerts</Text>
+        <AlertsHeaderBack />
+        <Text style={styles.title} accessibilityRole="header">Price Alerts</Text>
         {unread.length > 0 && (
           <View style={styles.countBadge}>
             <Text style={styles.countText}>{unread.length} new</Text>
@@ -69,7 +88,10 @@ export default function AlertsScreen() {
       </View>
 
       <Text style={{paddingHorizontal:20,paddingBottom:10,fontFamily:'Manrope_400Regular',fontSize:13,color:Colors.textSecondary}}>{isPersonal ? 'Items a store charged more for than last time, compared by net unit price and dated by purchase.' : 'Items your suppliers charged more for than last time, dated by delivery.'}</Text>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 112 + insets.bottom }]} showsVerticalScrollIndicator={false}>
+        {groups.length === 0 && !loaded && (
+          <View style={styles.empty} accessibilityLabel="Loading price alerts"><Spinner /></View>
+        )}
         {unread.length > 0 && (
           <>
             <Text style={styles.sectionLabel}>New</Text>
@@ -96,7 +118,7 @@ export default function AlertsScreen() {
           </>
         )}
 
-        {groups.length === 0 && (
+        {groups.length === 0 && loaded && (
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>✓</Text>
             <Text style={styles.emptyTitle}>No alerts right now</Text>
@@ -116,7 +138,8 @@ function FreeAlertsUpsell() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Price Alerts</Text>
+        <AlertsHeaderBack />
+        <Text style={styles.title} accessibilityRole="header">Price Alerts</Text>
       </View>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <ProLockCard
@@ -138,7 +161,7 @@ function AlertRow({ group: g, onPress, dimmed }: { group: PriceAlertGroup<PriceA
   const { isPersonal } = useWorkspace();
   // Household comparisons are net unit prices ($/oz) — two decimals would
   // render a real +5% change as "$0.18 → $0.18".
-  const money = (n: number) => n.toFixed(isPersonal && n < 1 ? 4 : 2);
+  const money = (n: number) => (isPersonal && Math.abs(n) < 1 ? n.toFixed(4) : money2(n));
   const unit = a.unit ? `/${a.unit}` : '';
   const date = formatAlertDate(a.priceDate, a.detectedAt);
   const since = formatAlertDate(g.firstDate);

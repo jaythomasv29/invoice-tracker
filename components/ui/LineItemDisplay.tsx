@@ -25,25 +25,52 @@ interface LineItemDisplayProps {
   // Invoice-detail screen only — reversible remove/restore. Voided items
   // stay visible (greyed out) but drop out of the invoice's totals.
   onToggleVoid?: () => void;
+  // Invoice-detail screen only (Business) — mark a saved line missing after
+  // the fact, e.g. when the shortage is noticed once the driver has left.
+  onToggleMissingSaved?: () => void;
 }
 
 export default function LineItemDisplay({
-  item, onToggleExpand, onConfirm, onToggleMissing, onChangeNote, onEdit, onToggleVoid,
+  item, onToggleExpand, onConfirm, onToggleMissing, onChangeNote, onEdit, onToggleVoid, onToggleMissingSaved,
 }: LineItemDisplayProps) {
   const {isPersonal}=useWorkspace();
   const [noteOpen, setNoteOpen] = useState(false);
   const isMissing = item.verification === 'missing';
   const common=item.normalizedCost?displayUnitCost(item.normalizedCost):null;
   const catchWeight = printedCatchWeight(item.rawDesc ?? item.desc);
+  // Credit lines (returns, short-ship memos) carry a negative amount; the
+  // line editor only handles charges, so they're shown read-only.
+  const isCredit = item.type === 'credit' || item.ext < 0;
+  const showStatusBadges = !onToggleMissing && !item.voided;
 
   return (
     <View style={[styles.itemCard, item.voided && styles.itemCardVoided]}>
       <View style={styles.itemTop}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <View style={styles.badgeRow}>
+          <View style={[styles.badgeRow, { flexWrap: 'wrap' }]}>
             <View style={[styles.catBadge, { backgroundColor: item.catColor + '20' }]}>
               <Text style={[styles.catBadgeText, { color: item.catColor }]}>{categoryLabel(item.category)}</Text>
             </View>
+            {isCredit && (
+              <View style={[styles.statusBadge, { backgroundColor: Colors.primaryLight }]}>
+                <Text style={[styles.statusBadgeText, { color: Colors.primaryDark }]}>CREDIT</Text>
+              </View>
+            )}
+            {showStatusBadges && isMissing && (
+              item.creditStatus === 'credited' ? (
+                <View style={[styles.statusBadge, { backgroundColor: Colors.primaryLight }]}>
+                  <Text style={[styles.statusBadgeText, { color: Colors.primaryDark }]}>CREDITED</Text>
+                </View>
+              ) : item.creditStatus === 'requested' ? (
+                <View style={[styles.statusBadge, { backgroundColor: Colors.warningLight }]}>
+                  <Text style={[styles.statusBadgeText, { color: Colors.warning }]}>CREDIT REQUESTED</Text>
+                </View>
+              ) : (
+                <View style={[styles.statusBadge, { backgroundColor: Colors.dangerLight }]}>
+                  <Text style={[styles.statusBadgeText, { color: Colors.danger }]}>MISSING</Text>
+                </View>
+              )
+            )}
             {item.voided && (
               <View style={styles.voidedBadge}>
                 <Text style={styles.voidedBadgeText}>REMOVED</Text>
@@ -62,13 +89,21 @@ export default function LineItemDisplay({
         <View style={{ alignItems: 'flex-end', gap: 6 }}>
           <Text style={[styles.itemExt, item.voided && styles.itemTextVoided]}>${money2(item.ext)}</Text>
           <View style={styles.actionLinkRow}>
-            {onEdit && !item.voided && (
-              <TouchableOpacity onPress={onEdit} activeOpacity={0.7} hitSlop={8}>
+            {onToggleMissingSaved && !isPersonal && !item.voided && !isCredit && item.creditStatus !== 'credited' && (
+              <TouchableOpacity onPress={onToggleMissingSaved} activeOpacity={0.7} hitSlop={10}
+                accessibilityRole="button" accessibilityLabel={`${isMissing ? 'Mark arrived' : 'Mark missing'}: ${item.desc}`}>
+                <Text style={styles.missingLink}>{isMissing ? 'Mark arrived' : 'Mark missing'}</Text>
+              </TouchableOpacity>
+            )}
+            {onEdit && !item.voided && !isCredit && (
+              <TouchableOpacity onPress={onEdit} activeOpacity={0.7} hitSlop={10}
+                accessibilityRole="button" accessibilityLabel={`Edit ${item.desc}`}>
                 <Text style={styles.editLink}>Edit</Text>
               </TouchableOpacity>
             )}
             {onToggleVoid && (
-              <TouchableOpacity onPress={onToggleVoid} activeOpacity={0.7} hitSlop={8}>
+              <TouchableOpacity onPress={onToggleVoid} activeOpacity={0.7} hitSlop={10}
+                accessibilityRole="button" accessibilityLabel={`${item.voided ? 'Restore' : 'Remove'} ${item.desc}`}>
                 <Text style={item.voided ? styles.restoreLink : styles.removeLink}>
                   {item.voided ? 'Restore' : 'Remove'}
                 </Text>
@@ -81,7 +116,8 @@ export default function LineItemDisplay({
       {onToggleMissing && (
         <>
           {item.needsConfirm && !item.confirmed && (
-            <TouchableOpacity style={styles.confirmBanner} onPress={onToggleExpand} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.confirmBanner} onPress={onToggleExpand} activeOpacity={0.85}
+              accessibilityRole="button" accessibilityLabel={`Quick check needed: ${item.desc}`}>
               <View style={styles.confirmDot} />
               <Text style={styles.confirmTitle}>Quick check needed</Text>
               <Text style={styles.confirmChevron}>›</Text>
@@ -147,6 +183,9 @@ const styles = StyleSheet.create({
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
   catBadge: { alignSelf: 'flex-start', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   catBadgeText: { fontSize: 10, fontFamily: 'Manrope_700Bold', letterSpacing: 0.5, textTransform: 'uppercase' },
+  statusBadge: { alignSelf: 'flex-start', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  statusBadgeText: { fontSize: 10, fontFamily: 'Manrope_700Bold', letterSpacing: 0.5 },
+  missingLink: { fontSize: 11.5, fontFamily: 'Manrope_700Bold', color: Colors.textSecondary },
   voidedBadge: {
     alignSelf: 'flex-start', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3,
     backgroundColor: Colors.textTertiary + '25',

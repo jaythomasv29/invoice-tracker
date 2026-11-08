@@ -13,7 +13,8 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { Colors } from '../../constants/Colors';
 import { useSupabase } from '../../lib/supabase';
-import { createDraftDish, uploadRecipePhoto, draftRecipe } from '../../lib/recipeCosting';
+import { createDraftDish, uploadRecipePhoto, draftRecipe, deleteRecipe } from '../../lib/recipeCosting';
+import { useEntitlement } from '../../hooks/useEntitlement';
 import Spinner from '../../components/ui/Spinner';
 import BackButton from '../../components/ui/BackButton';
 
@@ -26,7 +27,10 @@ export default function NewRecipeScreen() {
   const [busy, setBusy] = useState<false | 'ai' | 'manual'>(false);
   const [error, setError] = useState('');
 
+  const { isPro } = useEntitlement();
   const isProRequired = /pro feature/i.test(error);
+  // draft-recipe reports its monthly allowance as "…Smart Sift limit reached…".
+  const isDraftLimit = /limit reached/i.test(error);
 
   const handlePickPhoto = async () => {
     Haptics.selectionAsync();
@@ -46,17 +50,24 @@ export default function NewRecipeScreen() {
     Haptics.selectionAsync();
     setBusy('ai');
     setError('');
+    let id: string | null = null;
     try {
       if (!(await ensureAiConsent(supabase))) { setBusy(false); return; }
-      const id = await createDraftDish(supabase, organization.id, trimmed);
+      id = await createDraftDish(supabase, organization.id, trimmed);
       if (photoUri) {
         await uploadRecipePhoto(supabase, organization.id, id, photoUri);
       }
       await draftRecipe(supabase, id);
       router.replace(`/recipes/${id}/review`);
     } catch (err: any) {
+      // Don't leave an empty, ingredient-less dish behind on the Recipes list:
+      // void the half-made draft (best effort) so "Try again" starts clean.
+      if (id) void deleteRecipe(supabase, id).catch(() => {});
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setError(err?.message ?? 'Could not draft recipe');
+      const message: string = err?.message ?? '';
+      setError(/limit reached/i.test(message)
+        ? 'You’ve used this month’s Smart Sift recipe drafts.'
+        : /pro feature/i.test(message) ? message : 'Smart Sift could not draft this dish. Try again, or add the ingredients yourself.');
       setBusy(false);
     }
   };
@@ -71,13 +82,15 @@ export default function NewRecipeScreen() {
     Haptics.selectionAsync();
     setBusy('manual');
     setError('');
+    let id: string | null = null;
     try {
-      const id = await createDraftDish(supabase, organization.id, trimmed);
+      id = await createDraftDish(supabase, organization.id, trimmed);
       if (photoUri) {
         await uploadRecipePhoto(supabase, organization.id, id, photoUri);
       }
       router.replace(`/recipes/${id}/review`);
     } catch (err: any) {
+      if (id) void deleteRecipe(supabase, id).catch(() => {});
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setError(err?.message ?? 'Could not create dish');
       setBusy(false);
@@ -109,7 +122,7 @@ export default function NewRecipeScreen() {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Dish name</Text>
-            <View style={[styles.inputWrap, error && !isProRequired ? styles.inputError : null]}>
+            <View style={[styles.inputWrap, error && !isProRequired && !isDraftLimit ? styles.inputError : null]}>
               <TextInput
                 style={styles.input}
                 value={name}
@@ -123,7 +136,7 @@ export default function NewRecipeScreen() {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.photoBtn} onPress={handlePickPhoto} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.photoBtn} onPress={handlePickPhoto} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={photoUri ? 'Change dish photo' : 'Add a dish photo (optional)'}>
             {photoUri ? (
               <Image source={{ uri: photoUri }} style={styles.photoThumb} />
             ) : (
@@ -137,8 +150,22 @@ export default function NewRecipeScreen() {
           {error ? (
             <View style={styles.errorBox}>
               <Text style={styles.errorText}>{error}</Text>
+              {isDraftLimit && (
+                <>
+                  <Text style={styles.errorText}>
+                    {isPro
+                      ? 'Your allowance resets at the start of next month. You can still add the ingredients yourself below.'
+                      : 'Pro includes 10 Smart Sift recipe drafts each month. You can still add the ingredients yourself below.'}
+                  </Text>
+                  {!isPro && (
+                    <TouchableOpacity accessibilityRole="button" onPress={() => router.push({ pathname: '/paywall', params: { reason: 'recipe-limit' } })} activeOpacity={0.7}>
+                      <Text style={styles.errorLink}>See Pro plans</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
               {isProRequired && (
-                <TouchableOpacity onPress={() => router.push('/paywall')} activeOpacity={0.7}>
+                <TouchableOpacity accessibilityRole="button" onPress={() => router.push('/paywall')} activeOpacity={0.7}>
                   <Text style={styles.errorLink}>See Pro plans</Text>
                 </TouchableOpacity>
               )}
@@ -150,6 +177,8 @@ export default function NewRecipeScreen() {
             onPress={handleDraft}
             disabled={!name.trim()}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !name.trim() }}
           >
             <Text style={styles.ctaText}>Draft with Smart Sift</Text>
           </TouchableOpacity>
@@ -159,6 +188,8 @@ export default function NewRecipeScreen() {
             onPress={handleManual}
             disabled={!name.trim()}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !name.trim() }}
           >
             <Text style={[styles.manualBtnText, !name.trim() && styles.manualBtnTextDisabled]}>
               Or add ingredients myself

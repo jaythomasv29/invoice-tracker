@@ -19,38 +19,46 @@ import {
 } from "../../lib/invoicePipeline";
 import { ensureAiConsent } from "../../lib/aiConsent";
 import { useStore } from "../../store/useStore";
+import { useEntitlement } from "../../hooks/useEntitlement";
+import { useExtractionUsage } from "../../hooks/useExtractionUsage";
+import { scanLimitMessage } from "../../lib/entitlements";
 export default function ScanActivityScreen() {
   const { tasks, start, refresh, error } = useScanQueue();
   const router = useRouter();
   const db = useSupabase();
   const { organization, isPersonal } = useWorkspace();
+  const { isPaid } = useEntitlement();
+  const { cap } = useExtractionUsage();
   const [opening, setOpening] = useState<string | null>(null);
-  const open = async (task: ScanTask) => {
+  // Opens a scan wherever it can be acted on: saved → the detail screen,
+  // scanned (unsaved) → the review screen, still pending → say so.
+  const open = async (invoiceId: string) => {
     if (!organization || opening) return;
-    setOpening(task.id);
+    setOpening(invoiceId);
     const scope = useStore.getState().activeScope;
     try {
-      const invoice = await fetchInvoiceById(db, organization.id, task.id);
+      const invoice = await fetchInvoiceById(db, organization.id, invoiceId);
       if (invoice.status === "saved") {
         router.push(`/invoice/${invoice.id}`);
         return;
       }
       if (invoice.status !== "scanned") {
+        useStore.getState().showToast("Still reading this one…");
         await refresh();
         return;
       }
       const imageUris = await fetchInvoiceImageUrls(
         db,
         organization.id,
-        task.id,
+        invoiceId,
       );
       if (useStore.getState().activeScope !== scope) return;
       useStore.getState().setCurrentInvoice({ ...invoice, imageUris });
       router.push("/scan/review");
-    } catch {
+    } catch (e) {
       useStore
         .getState()
-        .showToast("Could not open this review. Please retry.");
+        .showToast((e as Error)?.message || "Could not open this review. Please retry.");
     } finally {
       setOpening(null);
     }
@@ -133,7 +141,7 @@ export default function ScanActivityScreen() {
                 accessibilityRole="button"
                 disabled={!!opening}
                 style={s.primary}
-                onPress={() => void open(task)}
+                onPress={() => void open(task.id)}
               >
                 <Text style={s.primaryText}>
                   {opening === task.id ? "Opening…" : "Review scan"}
@@ -141,19 +149,26 @@ export default function ScanActivityScreen() {
               </Touch>
             ) : (
               <>
-                {!!task.error && <Text style={s.body}>{task.error}</Text>}
+                {task.phase === "limit" ? (
+                  <Text style={s.body}>{scanLimitMessage(isPaid, cap)}</Text>
+                ) : (
+                  !!task.error && <Text style={s.body}>{task.error}</Text>
+                )}
                 {task.duplicate ? (
                   <>
                     <Touch
                       style={s.secondary}
                       accessibilityRole="button"
+                      disabled={!!opening}
                       onPress={() =>
-                        router.push(
-                          `/invoice/${task.duplicate!.existingInvoiceId}`,
-                        )
+                        void open(task.duplicate!.existingInvoiceId)
                       }
                     >
-                      <Text style={s.link}>View existing {isPersonal ? 'receipt' : 'invoice'}</Text>
+                      <Text style={s.link}>
+                        {opening === task.duplicate.existingInvoiceId
+                          ? "Opening…"
+                          : `View existing ${isPersonal ? "receipt" : "invoice"}`}
+                      </Text>
                     </Touch>
                     {task.duplicate.canOverride && (
                       <Touch
@@ -166,13 +181,25 @@ export default function ScanActivityScreen() {
                     )}
                   </>
                 ) : task.phase === "limit" ? (
-                  <Touch
-                    style={s.secondary}
-                    accessibilityRole="button"
-                    onPress={() => router.push("/paywall")}
-                  >
-                    <Text style={s.link}>View plans</Text>
-                  </Touch>
+                  isPaid ? (
+                    // No higher tier to sell: the scan waits here until the
+                    // allowance resets, then can be retried.
+                    <Touch
+                      style={s.secondary}
+                      accessibilityRole="button"
+                      onPress={() => void retry(task)}
+                    >
+                      <Text style={s.link}>Retry Smart Sift</Text>
+                    </Touch>
+                  ) : (
+                    <Touch
+                      style={s.secondary}
+                      accessibilityRole="button"
+                      onPress={() => router.push("/paywall")}
+                    >
+                      <Text style={s.link}>View plans</Text>
+                    </Touch>
+                  )
                 ) : task.uploadReady === false ? (
                   <>
                     <Text style={s.body}>

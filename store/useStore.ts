@@ -30,6 +30,9 @@ export interface LineItem {
   // Free-text comment entered on the confirm/save screen — the only
   // reconciliation trail now that the dispute tracker is gone.
   note?: string;
+  // Follow-up on a line marked missing: credit requested from the vendor, or
+  // credited back. Undefined until someone acts on it.
+  creditStatus?: 'requested' | 'credited';
   type: LineItemType;
   // Reversible delete — voided items stay visible (greyed out, restorable)
   // but drop out of the invoice's subtotal/total and category spend.
@@ -126,6 +129,8 @@ export interface DeliveryGapEntry {
   itemName: string;
   amount: number;
   dateLabel: string;
+  // A credit request went out; still outstanding until marked credited.
+  creditRequested?: boolean;
 }
 
 export interface UploadActivityEntry {
@@ -288,10 +293,20 @@ function periodLabelFor(dateStr: string, currentWeekStartStr: string): { label: 
   return { label: d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }), isBackdated: true };
 }
 
+// The store scope is `${session}:${user}:${workspaceId}`; personal workspaces
+// are `pws_` ids. Lets store-side copy say "receipt"/"store" in Personal
+// without threading the workspace type through every action.
+function isPersonalScope(scope: string): boolean {
+  return /:pws_[^:]*$/.test(scope);
+}
+function unknownVendorName(): string {
+  return isPersonalScope(useStore.getState().activeScope) ? 'Unknown store' : 'Unknown vendor';
+}
+
 function vendorDisplay(vendorId: string | null, vendorById: Map<string, any>): { name: string; color: string } {
   const vendor = vendorId ? vendorById.get(vendorId) : null;
   return {
-    name: vendor?.name ?? 'Unknown vendor',
+    name: vendor?.name ?? unknownVendorName(),
     color: vendor ? (vendor.color || fallbackVendorColor(vendor.id)) : DEFAULT_VENDOR_COLOR,
   };
 }
@@ -428,8 +443,19 @@ export const useStore = create<AppState>((set, get) => ({
   },
   clearToast: () => set({ toast: null }),
   markAlertRead: (supabase, id) => {
+    const scope = get().activeScope;
+    const wasRead = get().priceAlerts.find((a) => a.id === id)?.read ?? false;
     set((s) => ({ priceAlerts: s.priceAlerts.map((a) => a.id === id ? { ...a, read: true } : a) }));
-    supabase.from('price_alerts').update({ read: true }).eq('id', id).then();
+    if (get().demoMode || wasRead) return;
+    // Optimistic: revert if the write fails so the badge doesn't silently
+    // lie until the next fetch brings the alert back as unread.
+    const revert = () => {
+      if (get().activeScope !== scope) return;
+      set((s) => ({ priceAlerts: s.priceAlerts.map((a) => a.id === id ? { ...a, read: false } : a) }));
+      get().showToast('Could not mark the alert as read');
+    };
+    supabase.from('price_alerts').update({ read: true }).eq('id', id)
+      .then(({ error }) => { if (error) revert(); }, revert);
   },
 
   setCurrentInvoice: (invoice) => set({ currentInvoice: invoice }),
@@ -489,7 +515,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (get().activeScope !== activeScope) return;
 
     set({ currentInvoice: null, scanStage: 'idle' });
-    get().showToast('Invoice saved');
+    get().showToast(isPersonalScope(activeScope) ? 'Receipt saved' : 'Invoice saved');
   },
 
   // Powers both the Vendors tab and the home dashboard's spend card/bar
@@ -516,7 +542,7 @@ export const useStore = create<AppState>((set, get) => ({
     for (let offset = 0; ; offset += 500) {
       if (get().activeScope !== scope) return;
       const { data: rows, error } = await supabase.from('invoices')
-        .select('id, vendor_id, total, invoice_date, created_at, invoice_line_items(id, clean_name, category, extended_price, line_item_type, voided_at, reconciliation_status)')
+        .select('id, vendor_id, total, invoice_date, created_at, invoice_line_items(id, clean_name, category, extended_price, line_item_type, voided_at, reconciliation_status, credit_status)')
         .eq('organization_id', organizationId).eq('status', 'saved')
         .order('created_at', { ascending: false }).order('id', { ascending: false }).range(offset, offset + 499);
       if (error) { if(get().activeScope===scope)set({dashboardError:'Could not refresh your spending overview.'}); return; }
@@ -527,7 +553,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     const { data: reviewRows, count: reviewCount, error: reviewError } = await supabase.from('invoices')
       .select('id, total, vendors(name)', { count: 'exact' }).eq('organization_id',organizationId).eq('status','scanned').order('created_at',{ascending:false}).limit(20);
-    const awaitingReview = reviewError ? [] : (reviewRows ?? []).map((row:any)=>({id:row.id,vendorName:row.vendors?.name??'Unknown vendor',total:Number(row.total??0)}));
+    const awaitingReview = reviewError ? [] : (reviewRows ?? []).map((row:any)=>({id:row.id,vendorName:row.vendors?.name??unknownVendorName(),total:Number(row.total??0)}));
     if (reviewError) get().showToast('Could not load invoices awaiting review');
 
     const today = new Date();
@@ -605,7 +631,8 @@ export const useStore = create<AppState>((set, get) => ({
         const itemName = (li.clean_name ?? '').trim() || 'Unnamed item';
         itemTotals.set(itemName, (itemTotals.get(itemName) ?? 0) + Number(li.extended_price ?? 0));
 
-        if (li.reconciliation_status === 'missing' || li.reconciliation_status === 'short') {
+        // Credited lines are settled — money recovered, so off the worklist.
+        if ((li.reconciliation_status === 'missing' || li.reconciliation_status === 'short') && li.credit_status !== 'credited') {
           const gapAmount = Number(li.extended_price ?? 0);
           deliveryGapTotal += gapAmount;
           deliveryGapCandidates.push({
@@ -616,6 +643,7 @@ export const useStore = create<AppState>((set, get) => ({
             amount: Math.round(gapAmount * 100) / 100,
             dateLabel: formatDate(dateStr),
             dateIso: dateStr,
+            creditRequested: li.credit_status === 'requested',
           });
         }
       }
@@ -806,7 +834,7 @@ export const useStore = create<AppState>((set, get) => ({
       id: row.id,
       itemName: row.item_name,
       vendorId: row.vendor_id ?? null,
-      vendorName: row.vendors?.name ?? 'Unknown vendor',
+      vendorName: row.vendors?.name ?? unknownVendorName(),
       previousPrice: Number(row.previous_price),
       newPrice: Number(row.new_price),
       unit: row.unit ?? '',

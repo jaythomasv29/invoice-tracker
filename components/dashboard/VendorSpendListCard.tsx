@@ -91,7 +91,7 @@ export default function VendorSpendListCard({
                 </View>
               </View>
               <View style={styles.pill}>
-                <AnimatedNumber value={amount} format={n=>`$${Math.round(n).toLocaleString()}`} contextKey={`${v.id}:${period}:${yearsBack}`} ready={!isLoading} style={styles.pillAmount} />
+                <AnimatedNumber value={amount} format={n=>`$${Math.round(n).toLocaleString('en-US')}`} contextKey={`${v.id}:${period}:${yearsBack}`} ready={!isLoading} style={styles.pillAmount} />
                 <Text style={styles.pillLabel}>{shortLabel}</Text>
               </View>
             </TouchableOpacity>

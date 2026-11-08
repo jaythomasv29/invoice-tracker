@@ -1,5 +1,15 @@
 # Sift launch assets
 
+## Current App Store draft — November 7, 2026
+
+The current Apple media receipt is `app-store-upload-status-v2.json`; the original receipt below remains historical. Eight current screenshots are assigned in story order for each 6.3-inch and 6.9-inch display size, and the current 29.2-second preview is assigned to both display families. All uploads are verified against source checksums and Apple's processing state. The preview poster uses the Price Alerts scene with its Business Pro label.
+
+`creative/v2/search-results-3840x2560.*` preserves the existing search artwork layout and replaces its embedded Personal and Business screens with the November 7 captures. The existing dual-workspace header remains assigned. Business Pro's blank review image has been replaced with the actual current paywall capture; Personal Pro's review image now shows its current paid price-watch feature.
+
+Production build 1.0.0 (9) is VALID, attached to the version draft and available to the existing internal TestFlight group. The owner's Content Rights declaration is saved. The app version, both Pro products and both subscription groups are together in the unsubmitted review draft. Both Apple notification URLs use RevenueCat V2; sandbox TEST delivery succeeded. See `../docs/STOREKIT_QA_2026-11-07.md` for store price retrieval, restore checks and the simulator authentication blocker affecting actual purchases.
+
+See `../docs/APP_STORE_CONNECT_AUDIT.json` for the attached build, production candidate, subscription checks and remaining owner confirmations. These are draft listing updates; no public App Review submission or release has been performed.
+
 Open `index.html` for the full gallery, `contact-sheet.png` for the six screenshots, and `previews/preview-contact-sheet.png` for representative video frames.
 
 ## Deliverables

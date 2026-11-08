@@ -90,7 +90,7 @@ export default function VendorDetailScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.header}>
-          <BackButton onPress={() => router.back()} />
+          <BackButton onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))} />
           <Text style={styles.headerTitle}>{loading ? (isPersonal ? 'Loading store…' : 'Loading supplier…') : (isPersonal ? 'Store details' : 'Supplier details')}</Text>
         </View>
         {loading?<Spinner/>:<LoadFailure message={loadError||(isPersonal?'Store could not be found.':'Supplier could not be found.')} onRetry={()=>setRetry(n=>n+1)}/>}
@@ -101,7 +101,7 @@ export default function VendorDetailScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <BackButton onPress={() => router.back()} />
+        <BackButton onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))} />
         <View style={[styles.vendorAvatar, { backgroundColor: vendor.color + '20' }]}>
           <Text style={[styles.vendorAvatarText, { color: vendor.color }]}>
             {initialsFor(vendor.name)}

@@ -16,6 +16,7 @@ import { useWorkspace } from '../../lib/workspaceContext';
 import { buildPriceWatch, type PriceWatchItem } from '../../lib/householdPriceWatch';
 import { buildDemoPriceWatch } from '../../lib/demoData';
 import { useStore } from '../../store/useStore';
+import { money2 } from '../../lib/money';
 export default function HouseholdInsightsCard({
   count,
   isPaid,
@@ -162,7 +163,7 @@ export default function HouseholdInsightsCard({
                 <View style={{ flex: 1 }}>
                   <Text style={s.itemName}>{item.name}</Text>
                   <Text style={s.caption}>
-                    ${item.last.toFixed(4)}/{item.unit} · {item.count}{' '}
+                    ${Math.abs(item.last) < 1 ? item.last.toFixed(4) : money2(item.last)}/{item.unit} · {item.count}{' '}
                     comparable lines
                   </Text>
                 </View>

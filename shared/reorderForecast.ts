@@ -31,13 +31,17 @@ const median = (values: number[]) => {
   return a.length % 2 ? a[i] : (a[i - 1] + a[i]) / 2;
 };
 const iso = (n: number) => new Date(n).toISOString().slice(0, 10);
+/** Today on the device's calendar. `toISOString()` is UTC, which treats a
+ * late-evening purchase as "future" in the Americas. */
+const localToday = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 /** Purchase cadence is a stock-check cue, never an inventory or consumption forecast.
  * Same vendor/description/unit identity is enforced by the history RPC. Missing dates,
  * future dates, duplicate rows and same-day invoices cannot create extra intervals.
  */
 export function forecastReorder(
   rows: PurchaseObservation[],
-  asOf = new Date().toISOString().slice(0, 10),
+  asOf = localToday(),
 ): ReorderForecast {
   const today = day(asOf);
   if (today === null) throw new Error("Invalid forecast date");

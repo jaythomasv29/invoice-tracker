@@ -35,6 +35,7 @@ import { displayUnitCost } from "../../../shared/measurement";
 import RecipeLaborEditor from "../../../components/products/RecipeLaborEditor";
 import { ui } from "../../../components/products/ProductUI";
 import DemoUnavailable, { useDemoMode } from '../../../components/tour/DemoUnavailable';
+import { money2 } from '../../../lib/money';
 
 function confidenceMeta(confidence: number): { label: string; color: string } {
   if (confidence >= 0.8) return { label: "High", color: Colors.primary };
@@ -129,7 +130,7 @@ function RecipeDetailScreenInner() {
             setDeleting(true);
             try {
               await deleteRecipe(supabase, recipe.id);
-              router.back();
+              if (router.canGoBack()) router.back(); else router.replace('/(tabs)');
             } catch (err: any) {
               setDeleting(false);
               Alert.alert(
@@ -157,7 +158,7 @@ function RecipeDetailScreenInner() {
     return (
       <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
         <View style={styles.header}>
-          <BackButton onPress={() => router.back()} />
+          <BackButton onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))} />
           <Text style={styles.headerTitle}>Dish not found</Text>
         </View>
       </SafeAreaView>
@@ -182,7 +183,7 @@ function RecipeDetailScreenInner() {
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <View style={styles.header}>
-        <BackButton onPress={() => router.back()} />
+        <BackButton onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))} />
         <Text style={styles.headerTitle} numberOfLines={1}>
           {recipe.name}
         </Text>
@@ -226,16 +227,16 @@ function RecipeDetailScreenInner() {
               </View>
             </View>
             <Text style={styles.costValue}>
-              ${breakdown.perServing.toFixed(2)}
+              ${money2(breakdown.perServing)}
             </Text>
             <Text style={styles.costRange}>
               Batch of {recipe.labor.servings}: $
-              {breakdown.knownBatch.toFixed(2)}
+              {money2(breakdown.knownBatch)}
             </Text>
             <View style={{ gap: 8, marginTop: 16 }}>
               <Text style={ui.hint}>
                 Ingredients / serving: $
-                {breakdown.ingredientsPerServing.toFixed(2)}
+                {money2(breakdown.ingredientsPerServing)}
                 {cost.missingCount > 0
                   ? ` · ${cost.missingCount} unpriced`
                   : ""}
@@ -244,7 +245,7 @@ function RecipeDetailScreenInner() {
                 Labor / serving:{" "}
                 {breakdown.laborPerServing == null
                   ? "Not entered"
-                  : `$${breakdown.laborPerServing.toFixed(2)}`}
+                  : `$${money2(breakdown.laborPerServing)}`}
               </Text>
               <Text style={ui.hint}>
                 {cost.estimatedCount > 0
@@ -352,7 +353,7 @@ function RecipeDetailScreenInner() {
                             : styles.ingredientCostEstimated
                         }
                       >
-                        ${contribution.value.toFixed(2)}
+                        ${money2(contribution.value)}
                       </Text>
                       {!contribution.resolved && (
                         <Text style={styles.ingredientHint}>estimated</Text>

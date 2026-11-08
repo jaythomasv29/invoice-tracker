@@ -121,7 +121,7 @@ export default function SpendTrendCard({
             <Text style={styles.label}>{spendPeriodLabel(period, yearsBack)}</Text>
             {isLoading && <Spinner size={12} color={Colors.textSecondary} />}
           </View>
-          <AnimatedNumber value={periodTotal} format={n=>`$${Math.round(n).toLocaleString()}`} contextKey={`${period}:${yearsBack}`} ready={!isLoading} style={styles.amount} />
+          <AnimatedNumber value={periodTotal} format={n=>`$${Math.round(n).toLocaleString('en-US')}`} contextKey={`${period}:${yearsBack}`} ready={!isLoading} style={styles.amount} />
         </View>
         {compare && periodPctChange !== null && (
           <View style={[styles.trendPill, isUp ? styles.trendPillUp : styles.trendPillDown]}>
@@ -244,7 +244,7 @@ export default function SpendTrendCard({
                 style={[styles.peakLabel, { left: cx - 50, top: BASELINE - fullH - 19 }]}
                 numberOfLines={1}
               >
-                ${Math.round(barData[peakIndex].total).toLocaleString()}
+                ${Math.round(barData[peakIndex].total).toLocaleString('en-US')}
               </Text>
             );
           })()}

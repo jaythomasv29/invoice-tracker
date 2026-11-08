@@ -4,6 +4,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { PriceAlert } from '../../store/useStore';
 import { groupPriceAlerts } from '../../lib/priceAlertGroups';
+import { money2 } from '../../lib/money';
 
 interface AIInsightCardProps {
   priceAlerts: PriceAlert[];
@@ -47,7 +48,7 @@ export default function AIInsightCard({ priceAlerts, onPress }: AIInsightCardPro
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={styles.pctChange}>+{Math.round(g.totalPct)}%</Text>
                   <Text style={styles.priceChange}>
-                    ${g.firstPrice.toFixed(2)} → ${g.latestPrice.toFixed(2)}
+                    ${money2(g.firstPrice)} → ${money2(g.latestPrice)}
                   </Text>
                 </View>
               </View>

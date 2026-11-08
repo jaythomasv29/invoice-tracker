@@ -3,10 +3,15 @@ import TouchableOpacity from '../ui/MotionTouchable';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { PriceAlert } from '../../store/useStore';
+import { useWorkspace } from '../../lib/workspaceContext';
+import { money2 } from '../../lib/money';
 
 export default function PriceAlertBanner({ alert, onPress }: { alert: PriceAlert; onPress: () => void }) {
+  const { isPersonal } = useWorkspace();
+  const change = isPersonal && alert.absChange < 1 ? alert.absChange.toFixed(4) : money2(alert.absChange);
+  const since = isPersonal ? 'since last purchase' : 'since last order';
   return (
-    <TouchableOpacity style={styles.alertCard} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity style={styles.alertCard} onPress={onPress} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={`Price increase: ${alert.itemName} at ${alert.vendorName}, up $${change} per ${alert.unit || 'unit'}, ${Math.round(alert.pctChange)}% ${since}`}>
       <View style={styles.alertIconWrap}>
         <Text style={styles.alertIconText}>!</Text>
       </View>
@@ -16,7 +21,7 @@ export default function PriceAlertBanner({ alert, onPress }: { alert: PriceAlert
           {alert.itemName} · {alert.vendorName.split(' ')[0]}
         </Text>
         <Text style={styles.alertSub}>
-          up ${alert.absChange.toFixed(2)}/{alert.unit} ({Math.round(alert.pctChange)}%) since last order
+          up ${change}/{alert.unit} ({Math.round(alert.pctChange)}%) {since}
         </Text>
       </View>
       <Text style={styles.chevron}>›</Text>

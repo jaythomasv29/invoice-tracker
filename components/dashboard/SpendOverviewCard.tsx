@@ -26,6 +26,8 @@ export default function SpendOverviewCard({ invoices, vendors, loading, error, o
     : period === 'day' ? data.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : `${data.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${data.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
   const openPeriod=()=>onOpenInvoices({from:localDay(data.start),to:localDay(data.end)});
+  const hasPeriodData = data.count > 0;
+  const chevron = hasPeriodData ? ' ›' : '';
   return <View style={s.wrapper}>
     {!productView&&<RevealPanel><View style={s.tabs}>
       {(['day', 'week', 'month'] as const).map(p => <TouchableOpacity key={p} accessibilityRole="button" accessibilityState={{ selected: p === period }} onPress={() => { setPeriod(p); setOffset(0); }} style={[s.tab, p === period && s.selected]}>
@@ -42,12 +44,14 @@ export default function SpendOverviewCard({ invoices, vendors, loading, error, o
         </View>
       </View>
       <TouchableOpacity onPress={openPeriod} accessibilityRole="button" accessibilityLabel={`View ${receipt}s behind ${money(data.total)} spending for ${label}`}><AnimatedNumber value={data.total} format={money} contextKey={`${organization?.id}:${period}:${offset}`} ready={!loading&&!error} placeholder={error?"Unavailable":"Loading…"} style={s.amount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} /></TouchableOpacity>
-      <Text style={s.heroCaption}>Grouped by the date on each {receipt}</Text>
+      <Text style={s.heroCaption}>Based on the date printed on each {receipt}</Text>
       <SupplierSpendBar contextKey={`${organization?.id}:${period}:${offset}`} ready={!loading&&!error} totals={data.vendors} vendors={vendors} variant="bar" />
       <View style={s.stats}>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`View ${receipt}s for this period`} onPress={openPeriod} style={s.stat}><AnimatedNumber value={data.count} format={n=>Math.round(n).toLocaleString('en-US')} contextKey={`${organization?.id}:${period}:${offset}`} ready={!loading&&!error} style={s.statNumber} /><Text style={s.statLabel}>{isPersonal?'Receipts':'Invoices'} ›</Text></TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel={isPersonal?'Browse stores':'Browse suppliers'} onPress={onOpenSuppliers} style={s.stat}><AnimatedNumber value={data.vendors.length} format={n=>Math.round(n).toLocaleString('en-US')} contextKey={`${organization?.id}:${period}:${offset}`} ready={!loading&&!error} style={s.statNumber} /><Text style={s.statLabel}>{isPersonal?'Stores':'Suppliers'} ›</Text></TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`View ${receipt}s behind this average`} onPress={openPeriod} style={s.stat}><AnimatedNumber value={data.count?data.total/data.count:0} format={money} contextKey={`${organization?.id}:${period}:${offset}`} ready={!loading&&!error} style={s.statNumber} numberOfLines={1} adjustsFontSizeToFit /><Text style={s.statLabel}>Avg. {receipt} ›</Text></TouchableOpacity>
+        {/* A period with nothing saved has nothing behind these tiles, so they
+            drop their chevron and stop being buttons until it does. */}
+        <TouchableOpacity disabled={!hasPeriodData} accessibilityRole={hasPeriodData?'button':'text'} accessibilityLabel={hasPeriodData?`View ${receipt}s for this period`:`No ${receipt}s this period`} onPress={openPeriod} style={s.stat}><AnimatedNumber value={data.count} format={n=>Math.round(n).toLocaleString('en-US')} contextKey={`${organization?.id}:${period}:${offset}`} ready={!loading&&!error} style={s.statNumber} /><Text style={s.statLabel}>{isPersonal?'Receipts':'Invoices'}{chevron}</Text></TouchableOpacity>
+        <TouchableOpacity disabled={!hasPeriodData} accessibilityRole={hasPeriodData?'button':'text'} accessibilityLabel={hasPeriodData?(isPersonal?'Browse stores':'Browse suppliers'):(isPersonal?'No stores this period':'No suppliers this period')} onPress={onOpenSuppliers} style={s.stat}><AnimatedNumber value={data.vendors.length} format={n=>Math.round(n).toLocaleString('en-US')} contextKey={`${organization?.id}:${period}:${offset}`} ready={!loading&&!error} style={s.statNumber} /><Text style={s.statLabel}>{isPersonal?'Stores':'Suppliers'}{chevron}</Text></TouchableOpacity>
+        <TouchableOpacity disabled={!hasPeriodData} accessibilityRole={hasPeriodData?'button':'text'} accessibilityLabel={hasPeriodData?`View ${receipt}s behind this average`:`No average ${receipt} this period`} onPress={openPeriod} style={s.stat}><AnimatedNumber value={data.count?data.total/data.count:0} format={money} contextKey={`${organization?.id}:${period}:${offset}`} ready={!loading&&!error} style={s.statNumber} numberOfLines={1} adjustsFontSizeToFit /><Text style={s.statLabel}>Avg. {receipt}{chevron}</Text></TouchableOpacity>
       </View>
       <HistoryMilestone invoices={invoices} loading={loading} onPress={() => onOpenInvoices()} />
     </View></ProductCarousel></RevealPanel>
@@ -56,9 +60,9 @@ export default function SpendOverviewCard({ invoices, vendors, loading, error, o
       <Text style={s.note}>{label}</Text>
       <SupplierSpendBar contextKey={`${organization?.id}:${period}:${offset}`} ready={!loading&&!error} totals={data.vendors} vendors={vendors} onPressVendor={onOpenVendor} light variant="list" />
       {loading && data.vendors.length === 0 && <View style={s.breakdownLoading}><Text style={s.note}>Loading {isPersonal?'store':'supplier'} breakdown…</Text></View>}
-      {!loading && data.count === 0 && <Text style={s.empty}>No saved {receipt}s in this period. Scan your first {receipt} or use the arrows to explore past spending.</Text>}
+      {!loading && data.count === 0 && <Text style={s.empty}>{data.allCount>0?`No saved ${receipt}s in this period. Use the arrows above to look at another one.`:`No saved ${receipt}s yet. Scan your first ${receipt} to see where the money goes.`}</Text>}
       {data.fallbackCount > 0 && <Text style={s.note}>{data.fallbackCount} {data.fallbackCount === 1 ? `${receipt} uses` : `${receipt}s use`} upload date because the {receipt} date is missing.</Text>}
-      <TouchableOpacity accessibilityRole="button" accessibilityLabel={`View all saved ${receipt}s`} onPress={()=>onOpenInvoices()} style={s.footer}><Text style={s.note}>All time · {data.allCount} saved</Text><AnimatedNumber value={data.allTotal} format={n=>`${money(n)} ›`} contextKey={`${organization?.id}:all`} ready={!loading&&!error} style={s.allTotal} /></TouchableOpacity>
+      <TouchableOpacity disabled={data.allCount===0} accessibilityRole="button" accessibilityLabel={`View all saved ${receipt}s`} onPress={()=>onOpenInvoices()} style={s.footer}><Text style={s.note}>All time · {data.allCount} saved</Text><AnimatedNumber value={data.allTotal} format={n=>data.allCount?`${money(n)} ›`:money(n)} contextKey={`${organization?.id}:all`} ready={!loading&&!error} style={s.allTotal} /></TouchableOpacity>
     </View></RevealPanel>
   </View>;
 }

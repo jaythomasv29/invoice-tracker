@@ -1,7 +1,7 @@
 import type { RetailProduct } from '../../../shared/receiptComparison.ts';
 import { scanCap, accountTypeForId } from '../../../shared/workspacePolicy.ts';
 import { normalizeCategory } from '../../../shared/categories.ts';
-import { compareInvoiceIdentity } from '../_shared/invoiceIdentity.ts';
+import { compareInvoiceIdentity, normalizeIdentityVendor } from '../_shared/invoiceIdentity.ts';
 import { getOrganization } from '../_shared/clerkAuth.ts';
 import { isPlaceholderVendorName, matchVendor, missingPages, normalizeVendorName, repairLineItems, UNKNOWN_VENDOR_NAME } from '../_shared/extractionRepair.ts';
 // Invoice extraction pipeline — PRD section 6.3 / 9.
@@ -249,7 +249,7 @@ async function extractWithModel(
 
   const json = await res.json();
   if(jobId&&workspaceId&&json.usage){await adminClient().from('ai_model_usage').insert({job_id:jobId,organization_id:workspaceId,model,input_tokens:json.usage.input_tokens??0,output_tokens:json.usage.output_tokens??0});}
-  if (json.stop_reason === 'max_tokens') throw new Error(`This ${personal ? 'receipt' : 'invoice'} is too long to read in one pass. Try importing fewer pages at a time.`);
+  if (json.stop_reason === 'max_tokens') throw new UserFacingError(`This ${personal ? 'receipt' : 'invoice'} is too long to read in one pass. Try importing fewer pages at a time.`);
   const toolUse = json.content?.find((b: any) => b.type === 'tool_use');
   if (!toolUse) throw new Error('Model did not return a structured extraction.');
   return toolUse.input as ExtractionResult;
@@ -300,7 +300,9 @@ async function fingerprintWithModel(
 ): Promise<FingerprintResult> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    signal: AbortSignal.timeout(75000),
+    // Short budget: this pre-check is optional (a failure falls through to the
+    // full extraction), so it must never eat the time the real read needs.
+    signal: AbortSignal.timeout(FINGERPRINT_TIMEOUT_MS),
     headers: {
       'content-type': 'application/json',
       'x-api-key': ANTHROPIC_API_KEY,
@@ -342,6 +344,29 @@ async function fingerprintWithModel(
 }
 
 const DUPLICATE_INVOICE_CODE = 'DUPLICATE_INVOICE_DETECTED';
+// Client (lib/invoicePipeline.ts) maps this to "Still reading this one…".
+const SCAN_IN_PROGRESS_CODE = 'SCAN_IN_PROGRESS';
+
+// Worst case ≈ 20s fingerprint + 140s extraction + downloads/commit; the client
+// waits 240s (lib/invoicePipeline.ts extractInvoice) — keep it above this sum.
+const FINGERPRINT_TIMEOUT_MS = 20000;
+
+// Errors we throw on purpose already carry user copy. Anything else (DB text,
+// aborts, upstream bodies, programming errors) is logged here and replaced
+// with calm, generic copy.
+class UserFacingError extends Error {}
+
+function friendlyError(err: unknown, noun: string): string {
+  const e = err as Error;
+  const message = e?.message ?? '';
+  if (e instanceof UserFacingError) return message;
+  if (e?.name === 'TimeoutError' || e?.name === 'AbortError' || /signal|abort|timed out/i.test(message)) {
+    return `Smart Sift took too long to read this ${noun}. Please retry.`;
+  }
+  // Messages from _shared/aiControls.ts are already written for users.
+  if (/^(Smart Sift|Please allow|Could not reserve|Could not read image|Each image|Unsupported image|Too many)/.test(message)) return message;
+  return `Smart Sift couldn’t read this ${noun}. Please retry, or try a clearer photo.`;
+}
 
 // Builds the shared 409 body the client turns into the "possible duplicate"
 // confirmation UI. Same shape for either dedup layer — the client doesn't need
@@ -370,15 +395,16 @@ Deno.serve(async (req) => {
   // request reserved but didn't end up using.
   let supabase: any;
   let jobId: string | undefined;
+  let noun = 'invoice';
 
   try {
     const { invoiceId, skipDuplicateCheck } = await req.json();
-    if (!invoiceId) throw new Error('invoiceId is required');
+    if (!invoiceId) throw new UserFacingError('Missing scan. Please retry.');
 
     // Forward the caller's Clerk-issued JWT so every query below runs
     // through RLS as that user — no service-role bypass needed.
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) throw new Error('Missing Authorization header');
+    if (!authHeader) throw new UserFacingError('Please sign in again and retry.');
 
     supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader, "x-sift-workspace": req.headers.get("x-sift-workspace") ?? "" } },
@@ -389,12 +415,15 @@ Deno.serve(async (req) => {
       .select('id, organization_id, image_urls, status')
       .eq('id', invoiceId)
       .single();
-    if (fetchErr || !invoice) throw new Error(`Invoice not found: ${fetchErr?.message}`);
-    const noun = invoice.organization_id.startsWith('pws_') ? 'receipt' : 'invoice';
-    if (invoice.status !== 'pending') throw new Error(`This ${noun} has already been processed. Open it from your ${noun} library.`);
-    if (invoice.image_urls?.length > 5) throw new Error(`Import up to 5 pages per ${noun}.`);
+    if (fetchErr || !invoice) {
+      console.error('[extract-invoice] invoice lookup failed', fetchErr?.message);
+      throw new UserFacingError('This scan is no longer available. It may have been discarded.');
+    }
+    noun = invoice.organization_id.startsWith('pws_') ? 'receipt' : 'invoice';
+    if (invoice.status !== 'pending') throw new UserFacingError(`This ${noun} has already been processed. Open it from your ${noun} library.`);
+    if (invoice.image_urls?.length > 5) throw new UserFacingError(`Import up to 5 pages per ${noun}.`);
     await requireAiConsent(supabase);
-    if (!invoice.image_urls?.length) throw new Error(`This ${noun} has no images to extract from.`);
+    if (!invoice.image_urls?.length) throw new UserFacingError(`This ${noun}'s photos didn't finish uploading. Scan it again.`);
 
     // Plan gate — enforced here, before any Claude spend. Every tier has a
     // monthly cap (Free 10 / Plus 300 / Pro 150). Over the cap, return 402 with
@@ -404,14 +433,22 @@ Deno.serve(async (req) => {
     {
       const reservation = await beginAiJob(invoice.organization_id, invoiceId, 'invoice', cap);
       const { allowed, used } = reservation;
-      if (!allowed && reservation.code !== 'FREE_LIMIT_REACHED') throw new Error(reservation.code === 'AI_BUSY' ? `This ${noun} is already processing. Please wait.` : 'Too many Smart Sift requests. Please try again later.');
+      if (!allowed && reservation.code === 'AI_BUSY') {
+        // Another run holds this scan — not a failure. The client shows
+        // "Still reading this one…" and lets the inbox refresh resolve it.
+        return new Response(
+          JSON.stringify({ error: `Still reading this ${noun}…`, code: SCAN_IN_PROGRESS_CODE }),
+          { status: 409, headers: { ...corsHeaders, 'content-type': 'application/json' } }
+        );
+      }
+      if (!allowed && reservation.code !== 'FREE_LIMIT_REACHED') throw new UserFacingError('Too many Smart Sift requests. Please try again later.');
       if (!allowed) {
         return new Response(
           JSON.stringify({
             error:
               plan === 'free'
-                ? 'You’ve used all your free extractions this month.'
-                : 'You’ve reached your plan’s monthly extraction limit.',
+                ? `You’ve used your ${cap} free scans this month.`
+                : `You’ve used all ${cap} scans this month.`,
             code: 'FREE_LIMIT_REACHED',
             used,
             cap,
@@ -427,7 +464,7 @@ Deno.serve(async (req) => {
     );
 
     const imageHashes = images.map((img) => img.hash);
-    if (new Set(imageHashes).size !== imageHashes.length) throw new Error('The same photo appears more than once. Remove repeated pages and retry.');
+    if (new Set(imageHashes).size !== imageHashes.length) throw new UserFacingError('The same photo appears more than once. Remove repeated pages and retry.');
 
     // Exact complete page sets are always blocked. The override only skips
     // a possible header match; final commit still rejects strong identities.
@@ -449,22 +486,50 @@ Deno.serve(async (req) => {
       // Layer 2 — cheap Haiku fingerprint. Catches the same paper invoice
       // re-photographed (different bytes, so layer 1 missed it) by reading only
       // vendor/number/date/total and matching against existing invoices.
-      const fp = await fingerprintWithModel(MODEL_HAIKU, images, invoice.organization_id.startsWith('pws_'), jobId, invoice.organization_id);
-      const normalizedFpVendor = normalizeVendorName(fp.vendor_name ?? '');
-      if (normalizedFpVendor) {
-        const { data: candidates } = await supabase
-          .from('invoices')
-          .select('id, invoice_number, invoice_date, total, vendors(name)')
-          .eq('organization_id', invoice.organization_id)
-          .in('status', ['scanned', 'saved']);
-
-        const identity = {vendor:fp.vendor_name??'',number:fp.invoice_number,date:fp.invoice_date,total:fp.total};
-        const fpMatch = (candidates ?? []).find((c:any)=>compareInvoiceIdentity(identity,{vendor:c.vendors?.name??'',number:c.invoice_number,date:c.invoice_date,total:c.total==null?null:Number(c.total)}));
-        if (fpMatch) {
-          const match=compareInvoiceIdentity(identity,{vendor:fpMatch.vendors?.name??'',number:fpMatch.invoice_number,date:fpMatch.invoice_date,total:fpMatch.total==null?null:Number(fpMatch.total)});
-          await finishAiJob(jobId, false);
-          return duplicateResponse(fpMatch, match !== 'same', noun === 'receipt');
+      //
+      // This layer is advisory: if Haiku errors, times out or the lookup
+      // fails, log it and fall through to the real extraction. Exact page-set
+      // duplicates are still blocked above, and the final commit still
+      // rejects strong identity matches.
+      let fpMatch: any = null;
+      let identity: { vendor: string; number?: string; date?: string; total?: number } | null = null;
+      try {
+        const fp = await fingerprintWithModel(MODEL_HAIKU, images, invoice.organization_id.startsWith('pws_'), jobId, invoice.organization_id);
+        const fpVendorKey = normalizeIdentityVendor(fp.vendor_name ?? '');
+        if (normalizeVendorName(fp.vendor_name ?? '') && fpVendorKey) {
+          identity = {vendor:fp.vendor_name??'',number:fp.invoice_number,date:fp.invoice_date,total:fp.total};
+          // compareInvoiceIdentity requires an exact normalized vendor-name
+          // match, so only that vendor's invoices can ever match — bound the
+          // lookup to them (and page past PostgREST's 1000-row cap).
+          const { data: orgVendorNames, error: vendorErr } = await supabase
+            .from('vendors')
+            .select('id, name')
+            .eq('organization_id', invoice.organization_id);
+          if (vendorErr) throw vendorErr;
+          const vendorIds = (orgVendorNames ?? []).filter((v: any) => normalizeIdentityVendor(v.name ?? '') === fpVendorKey).map((v: any) => v.id);
+          for (let offset = 0; vendorIds.length && !fpMatch && offset < 10000; offset += 1000) {
+            const { data: candidates, error: candErr } = await supabase
+              .from('invoices')
+              .select('id, invoice_number, invoice_date, total, vendors(name)')
+              .eq('organization_id', invoice.organization_id)
+              .in('vendor_id', vendorIds)
+              .in('status', ['scanned', 'saved'])
+              .order('created_at', { ascending: false })
+              .order('id', { ascending: false })
+              .range(offset, offset + 999);
+            if (candErr) throw candErr;
+            fpMatch = (candidates ?? []).find((c:any)=>compareInvoiceIdentity(identity!,{vendor:c.vendors?.name??'',number:c.invoice_number,date:c.invoice_date,total:c.total==null?null:Number(c.total)})) ?? null;
+            if ((candidates ?? []).length < 1000) break;
+          }
         }
+      } catch (fpErr) {
+        console.warn('[extract-invoice] duplicate pre-check skipped:', (fpErr as Error)?.name, (fpErr as Error)?.message?.slice(0, 300));
+        fpMatch = null;
+      }
+      if (fpMatch && identity) {
+        const match=compareInvoiceIdentity(identity,{vendor:fpMatch.vendors?.name??'',number:fpMatch.invoice_number,date:fpMatch.invoice_date,total:fpMatch.total==null?null:Number(fpMatch.total)});
+        await finishAiJob(jobId, false);
+        return duplicateResponse(fpMatch, match !== 'same', noun === 'receipt');
       }
     }
 
@@ -529,7 +594,10 @@ Deno.serve(async (req) => {
           p_palette: VENDOR_COLOR_PALETTE,
         })
         .single();
-      if (vendorErr) throw new Error(`Could not create vendor: ${vendorErr.message}`);
+      if (vendorErr) {
+        console.error('[extract-invoice] vendor create failed', vendorErr.message);
+        throw new UserFacingError(`Could not save this ${noun}. Please retry.`);
+      }
       vendorId = (newVendor as any).id;
     }
     if (!personal && result.vendor?.name_visible === false && !placeholder) {
@@ -573,7 +641,8 @@ Deno.serve(async (req) => {
         const { data: existing } = await supabase.from('invoices').select('id, invoice_date, total, vendors(name)').eq('id',duplicateId).single();
         if (existing) return duplicateResponse(existing, false, noun === 'receipt');
       }
-      throw new Error(`Could not save ${noun}. Please try again.`);
+      console.error('[extract-invoice] commit failed', commitErr.message);
+      throw new UserFacingError(`Could not save this ${noun}. Please retry.`);
     }
     jobId = undefined; // commit includes quota completion in the same transaction
     const { data: updatedInvoice } = await supabase.from('invoices').select('*, vendors(name)').eq('id', invoiceId).single();
@@ -595,9 +664,10 @@ Deno.serve(async (req) => {
     await finishAiJob(jobId, false);
     // Log the full detail server-side (may include upstream Anthropic error
     // bodies) but don't forward it verbatim to the client.
-    console.error('[extract-invoice] failed');
-    const message = (err as Error).message ?? 'Extraction failed';
-    const safeMessage = message.startsWith('Anthropic API error') ? 'Extraction failed — please try again.' : message;
+    // Log the name and a bounded slice of the message (enough to debug, without
+    // dumping whole upstream bodies), then send only friendly copy.
+    console.error('[extract-invoice] failed:', (err as Error)?.name, ((err as Error)?.message ?? '').slice(0, 500));
+    const safeMessage = friendlyError(err, noun);
     return new Response(JSON.stringify({ error: safeMessage }), {
       status: 400,
       headers: { ...corsHeaders, 'content-type': 'application/json' },

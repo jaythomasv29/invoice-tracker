@@ -77,7 +77,7 @@ export function useMissingInvoices(enabled = true) {
       byVendor.set(row.vendor_id, entry);
     }
 
-    const today = dayNumber(new Date().toISOString());
+    const today = dayNumber(localDateFromTimestamp(new Date().toISOString())!);
     const result: MissingInvoiceFlag[] = [];
 
     for (const [vendorId, { name, days }] of byVendor) {

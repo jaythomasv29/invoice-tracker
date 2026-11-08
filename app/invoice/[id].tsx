@@ -19,6 +19,8 @@ import LineItemDisplay from '../../components/ui/LineItemDisplay';
 import EditLineItemModal from '../../components/ui/EditLineItemModal';
 import Toast from '../../components/ui/Toast';
 import { money2 } from '../../lib/money';
+import CreditRequestCard from '../../components/invoice/CreditRequestCard';
+import { setCreditStatus, setLineMissing, shareCreditRequest, creditTotal, type CreditStatus } from '../../lib/creditRequest';
 
 export default function InvoiceDetailScreen() {
   const router = useRouter();
@@ -42,6 +44,12 @@ export default function InvoiceDetailScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingDetails, setEditingDetails] = useState(false);
   const showToast = useStore((s) => s.showToast);
+  // Opened from a link or notification there's no screen underneath — fall back to Home.
+  const goBack = () => (router.canGoBack() ? router.back() : router.replace('/(tabs)'));
+  const [creditBusy, setCreditBusy] = useState(false);
+  // Sample-tour invoices are client-side fixtures with fake ids — any write
+  // would hit the real database, so edits there just explain themselves.
+  const sampleOnly = () => { showToast(`Sample ${noun} — scan your own to edit`); };
 
   useEffect(() => {
     if (demoMode) { setInvoice(buildDemoInvoices(useStore.getState().demoKind).find(x => x.id === id) ?? null); setLoading(false); return; }
@@ -50,11 +58,12 @@ export default function InvoiceDetailScreen() {
     setLoadError('');
     fetchInvoiceById(supabase, organization.id, id)
       .then(setInvoice)
-      .catch((err: any) => setLoadError(err?.message ?? `Could not load ${noun}`))
+      .catch(() => setLoadError(`Could not load this ${noun}. Check your connection and try again.`))
       .finally(() => setLoading(false));
   }, [organization?.id, id, supabase, demoMode, noun]);
 
   const handleViewOriginal = async () => {
+    if (demoMode) { sampleOnly(); return; }
     if (!organization?.id || !id) return;
     if (imageUris.length > 0) {
       setImageViewerOpen(true);
@@ -65,8 +74,8 @@ export default function InvoiceDetailScreen() {
       const uris = await fetchInvoiceImageUrls(supabase, organization.id, id);
       setImageUris(uris);
       setImageViewerOpen(true);
-    } catch (err: any) {
-      showToast(err?.message ?? `Could not load the original ${noun}`);
+    } catch {
+      showToast(`Could not load the original ${noun}. Please retry.`);
     } finally {
       setImagesLoading(false);
     }
@@ -74,6 +83,7 @@ export default function InvoiceDetailScreen() {
 
   const handleSaveEdit = async (updates: { desc: string; qty: number; unitPrice: number; extendedPrice?: number }) => {
     if (!invoice || !editingItem) return;
+    if (demoMode) { setEditingItem(null); sampleOnly(); return; }
     setIsSavingEdit(true);
     try {
       const { subtotal, total, extendedPrice } = await updateLineItem(
@@ -93,7 +103,7 @@ export default function InvoiceDetailScreen() {
       setEditingItem(null);
       showToast('Item updated');
     } catch (err: any) {
-      showToast(err?.message ?? 'Could not update item');
+      showToast(err?.message ?? 'Could not update the item. Please retry.');
     } finally {
       setIsSavingEdit(false);
     }
@@ -101,6 +111,7 @@ export default function InvoiceDetailScreen() {
 
   const handleToggleItemVoid = async (item: LineItem) => {
     if (!invoice) return;
+    if (demoMode) { sampleOnly(); return; }
     const voided = !item.voided;
     setVoidingItemId(item.id);
     try {
@@ -119,8 +130,8 @@ export default function InvoiceDetailScreen() {
         lineItems: invoice.lineItems.map((it) => (it.id === item.id ? { ...it, voided } : it)),
       });
       showToast(voided ? 'Item removed' : 'Item restored');
-    } catch (err: any) {
-      showToast(err?.message ?? 'Could not update item');
+    } catch {
+      showToast('Could not update the item. Please retry.');
     } finally {
       setVoidingItemId(null);
     }
@@ -128,6 +139,7 @@ export default function InvoiceDetailScreen() {
 
   const handleDeleteInvoice = () => {
     if (!invoice) return;
+    if (demoMode) { sampleOnly(); return; }
     Alert.alert(
       `Delete this ${noun}?`,
       `This can't be undone — the ${noun} and its line items will be permanently removed.`,
@@ -140,9 +152,9 @@ export default function InvoiceDetailScreen() {
             setIsDeleting(true);
             try {
               await deleteInvoice(supabase, invoice.id);
-              router.back();
-            } catch (err: any) {
-              showToast(err?.message ?? `Could not delete ${noun}`);
+              goBack();
+            } catch {
+              showToast(`Could not delete this ${noun}. Please retry.`);
               setIsDeleting(false);
             }
           },
@@ -151,11 +163,96 @@ export default function InvoiceDetailScreen() {
     );
   };
 
+  const missingLines = invoice && !isPersonal
+    ? invoice.lineItems.filter((it) => it.verification === 'missing' && !it.voided && it.type !== 'credit' && it.ext > 0)
+    : [];
+  // Lines still owed by the vendor. Once every missing line is credited the
+  // card flips to "Credit received" for the whole set; otherwise it only
+  // counts, requests and closes what's still outstanding.
+  const outstandingLines = missingLines.filter((it) => it.creditStatus !== 'credited');
+  const creditState: CreditStatus | null = missingLines.length === 0 ? null
+    : outstandingLines.length === 0 ? 'credited'
+    : outstandingLines.every((it) => it.creditStatus === 'requested') ? 'requested'
+    : null;
+  const cardLines = creditState === 'credited' ? missingLines : outstandingLines;
+  // Newly marked lines not yet asked about. A request covers only these;
+  // with none left, "Resend request" re-sends everything outstanding.
+  const newLines = outstandingLines.filter((it) => !it.creditStatus);
+  const alreadyRequested = outstandingLines.filter((it) => it.creditStatus === 'requested');
+  const requestLines = newLines.length > 0 ? newLines : outstandingLines;
+
+  const patchLines = (ids: string[], patch: Partial<LineItem>) => {
+    setInvoice((prev) => {
+      if (!prev) return prev;
+      const lineItems = prev.lineItems.map((it) => (ids.includes(it.id) ? { ...it, ...patch } : it));
+      return { ...prev, lineItems, hasMissingItems: lineItems.some((it) => !it.voided && it.verification === 'missing') };
+    });
+  };
+
+  const updateCredit = async (status: CreditStatus | null, ids: string[]) => {
+    if (demoMode) { patchLines(ids, { creditStatus: status ?? undefined }); return true; }
+    try {
+      await setCreditStatus(supabase, ids, status);
+      patchLines(ids, { creditStatus: status ?? undefined });
+      return true;
+    } catch (err: any) {
+      showToast(err?.message ?? 'Could not update the credit. Please retry.');
+      return false;
+    }
+  };
+
+  const handleRequestCredit = async () => {
+    if (!invoice || requestLines.length === 0) return;
+    let sent = false;
+    try {
+      sent = await shareCreditRequest({
+        vendorName: invoice.vendorName,
+        invoiceNumber: invoice.invoiceNumber,
+        date: invoice.date,
+        restaurantName: organization?.name,
+        lines: requestLines.map(({ id, desc, qty, unit, ext }) => ({ id, desc, qty, unit, ext })),
+      });
+    } catch {
+      showToast('Could not open the share sheet');
+      return;
+    }
+    if (!sent) return;
+    const pending = requestLines.map((it) => it.id);
+    setCreditBusy(true);
+    if (await updateCredit('requested', pending)) showToast('Credit request sent — tracking it here');
+    setCreditBusy(false);
+  };
+
+  const handleMarkCredited = async (credited: boolean) => {
+    setCreditBusy(true);
+    // Marking credited closes what's outstanding; undo reopens the whole set.
+    const ids = (credited ? outstandingLines : missingLines).map((it) => it.id);
+    if (await updateCredit(credited ? 'credited' : null, ids)) {
+      showToast(credited ? 'Marked as credited' : 'Credit reopened');
+    }
+    setCreditBusy(false);
+  };
+
+  const handleToggleMissingSaved = async (item: LineItem) => {
+    const missing = item.verification !== 'missing';
+    if (demoMode) {
+      patchLines([item.id], { verification: missing ? 'missing' : 'received', creditStatus: undefined });
+      return;
+    }
+    try {
+      await setLineMissing(supabase, item.id, missing);
+      patchLines([item.id], { verification: missing ? 'missing' : 'received', creditStatus: undefined });
+      showToast(missing ? 'Marked missing' : 'Marked received');
+    } catch (err: any) {
+      showToast(err?.message ?? 'Could not update the item. Please retry.');
+    }
+  };
+
   if (loading || !invoice) {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.header}>
-          <BackButton onPress={() => router.back()} />
+          <BackButton onPress={() => goBack()} />
           <Text style={styles.headerTitle}>
             {loading ? 'Loading…' : loadError ? `Could not load ${noun}` : isPersonal ? 'Receipt not found' : 'Invoice not found'}
           </Text>
@@ -172,23 +269,42 @@ export default function InvoiceDetailScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <BackButton onPress={() => router.back()} />
+        <BackButton onPress={() => goBack()} />
         <EditDetailsButton name={vendorName} subtitle={`${isPersonal ? 'Receipt' : 'Invoice'} #${invoiceNumber || '—'} · ${date || 'Add date'}`} onPress={() => setEditingDetails(true)} />
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity style={styles.imageTile} activeOpacity={0.7} onPress={handleViewOriginal} disabled={imagesLoading}>
-          {imagesLoading ? (
-            <Spinner size={16} />
-          ) : (
-            <Text style={styles.imageLink}>View original {noun} · {invoice.pages} page{invoice.pages !== 1 ? 's' : ''}</Text>
-          )}
-        </TouchableOpacity>
+        {invoice.pages > 0 && (
+          <TouchableOpacity style={styles.imageTile} activeOpacity={0.7} onPress={handleViewOriginal} disabled={imagesLoading}
+            accessibilityRole="button" accessibilityLabel={`View original ${noun}`}>
+            {imagesLoading ? (
+              <Spinner size={16} />
+            ) : (
+              <Text style={styles.imageLink}>View original {noun} · {invoice.pages} page{invoice.pages !== 1 ? 's' : ''}</Text>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {missingLines.length > 0 && (
+          <CreditRequestCard
+            count={cardLines.length}
+            total={creditTotal(cardLines)}
+            status={creditState}
+            newCount={newLines.length}
+            newTotal={creditTotal(newLines)}
+            requestedCount={alreadyRequested.length}
+            busy={creditBusy}
+            onRequest={handleRequestCredit}
+            onMarkCredited={() => handleMarkCredited(true)}
+            onUndoCredited={() => handleMarkCredited(false)}
+          />
+        )}
 
         {lineItems.map((item) => (
           <LineItemDisplay
             key={item.id}
             item={item}
+            onToggleMissingSaved={isPersonal ? undefined : () => handleToggleMissingSaved(item)}
             onEdit={() => setEditingItem(item)}
             onToggleVoid={voidingItemId === item.id ? undefined : () => handleToggleItemVoid(item)}
           />
@@ -199,6 +315,7 @@ export default function InvoiceDetailScreen() {
           onPress={handleDeleteInvoice}
           disabled={isDeleting}
           activeOpacity={0.7}
+          accessibilityRole="button" accessibilityLabel={`Delete this ${noun}`}
         >
           {isDeleting ? (
             <Spinner size={14} color={Colors.danger} />

@@ -32,11 +32,43 @@ export class ExtractionLimitError extends Error {
   readonly code = EXTRACTION_LIMIT_CODE;
   readonly used?: number;
   readonly cap?: number;
-  constructor(message = 'You’ve used all your free extractions this month.', used?: number, cap?: number) {
+  constructor(message = 'You’ve used all your scans this month.', used?: number, cap?: number) {
     super(message);
     this.name = 'ExtractionLimitError';
     this.used = used;
     this.cap = cap;
+  }
+}
+
+// The day the monthly scan allowance resets: the 1st of next month. The server
+// buckets usage by UTC calendar month (extraction_usage.month_start), so the
+// label is formatted in UTC to name the same day the server rolls over.
+export function usageResetLabel(now: Date = new Date()): string {
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  return next.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+
+// Copy for "this workspace has used its monthly allowance". Paid workspaces get
+// a plain reset-date message (there is no higher tier to sell them); free ones
+// get the same fact with the word "free" so the paywall reads in context.
+export function scanLimitMessage(isPaid: boolean, cap: number, now: Date = new Date()): string {
+  return isPaid
+    ? `You’ve used all ${cap} scans this month. Your allowance resets ${usageResetLabel(now)} at 00:00 UTC.`
+    : `You’ve used your ${cap} free scans this month. They reset ${usageResetLabel(now)} at 00:00 UTC.`;
+}
+
+// Thrown when the scan is (or may still be) running server-side: the server
+// says another run holds the job, or the request outlived the client's wait
+// (network drop / timeout) so the outcome is unknown. Callers show "Still
+// reading this one…" and let the inbox refresh resolve the real state, rather
+// than presenting a failure for a scan that may well succeed.
+export const SCAN_IN_PROGRESS_CODE = 'SCAN_IN_PROGRESS';
+
+export class ScanInProgressError extends Error {
+  readonly code = SCAN_IN_PROGRESS_CODE;
+  constructor(message = 'Still reading this one…') {
+    super(message);
+    this.name = 'ScanInProgressError';
   }
 }
 

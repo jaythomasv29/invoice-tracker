@@ -26,7 +26,7 @@ export default function DeliveryGapCard({ total, items, onPressInvoice }: Delive
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.title}>Shorted deliveries</Text>
           <Text style={styles.subtitle} numberOfLines={2}>
-            Paid for, marked missing on arrival — worth a call to the vendor
+            Paid for, never arrived. Open one to request a credit.
           </Text>
         </View>
         <Text style={styles.total}>${money2(total)}</Text>
@@ -39,10 +39,15 @@ export default function DeliveryGapCard({ total, items, onPressInvoice }: Delive
             style={styles.row}
             onPress={() => onPressInvoice(it.invoiceId)}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`${it.itemName}, ${it.vendorName}, ${money2(it.amount)} dollars${it.creditRequested ? ', credit requested' : ''}`}
           >
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.itemName} numberOfLines={1}>{it.itemName}</Text>
-              <Text style={styles.meta} numberOfLines={1}>{it.vendorName} · {it.dateLabel}</Text>
+              <Text style={styles.meta} numberOfLines={1}>
+                {it.vendorName} · {it.dateLabel}
+                {it.creditRequested ? <Text style={styles.requested}> · Credit requested</Text> : null}
+              </Text>
             </View>
             <Text style={styles.amount}>${money2(it.amount)}</Text>
           </TouchableOpacity>
@@ -71,6 +76,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   itemName: { fontSize: 13.5, fontFamily: 'Manrope_700Bold', color: Colors.textPrimary },
   meta: { fontSize: 11, fontFamily: 'Manrope_500Medium', color: Colors.textTertiary, marginTop: 2 },
+  requested: { color: Colors.warning, fontFamily: 'Manrope_700Bold' },
   amount: { fontSize: 13.5, fontFamily: 'Manrope_700Bold', color: Colors.danger },
 
   more: { fontSize: 11.5, fontFamily: 'Manrope_600SemiBold', color: Colors.textTertiary, marginTop: 10, textAlign: 'center' },

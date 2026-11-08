@@ -1,3 +1,4 @@
+import { assertSavedRecordIds } from './recordIdentity';
 import { collectInvoicePages } from './invoicePages';
 import {normalizePurchase,type PurchaseObservation} from '../shared/measurement';
 import { retailHistorySeries } from '../shared/receiptHistory.ts';
@@ -10,7 +11,19 @@ import {
   EXTRACTION_LIMIT_CODE,
   DuplicateInvoiceError,
   DUPLICATE_INVOICE_CODE,
+  ScanInProgressError,
+  SCAN_IN_PROGRESS_CODE,
 } from './entitlements';
+
+// Raw transport/DB text ("Network request failed", PostgREST messages) never
+// reaches the user: callers get calm copy and the detail goes to the console
+// (and Sentry's console breadcrumbs).
+function isNetworkError(message: string | undefined): boolean {
+  return /network|fetch|timed? ?out|offline|internet|connection|abort/i.test(message ?? '');
+}
+function logDetail(where: string, detail: unknown) {
+  console.warn(`[invoicePipeline] ${where}:`, detail);
+}
 
 const CATEGORY_COLORS: Record<string, string> = {
   meat_seafood:'#D77B68', dairy_eggs:'#7B8CCC', bakery:'#BF914F', pantry:'#A58D65', frozen:'#59A5B5', beverages:'#718E58', cleaning:'#8B83C3', toiletries:'#BD7E9F', household:'#6A8C96',
@@ -87,6 +100,7 @@ interface DbLineItem {
   reconciliation_status: string | null;
   line_item_type: string | null;
   note: string | null;
+  credit_status?: string | null;
   voided_at: string | null;
 }
 
@@ -137,6 +151,7 @@ function mapLineItem(row: DbLineItem): LineItem {
     verification: ((row.reconciliation_status === 'short' ? 'missing' : row.reconciliation_status) ??
       'pending') as VerificationStatus,
     note: row.note?.trim() || undefined,
+    creditStatus: row.credit_status === 'requested' || row.credit_status === 'credited' ? row.credit_status : undefined,
     type: (row.line_item_type ?? 'charge') as LineItemType,
     voided: !!row.voided_at,
   };
@@ -175,8 +190,35 @@ export async function createDraftInvoice(supabase: SupabaseClient, organizationI
     .insert({ organization_id: organizationId, status: 'pending', image_urls: [] })
     .select('id')
     .single();
-  if (error || !data) throw new Error(error?.message ?? 'Could not create invoice');
+  if (error || !data) {
+    logDetail('createDraftInvoice', error);
+    throw new Error(isNetworkError(error?.message)
+      ? 'Upload didn’t start — check your connection and try again. Your photos are still here.'
+      : 'Could not start the upload. Please try again.');
+  }
   return data.id as string;
+}
+
+// Best-effort removal of a draft whose photos never finished uploading, so a
+// failed upload doesn't leave a stray "needs attention" row in the inbox. Uses
+// the same guarded RPC as the inbox's Discard (pending drafts only, never one
+// with a running extraction). Failure is silent: the inbox still offers it.
+// With `onlyIfNoPhotos`, a draft whose photos may have attached (the response
+// was lost, not the upload) is left for the inbox instead of being deleted.
+export async function discardDraftInvoice(supabase: SupabaseClient, invoiceId: string, opts?: { onlyIfNoPhotos?: boolean }): Promise<boolean> {
+  try {
+    if (opts?.onlyIfNoPhotos) {
+      const { data, error: readErr } = await supabase.from('invoices').select('image_urls').eq('id', invoiceId).maybeSingle();
+      if (readErr || (data?.image_urls?.length ?? 0) > 0) return false;
+      if (!data) return true;
+    }
+    const { error } = await supabase.rpc('discard_invoice_draft', { p_invoice: invoiceId });
+    if (error) logDetail('discardDraftInvoice', error);
+    return !error;
+  } catch (error) {
+    logDetail('discardDraftInvoice', error);
+    return false;
+  }
 }
 
 // Uploads local capture URIs (camera/image-picker file:// URIs) to the
@@ -191,16 +233,33 @@ export async function uploadInvoiceImages(
   const paths: string[] = [];
   for (let i = 0; i < localUris.length; i++) {
     const path = `${organizationId}/${invoiceId}/${i}.jpg`;
-    const arrayBuffer = await fetch(localUris[i]).then((r) => r.arrayBuffer());
-    const { error } = await supabase.storage
-      .from('invoice-images')
-      .upload(path, arrayBuffer, { contentType: 'image/jpeg', upsert: true });
-    if (error) throw new Error(`Could not upload image ${i + 1}: ${error.message}`);
+    let message: string | undefined;
+    try {
+      const arrayBuffer = await fetch(localUris[i]).then((r) => r.arrayBuffer());
+      const { error } = await supabase.storage
+        .from('invoice-images')
+        .upload(path, arrayBuffer, { contentType: 'image/jpeg', upsert: true });
+      message = error?.message;
+      if (error) logDetail(`upload page ${i + 1}`, error);
+    } catch (error) {
+      message = (error as Error)?.message ?? 'network';
+      logDetail(`upload page ${i + 1}`, error);
+    }
+    if (message) {
+      throw new Error(isNetworkError(message)
+        ? 'Upload didn’t finish — check your connection and try again. Your photos are still here.'
+        : `Photo ${i + 1} couldn’t be uploaded. Please try again.`);
+    }
     paths.push(path);
   }
 
   const { error: attachErr } = await supabase.from('invoices').update({ image_urls: paths }).eq('id', invoiceId);
-  if (attachErr) throw new Error(`Could not attach images to invoice: ${attachErr.message}`);
+  if (attachErr) {
+    logDetail('attach images', attachErr);
+    throw new Error(isNetworkError(attachErr.message)
+      ? 'Upload didn’t finish — check your connection and try again. Your photos are still here.'
+      : 'Could not finish the upload. Please try again.');
+  }
 
   return paths;
 }
@@ -210,8 +269,10 @@ export async function extractInvoice(
   invoiceId: string,
   opts?: { skipDuplicateCheck?: boolean }
 ): Promise<Invoice> {
+  // Must outlast the server's worst case (Haiku pre-check ≤20s + Sonnet ≤140s
+  // + image download/commit) so a still-running scan isn't reported as failed.
   const { data, error } = await supabase.functions.invoke('extract-invoice', {
-    timeout: 180000,
+    timeout: 240000,
     body: { invoiceId, skipDuplicateCheck: opts?.skipDuplicateCheck },
   });
   if (error) {
@@ -232,13 +293,22 @@ export async function extractInvoice(
           total?: number | null;
         }
       | undefined;
+    const isHttpResponse = typeof (context as Response | undefined)?.text === 'function';
     try {
-      const raw = await context?.text();
+      const raw = isHttpResponse ? await context?.text() : undefined;
       body = raw ? JSON.parse(raw) : undefined;
     } catch {
-      // context wasn't JSON (network-level failure, not our function's own
+      // context wasn't JSON (gateway/relay failure, not our function's own
       // error response) — fall back to the generic message below.
     }
+    logDetail('extract-invoice', body?.error ?? error.message);
+    // Request never got a definite answer (timeout, dropped connection, relay
+    // or gateway failure): the scan may still be running server-side. Let the
+    // inbox refresh decide instead of declaring it failed.
+    if (!isHttpResponse || (!body?.error && (context as Response).status >= 500)) {
+      throw new ScanInProgressError();
+    }
+    if (body?.code === SCAN_IN_PROGRESS_CODE) throw new ScanInProgressError();
     // Free-tier cap hit: throw a typed error so the caller opens the paywall.
     if (body?.code === EXTRACTION_LIMIT_CODE) {
       throw new ExtractionLimitError(body.error, body.used, body.cap);
@@ -255,7 +325,7 @@ export async function extractInvoice(
         body.canOverride !== false
       );
     }
-    throw new Error(body?.error ?? error.message ?? 'Extraction failed');
+    throw new Error(body?.error ?? 'Smart Sift couldn’t read this scan. Please retry.');
   }
   if (data?.error) throw new Error(data.error);
   return mapInvoice(data.invoice, data.lineItems);
@@ -271,6 +341,7 @@ export async function updateLineItem(
   lineItemId: string,
   updates: { desc: string; qty: number; unitPrice: number; extendedPrice?: number },
 ): Promise<{ subtotal: number; total: number; extendedPrice: number }> {
+  assertSavedRecordIds(invoiceId, lineItemId);
   const extendedPrice = validatedLineTotal(updates.qty, updates.unitPrice, updates.extendedPrice);
   const { data, error } = await supabase.rpc('edit_invoice_line', {
     p_invoice: invoiceId, p_line: lineItemId, p_description: updates.desc,
@@ -293,11 +364,12 @@ export async function setLineItemVoided(
   activeLineItemsTotal: number,
   tax: number
 ): Promise<{ subtotal: number; total: number }> {
+  assertSavedRecordIds(invoiceId, lineItemId);
   const { error: lineItemErr } = await supabase
     .from('invoice_line_items')
     .update({ voided_at: voided ? new Date().toISOString() : null })
     .eq('id', lineItemId);
-  if (lineItemErr) throw new Error(`Could not ${voided ? 'void' : 'restore'} item: ${lineItemErr.message}`);
+  if (lineItemErr) { logDetail('void line', lineItemErr); throw new Error(`Could not ${voided ? 'remove' : 'restore'} this item. Please try again.`); }
 
   const subtotal = Math.round(activeLineItemsTotal * 100) / 100;
   const total = Math.round((subtotal + tax) * 100) / 100;
@@ -306,7 +378,7 @@ export async function setLineItemVoided(
     .from('invoices')
     .update({ subtotal, total })
     .eq('id', invoiceId);
-  if (invoiceErr) throw new Error(`Could not update invoice totals: ${invoiceErr.message}`);
+  if (invoiceErr) { logDetail('update totals', invoiceErr); throw new Error('Could not update the totals. Please try again.'); }
 
   return { subtotal, total };
 }
@@ -315,8 +387,9 @@ export async function setLineItemVoided(
 // reversible. Cascades to invoice_line_items and delivery_disputes via
 // their FKs, so there's nothing else to clean up here.
 export async function deleteInvoice(supabase: SupabaseClient, invoiceId: string): Promise<void> {
+  assertSavedRecordIds(invoiceId);
   const { error } = await supabase.from('invoices').delete().eq('id', invoiceId);
-  if (error) throw new Error(`Could not delete invoice: ${error.message}`);
+  if (error) { logDetail('deleteInvoice', error); throw new Error('Could not delete this. Please try again.'); }
 }
 
 export async function fetchInvoiceById(
@@ -330,14 +403,19 @@ export async function fetchInvoiceById(
     .eq('id', invoiceId)
     .eq('organization_id', organizationId)
     .single();
-  if (error || !invoice) throw new Error(error?.message ?? 'Invoice not found');
+  if (error || !invoice) {
+    logDetail('fetchInvoiceById', error);
+    throw new Error(isNetworkError(error?.message)
+      ? 'Couldn’t load this — check your connection and try again.'
+      : 'This scan is no longer available. It may have been discarded.');
+  }
 
   const { data: lineItems, error: lineItemsErr } = await supabase
     .from('invoice_line_items')
     .select('*')
     .eq('invoice_id', invoiceId)
     .order('created_at', { ascending: true });
-  if (lineItemsErr) throw new Error(lineItemsErr.message);
+  if (lineItemsErr) { logDetail('fetch line items', lineItemsErr); throw new Error('Couldn’t load the items. Please try again.'); }
 
   return mapInvoice(invoice, lineItems ?? []);
 }
@@ -377,7 +455,7 @@ export async function fetchInvoiceImageUrls(
     .eq('id', invoiceId)
     .eq('organization_id', organizationId)
     .single();
-  if (error || !invoice) throw new Error(error?.message ?? 'Invoice not found');
+  if (error || !invoice) { logDetail('fetchInvoiceImageUrls', error); throw new Error('Couldn’t load the photos. Please try again.'); }
 
   const paths: string[] = invoice.image_urls ?? [];
   const signed = await Promise.all(
@@ -385,7 +463,7 @@ export async function fetchInvoiceImageUrls(
       const { data, error: signErr } = await supabase.storage
         .from('invoice-images')
         .createSignedUrl(path, 300);
-      if (signErr || !data) throw new Error(signErr?.message ?? `Could not sign ${path}`);
+      if (signErr || !data) { logDetail('sign image', signErr); throw new Error('Couldn’t load the photos. Please try again.'); }
       return data.signedUrl;
     })
   );
@@ -452,6 +530,7 @@ export async function fetchItemPriceHistory(
 }
 
 export async function updateInvoiceDetails(supabase: SupabaseClient, invoiceId: string, details: import('./invoiceDetails').InvoiceDetails): Promise<string> {
+  assertSavedRecordIds(invoiceId);
   const { data, error } = await supabase.rpc('edit_invoice_details', { p_invoice: invoiceId, p_vendor_name: details.vendorName, p_number: details.invoiceNumber, p_date: details.dateIso, p_subtotal: details.subtotal, p_tax: details.tax, p_total: details.total });
   if (error || !data) throw new Error('Could not save invoice details. Please retry.');
   return data as string;

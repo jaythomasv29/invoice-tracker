@@ -1,5 +1,11 @@
 # Sift standalone iPhone beta checklist
 
+## Current production candidate — November 7, 2026
+
+Install **1.0.0 (9)** through TestFlight for the current production candidate. Build 7 remains on the beta update channel; force-quitting build 7 does not install this new binary. Build 9 uses the production update channel but predates the local reliability fixes documented in `RELIABILITY_PHASE_1.md`.
+
+Simulator QA verified both real StoreKit prices and the Personal empty-restore response; actual purchase completion was blocked by Apple sandbox authentication. See `STOREKIT_QA_2026-11-07.md`. Before public submission, purchase each plan, switch workspaces, and Restore Purchases without losing either plan. Verify cancellation preserves the correct paid-through access. Recheck scan/import, the Scan inbox while processing, correcting invoice details, saved spending totals and reopening the app with existing records. Report these physical-phone results; the build and static checks do not establish them.
+
 Install the newest Sift build from TestFlight using the invited Apple account. This beta uses live authentication; earlier development accounts/data are separate. Internet is required. No computer, local server or Expo Go is required.
 
 1. Quit Expo/Metro and turn the computer off. Open Sift from the phone home screen.

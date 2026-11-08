@@ -1,0 +1,174 @@
+{
+  "verifiedAt": "2026-11-08T01:11:17.575Z",
+  "appId": "6797084602",
+  "version": "1.0.0",
+  "draftState": "READY_FOR_REVIEW",
+  "releaseType": "MANUAL",
+  "build": "9",
+  "buildId": "8bc54d86-74ea-4c92-a3ff-7914c8a455dd",
+  "buildProcessingState": "VALID",
+  "releaseCandidate": {
+    "easBuildId": "fbf7989f-e5f6-47ba-8f0c-d24eb96db255",
+    "buildNumber": "9",
+    "profile": "production",
+    "channel": "production",
+    "easStatus": "FINISHED",
+    "submissionId": "551b13d5-bcec-49ff-b95d-4a4342536bec",
+    "ipaValidation": {
+      "CFBundleIdentifier": "com.siftcosts.app",
+      "CFBundleShortVersionString": "1.0.0",
+      "CFBundleVersion": "9",
+      "MinimumOSVersion": "16.4",
+      "DTSDKName": "iphoneos26.5",
+      "NSCameraUsageDescription": "Sift needs camera access to scan your grocery receipts and supplier invoices.",
+      "NSPhotoLibraryUsageDescription": "Sift needs photo library access to import grocery receipts and supplier invoices.",
+      "NSMicrophoneUsageDescription": null,
+      "NSLocalNetworkUsageDescription": null,
+      "ITSAppUsesNonExemptEncryption": false,
+      "updateChannel": "production",
+      "updatesEnabled": true,
+      "runtimeVersion": "file:fingerprint",
+      "resolvedRuntimeVersion": "729f27119bd3cfa3fced19a2923c7042c1bc0aa1",
+      "embeddedBundleBytes": 7670824,
+      "ipaSha256": "7e9901ba0f04951e9e8c9384afb2e87ec3fb9c84f9cae303c0d9748cf4c39339",
+      "productionClerkKeyPresent": true,
+      "developmentClerkKeyAbsent": true,
+      "checkedServerSecretsAbsent": true,
+      "captureBootstrapRouteAbsent": true
+    },
+    "appleBuildId": "8bc54d86-74ea-4c92-a3ff-7914c8a455dd",
+    "internalBuildState": "IN_BETA_TESTING",
+    "existingInternalGroupAccessVerified": true,
+    "previousBuildAttempt": {
+      "id": "18eb2959-a923-4046-83b0-795e949ebc84",
+      "buildNumber": "8",
+      "status": "ERRORED",
+      "reason": "Production source-map upload setting omitted; production profile now matches the existing TestFlight SENTRY_DISABLE_AUTO_UPLOAD setting."
+    }
+  },
+  "media": {
+    "receipt": "launch-assets/app-store-upload-status-v2.json",
+    "screenshots": 16,
+    "allScreenshotsComplete": true,
+    "previewPlacements": 2,
+    "allPreviewsComplete": true,
+    "creative": [
+      {
+        "file": "creative/product-page-header-3840x1646.png",
+        "state": "READY_FOR_REVIEW"
+      },
+      {
+        "file": "creative/v2/search-results-3840x2560.png",
+        "state": "READY_FOR_REVIEW"
+      }
+    ]
+  },
+  "metadata": {
+    "smartSiftPromotionalText": true,
+    "supportUrl": "https://siftcosts.com/support",
+    "marketingUrl": "https://siftcosts.com",
+    "descriptionIncludesTerms": true,
+    "reviewerCredentialsPresent": true,
+    "reviewContactComplete": true,
+    "descriptionIncludesAppleEula": true
+  },
+  "subscriptions": [
+    {
+      "id": "6830937359",
+      "productId": "sift_personal_pro_monthly",
+      "state": "READY_TO_SUBMIT",
+      "monthlyUsd": "4.99",
+      "multiSeatStatus": "DISABLED",
+      "marketSettings": [
+        "APP_STORE"
+      ],
+      "reviewScreenshot": {
+        "id": "ee12e647-c470-4764-9d7f-d991d730c0ac",
+        "state": "COMPLETE"
+      }
+    },
+    {
+      "id": "6829616203",
+      "productId": "sift_pro_monthly",
+      "state": "READY_TO_SUBMIT",
+      "monthlyUsd": "9.99",
+      "multiSeatStatus": "DISABLED",
+      "marketSettings": [
+        "APP_STORE"
+      ],
+      "reviewScreenshot": {
+        "id": "471106f9-1027-47c7-8ba1-0e572b3b2d8c",
+        "state": "COMPLETE"
+      }
+    }
+  ],
+  "contentRightsDeclaration": "DOES_NOT_USE_THIRD_PARTY_CONTENT",
+  "subscriptionNotifications": {
+    "productionConfigured": true,
+    "sandboxConfigured": true,
+    "blocker": null,
+    "productionVersion": "V2",
+    "sandboxVersion": "V2",
+    "sandboxTestDelivery": "SUCCESS (Apple App Store Server API confirmed)",
+    "productionTestRequest": "HTTP 401; delivery not verified"
+  },
+  "privacy": {
+    "policyUrl": "https://siftcosts.com/privacy",
+    "publishedVerifiedInBrowser": true,
+    "dataTypes": 15,
+    "tracking": false
+  },
+  "publicUrls": {
+    "support": 200,
+    "privacy": 200,
+    "terms": 200
+  },
+  "checks": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "tests": 83,
+    "releaseConfig": "passed",
+    "targetedBillingNodeTests": 12,
+    "denoBillingTests": 6
+  },
+  "ownerConfirmations": {
+    "contentRights": "confirmed by owner: only original content and private user uploads",
+    "dualPlanPurchaseAndRestore": "owner requested agent testing; in progress"
+  },
+  "publicReviewSubmitted": false,
+  "publicReleasePerformed": false,
+  "reviewSubmission": {
+    "id": "35ad03ed-59b6-4936-afe4-878f81f9145c",
+    "state": "READY_FOR_REVIEW",
+    "submittedDate": null,
+    "itemCount": 5,
+    "items": [
+      {
+        "id": "MzVhZDAzZWQtNTliNi00OTM2LWFmZTQtODc4ZjgxZjkxNDVjfDE4fDIyMTRjYjk0LWU1YWQtNDk3ZS04NGEwLTVjNGVhZWQ2ODEwMQ",
+        "state": "READY_FOR_REVIEW",
+        "resources": {}
+      },
+      {
+        "id": "MzVhZDAzZWQtNTliNi00OTM2LWFmZTQtODc4ZjgxZjkxNDVjfDE4fDU3ZWQyODJlLTczNDMtNGViYy05MTlhLTQzZjM3OGZjN2M4Yw",
+        "state": "READY_FOR_REVIEW",
+        "resources": {}
+      },
+      {
+        "id": "MzVhZDAzZWQtNTliNi00OTM2LWFmZTQtODc4ZjgxZjkxNDVjfDE5fDg2ODIzMzdiLWEwYzQtNDNlZC05NzJlLWQ0YTBkYTlkMDMxZQ",
+        "state": "READY_FOR_REVIEW",
+        "resources": {}
+      },
+      {
+        "id": "MzVhZDAzZWQtNTliNi00OTM2LWFmZTQtODc4ZjgxZjkxNDVjfDE5fDFiZTEwOTlmLTE0YWMtNGFmNi05OWM5LTZmNDA4ZjEyZTJiMg",
+        "state": "READY_FOR_REVIEW",
+        "resources": {}
+      },
+      {
+        "id": "MzVhZDAzZWQtNTliNi00OTM2LWFmZTQtODc4ZjgxZjkxNDVjfDZ8ODg5MTc3ODcz",
+        "state": "READY_FOR_REVIEW",
+        "resources": {}
+      }
+    ],
+    "appVersionAdded": false
+  }
+}

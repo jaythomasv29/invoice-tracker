@@ -21,11 +21,14 @@ import { useSupabase } from "../../lib/supabase";
 import { fetchProduct, updateProduct } from "../../lib/products";
 import { normalizePurchase } from "../../shared/measurement";
 import { money2 } from '../../lib/money';
+import { useWorkspace } from '../../lib/workspaceContext';
+import { formatDate, localDateFromTimestamp } from '../../lib/invoicePipeline';
 import DemoUnavailable, { useDemoMode } from '../../components/tour/DemoUnavailable';
 function ProductDetailInner() {
   const { id } = useLocalSearchParams<{ id: string }>(),
     db = useSupabase(),
     router = useRouter();
+  const { isPersonal } = useWorkspace();
   const [data, setData] = useState<Awaited<
       ReturnType<typeof fetchProduct>
     > | null>(null),
@@ -96,7 +99,7 @@ function ProductDetailInner() {
   return (
     <Screen style={ui.safe} edges={["top", "bottom"]}>
       <View style={ui.header}>
-        <BackButton onPress={() => router.back()} />
+        <BackButton onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))} />
         <Text style={ui.title}>Product details</Text>
       </View>
       <KeyboardAvoidingView
@@ -195,11 +198,13 @@ function ProductDetailInner() {
                 data.observations.map((row) => (
                   <View key={row.id} style={ui.card}>
                     <Text style={ui.name}>
-                      {row.invoices.vendors?.name || "Supplier"}
+                      {row.invoices.vendors?.name || (isPersonal ? "Store" : "Supplier")}
                     </Text>
                     <Text style={ui.hint}>
-                      {row.invoices.invoice_date ||
-                        row.invoices.created_at.slice(0, 10)}
+                      {formatDate(
+                        row.invoices.invoice_date ||
+                          localDateFromTimestamp(row.invoices.created_at),
+                      )}
                       {!row.invoices.invoice_date ? " · upload date" : ""}
                       {"\n"}
                       {row.raw_description}

@@ -13,6 +13,11 @@ import { fetchItemPriceHistory, ItemPricePoint } from '../lib/invoicePipeline';
 import BackButton from '../components/ui/BackButton';
 import Spinner from '../components/ui/Spinner';
 import DemoUnavailable, { useDemoMode } from '../components/tour/DemoUnavailable';
+import { money2 } from '../lib/money';
+
+// Personal per-unit prices (per oz, per count) are often fractions of a cent
+// apart, so sub-$1 values keep four decimals there.
+const unitMoney = (n: number, isPersonal: boolean) => (isPersonal && Math.abs(n) < 1 ? n.toFixed(4) : money2(n));
 
 const CHART_H = 130;
 const CHART_PAD_X = 14;
@@ -67,7 +72,7 @@ function ItemHistoryScreenInner() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <BackButton onPress={() => router.back()} />
+        <BackButton onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.title} numberOfLines={1}>{itemName}</Text>
           {!!vendorId && points[0] && <Text style={styles.subtitle} numberOfLines={1}>{points[0].vendorName}</Text>}
@@ -93,7 +98,7 @@ function ItemHistoryScreenInner() {
             <View style={styles.chartHeaderRow}>
               <View>
                 <Text style={styles.chartLabel}>Latest unit price</Text>
-                <Text style={styles.chartPrice}>${latest.unitPrice.toFixed(isPersonal?4:2)}/{latest.unit}</Text>
+                <Text style={styles.chartPrice}>${unitMoney(latest.unitPrice,isPersonal)}/{latest.unit}</Text>
               </View>
               {points.length > 1 && (
                 <View style={[styles.changePill, changePct > 0 ? styles.changePillUp : styles.changePillDown]}>
@@ -135,7 +140,7 @@ function ItemHistoryScreenInner() {
                   <Text style={styles.rowVendor} numberOfLines={1}>{p.vendorName}</Text>
                   <Text style={styles.rowDate}>{p.dateLabel}</Text>
                 </View>
-                <Text style={styles.rowPrice}>${p.unitPrice.toFixed(isPersonal?4:2)}/{p.unit}</Text>
+                <Text style={styles.rowPrice}>${unitMoney(p.unitPrice,isPersonal)}/{p.unit}</Text>
               </View>
             ))}
           </View>

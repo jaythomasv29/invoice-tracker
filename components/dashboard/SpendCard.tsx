@@ -55,7 +55,7 @@ export default function SpendCard({
             <Text style={styles.spendLabel}>{spendPeriodLabel(period, yearsBack)}</Text>
             {isLoading && <Spinner size={12} color={Colors.textSecondary} />}
           </View>
-          <AnimatedNumber value={periodTotal} format={n=>`$${Math.round(n).toLocaleString()}`} contextKey={`${period}:${yearsBack}`} ready={!isLoading} style={styles.spendAmount} />
+          <AnimatedNumber value={periodTotal} format={n=>`$${Math.round(n).toLocaleString('en-US')}`} contextKey={`${period}:${yearsBack}`} ready={!isLoading} style={styles.spendAmount} />
           {compare && periodPctChange === null && (
             <View style={styles.spendChange}>
               <Text style={styles.spendChangeLabel}>Nothing earlier to compare yet</Text>
@@ -90,7 +90,7 @@ export default function SpendCard({
           {selData.breakdown.map((b, i) => (
             <View key={i} style={styles.breakdownRow}>
               <Text style={styles.breakdownName} numberOfLines={1}>{b.name}</Text>
-              <Text style={styles.breakdownAmt}>${Math.round(b.amount).toLocaleString()}</Text>
+              <Text style={styles.breakdownAmt}>${Math.round(b.amount).toLocaleString('en-US')}</Text>
             </View>
           ))}
         </View>

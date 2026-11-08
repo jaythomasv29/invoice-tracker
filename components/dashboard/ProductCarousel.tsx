@@ -40,6 +40,7 @@ import PurchaseHistorySheet, {
   displayPurchaseDate,
 } from "../products/PurchaseHistorySheet";
 import Spinner from "../ui/Spinner";
+import { localDay } from "../../lib/spendSummary";
 
 function demoCatalog() {
   const map = new Map<string, PurchaseObservation[]>();
@@ -238,6 +239,7 @@ export default function ProductCarousel({
           <Touch
             style={[s.segment, active === 0 && s.selected]}
             onPress={() => select(0)}
+            accessibilityRole="tab"
             accessibilityState={{ selected: active === 0 }}
           >
             <Text style={[s.segmentText, active === 0 && s.selectedText]}>
@@ -247,6 +249,7 @@ export default function ProductCarousel({
           <Touch
             style={[s.segment, active > 0 && s.selected]}
             onPress={() => select(active || 1)}
+            accessibilityRole="tab"
             accessibilityState={{ selected: active > 0 }}
           >
             <Text style={[s.segmentText, active > 0 && s.selectedText]}>
@@ -255,25 +258,33 @@ export default function ProductCarousel({
           </Touch>
         </View>
         <View style={s.arrows}>
+          {/* Page arrows are outlined circles so they never read as the
+              hero's plain month/week arrows a few points below. */}
           <Touch
             style={s.arrow}
             onPress={() => select(active - 1)}
             disabled={active === 0}
-            accessibilityLabel="Previous panel"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: active === 0 }}
+            accessibilityLabel="Previous card"
           >
-            <Text style={[s.arrowText, active === 0 && s.disabled]}>‹</Text>
+            <View style={[s.arrowRing, active === 0 && s.disabled]}>
+              <Text style={s.arrowText}>‹</Text>
+            </View>
           </Touch>
           <Touch
             style={s.arrow}
             onPress={() => select(active + 1)}
             disabled={active === pages.length - 1}
-            accessibilityLabel="Next panel"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: active === pages.length - 1 }}
+            accessibilityLabel="Next card"
           >
-            <Text
-              style={[s.arrowText, active === pages.length - 1 && s.disabled]}
+            <View
+              style={[s.arrowRing, active === pages.length - 1 && s.disabled]}
             >
-              ›
-            </Text>
+              <Text style={s.arrowText}>›</Text>
+            </View>
           </Touch>
         </View>
       </View>
@@ -477,6 +488,7 @@ function ProductPage({
   const db = useSupabase(),
     router = useRouter();
   const { isPaid } = useEntitlement();
+  const { isPersonal } = useWorkspace();
   const [history, setHistory] = useState<PurchaseObservation[]>(
       demoHistory ?? cache.get(row.key) ?? [],
     ),
@@ -568,14 +580,14 @@ function ProductPage({
         </Text>
       </View>
       <Text style={s.title}>{p.clean_name || p.raw_description}</Text>
-      <Text style={s.body}>{p.invoices.vendors?.name ?? "Supplier"}</Text>
+      <Text style={s.body}>{p.invoices.vendors?.name ?? (isPersonal ? "Store" : "Supplier")}</Text>
       <View style={s.detail}>
         <Text style={s.note}>Last recorded purchase</Text>
         <Text style={s.detailValue}>
           {displayPurchaseDate(p.invoices.invoice_date)}
         </Text>
         {p.invoices.invoice_date &&
-          p.invoices.invoice_date > new Date().toISOString().slice(0, 10) && (
+          p.invoices.invoice_date > localDay(new Date()) && (
             <Text style={s.note}>
               Future-dated record · excluded from timing evidence.
             </Text>
@@ -725,7 +737,17 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  arrowText: { fontSize: 28, color: Colors.heroText },
+  arrowRing: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(196,215,205,0.4)",
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  arrowText: { fontSize: 20, lineHeight: 22, color: Colors.heroText },
   disabled: { opacity: 0.3 },
   footer: {
     paddingHorizontal: 24,

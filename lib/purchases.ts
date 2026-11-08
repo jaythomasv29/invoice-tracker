@@ -150,6 +150,11 @@ export async function purchaseTier(pkg: PurchasesPackage, orgId: string, type: A
     identifiedOrg = orgId;
     if (!identified) throw new Error('Could not verify restaurant identity.');
     if (identifiedOrg !== orgId) throw new Error('Restaurant changed. Please retry.');
+    // A reopened paywall can outlive backend activation. Reuse the confirmed
+    // store entitlement instead of presenting a second purchase sheet.
+    if (planFromCustomerInfo(identified, type) === 'pro' && pkg.product.identifier === WORKSPACE_PLANS[type].product) {
+      return { plan: 'pro', cancelled: false };
+    }
     const { customerInfo } = await Purchases.purchasePackage(pkg);
     return { plan: planFromCustomerInfo(customerInfo,type), cancelled: false };
   } catch (e: any) {

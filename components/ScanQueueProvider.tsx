@@ -15,7 +15,16 @@ import { extractInvoice, fetchInvoiceById } from "../lib/invoicePipeline";
 import {
   DuplicateInvoiceError,
   ExtractionLimitError,
+  ScanInProgressError,
 } from "../lib/entitlements";
+import { notifyExtractionUsageChanged } from "../hooks/useExtractionUsage";
+import {
+  duplicateFromOutcome,
+  loadScanOutcomes,
+  outcomeFromDuplicate,
+  pruneScanOutcomes,
+  saveScanOutcome,
+} from "../lib/scanOutcomes";
 import {
   processUploadedInvoice,
   recoveredScanPhase,
@@ -45,7 +54,8 @@ const Context = createContext<Queue>({
 export const useScanQueue = () => useContext(Context);
 export function ScanQueueProvider({ children }: { children: ReactNode }) {
   const db = useSupabase();
-  const { organization } = useWorkspace();
+  const { organization, isPersonal } = useWorkspace();
+  const noun = isPersonal ? "receipt" : "invoice";
   const scope = useStore((s) => s.activeScope),
     demo = useStore((s) => s.demoMode);
   const [tasks, setTasks] = useState<ScanTask[]>([]);
@@ -62,8 +72,12 @@ export function ScanQueueProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     if (!organization?.id || demo || refreshing.current) return;
     refreshing.current = true;
+    const org = organization.id;
     try {
       const incoming: ScanTask[] = [];
+      // Duplicate / limit outcomes saved before a relaunch (the server keeps
+      // only "failed"), so the scan still offers its real choices.
+      const stored = await loadScanOutcomes(org);
       for (let offset = 0; ; offset += 100) {
         const { data, error } = await db.rpc("invoice_scan_inbox", {
           p_limit: 100,
@@ -72,6 +86,25 @@ export function ScanQueueProvider({ children }: { children: ReactNode }) {
         if (error) throw error;
         for (const row of data ?? []) {
           const phase = recoveredScanPhase(row.status, row.job_status);
+          const saved = phase === "retry" ? stored[row.id] : undefined;
+          if (saved) {
+            incoming.push({
+              id: row.id,
+              vendorName: row.vendor_name || "New scan",
+              uploadReady: row.upload_ready,
+              phase: saved.kind,
+              step:
+                saved.kind === "duplicate"
+                  ? "Possible duplicate"
+                  : "Plan limit reached",
+              error: saved.message,
+              duplicate:
+                saved.kind === "duplicate"
+                  ? duplicateFromOutcome(saved)
+                  : undefined,
+            });
+            continue;
+          }
           incoming.push({
             id: row.id,
             vendorName: row.vendor_name || "New scan",
@@ -81,11 +114,11 @@ export function ScanQueueProvider({ children }: { children: ReactNode }) {
               phase === "ready"
                 ? "Ready to review"
                 : row.phase === "reading" && phase === "processing"
-                  ? "Reading invoice details"
+                  ? `Reading ${noun} details`
                   : row.phase === "saving" && phase === "processing"
                     ? "Preparing your review"
                     : phase === "processing"
-                      ? "Checking invoice"
+                      ? `Checking ${noun}`
                       : "Scan needs attention",
           });
         }
@@ -96,6 +129,15 @@ export function ScanQueueProvider({ children }: { children: ReactNode }) {
         useStore.getState().activeScope !== scope
       )
         return;
+      // Forget outcomes for scans that finished, were retried elsewhere, or
+      // left the inbox (saved/discarded).
+      const actionable = new Set(
+        incoming.filter((t) => t.phase !== "ready" && t.phase !== "processing").map((t) => t.id),
+      );
+      void pruneScanOutcomes(
+        org,
+        (id) => actionable.has(id) || running.current.has(id),
+      );
       setError("");
       setTasks((previous) => [
         ...incoming.map((task) => {
@@ -132,7 +174,7 @@ export function ScanQueueProvider({ children }: { children: ReactNode }) {
     } finally {
       refreshing.current = false;
     }
-  }, [db, organization?.id, scope, demo]);
+  }, [db, organization?.id, scope, demo, noun]);
   useEffect(() => {
     void refresh();
     const timer = setInterval(() => {
@@ -159,12 +201,14 @@ export function ScanQueueProvider({ children }: { children: ReactNode }) {
       captured = scope,
       currentRunning = running.current;
     currentRunning.add(id);
+    // A fresh attempt supersedes any saved duplicate/limit outcome.
+    void pruneScanOutcomes(org, (other) => other !== id);
     setTasks((old) => [
       {
         id,
         vendorName: old.find((t) => t.id === id)?.vendorName ?? "New scan",
         phase: "processing",
-        step: "Checking invoice",
+        step: `Checking ${noun}`,
       },
       ...old.filter((t) => t.id !== id),
     ]);
@@ -174,10 +218,10 @@ export function ScanQueueProvider({ children }: { children: ReactNode }) {
           p_invoice: id,
         });
         if (error) throw new Error("Could not start this scan. Please retry.");
-        if (!allowed)
-          throw new Error(
-            "This scan is already processing or ready. Refresh its status before retrying.",
-          );
+        // Already running (or already finished): not a failure. The
+        // recover step below picks up a finished scan; otherwise the inbox
+        // shows "Still reading this one…" until the refresh resolves it.
+        if (!allowed) throw new ScanInProgressError();
         return extractInvoice(db, id, { skipDuplicateCheck });
       },
       async () => {
@@ -206,6 +250,7 @@ export function ScanQueueProvider({ children }: { children: ReactNode }) {
           ),
         );
         useStore.getState().showToast("Your scan is ready to review");
+        notifyExtractionUsageChanged();
       })
       .catch((error: unknown) => {
         if (
@@ -213,8 +258,29 @@ export function ScanQueueProvider({ children }: { children: ReactNode }) {
           useStore.getState().activeScope !== captured
         )
           return;
+        if (error instanceof ScanInProgressError) {
+          setTasks((old) =>
+            old.map((t) =>
+              t.id === id
+                ? {
+                    ...t,
+                    phase: "processing",
+                    step: "Still reading this one…",
+                    error: undefined,
+                    duplicate: undefined,
+                  }
+                : t,
+            ),
+          );
+          return;
+        }
         const duplicate =
           error instanceof DuplicateInvoiceError ? error : undefined;
+        if (duplicate) void saveScanOutcome(org, id, outcomeFromDuplicate(duplicate));
+        else if (error instanceof ExtractionLimitError) {
+          void saveScanOutcome(org, id, { kind: "limit", message: error.message });
+          notifyExtractionUsageChanged();
+        }
         const phase = duplicate
           ? "duplicate"
           : error instanceof ExtractionLimitError

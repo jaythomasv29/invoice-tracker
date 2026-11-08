@@ -9,11 +9,12 @@ export type InvoiceDetails = {
 export function validateInvoiceDetails(
   details: InvoiceDetails,
   today: string,
+  isPersonal = false,
 ): string | null {
   if (!details.vendorName.trim() || details.vendorName.trim().length > 200)
-    return "Enter a vendor name (up to 200 characters).";
+    return `Enter a ${isPersonal ? "store" : "vendor"} name (up to 200 characters).`;
   if (details.invoiceNumber.length > 200)
-    return "Invoice numbers can contain up to 200 characters.";
+    return `${isPersonal ? "Receipt" : "Invoice"} numbers can contain up to 200 characters.`;
   if (details.dateIso) {
     const d = new Date(`${details.dateIso}T12:00:00Z`);
     if (

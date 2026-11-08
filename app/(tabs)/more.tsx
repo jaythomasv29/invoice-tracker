@@ -1,7 +1,10 @@
+import { clearOwnerCaptureDrafts } from '../../lib/captureDrafts';
 import { Design } from '../../constants/Design';
 import { useWorkspace } from '../../lib/workspaceContext';
 import TouchableOpacity from '../../components/ui/MotionTouchable';
-import { ensureAiConsent, withdrawAiConsent } from '../../lib/aiConsent';
+import { AI_CONSENT_VERSION, ensureAiConsent, withdrawAiConsent } from '../../lib/aiConsent';
+import Constants from 'expo-constants';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { syncSubscription } from '../../lib/subscriptionSync';
 import { useState, useCallback, useRef } from 'react';
 import { subscriptionStatusText } from '../../lib/subscriptionStatus';
@@ -23,6 +26,14 @@ import { PRIVACY_POLICY_URL, openLegalUrl } from '../../constants/legal';
 import Toast from '../../components/ui/Toast';
 import { useTour } from '../../components/tour/TourProvider';
 
+// From app.json (via expo-constants), so the label tracks real releases.
+function appVersionLabel(): string {
+  const version = Constants.expoConfig?.version;
+  const build = Constants.expoConfig?.ios?.buildNumber;
+  if (!version) return 'Sift';
+  return `Sift v${version}${build ? ` (${build})` : ''}`;
+}
+
 export default function MoreScreen() {
   const router = useRouter();
   const supabase = useSupabase();
@@ -35,6 +46,19 @@ export default function MoreScreen() {
   const { start: startTour } = useTour();
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const insets = useSafeAreaInsets();
+  // One Smart Sift row that states the current permission, instead of always
+  // offering both "Allow" and "Withdraw".
+  const [aiConsent, setAiConsent] = useState<'checking' | 'allowed' | 'off' | 'unknown'>('checking');
+  const refreshAiConsent = useCallback(async () => {
+    const { data, error } = await supabase.from('ai_consents').select('version,withdrawn_at').maybeSingle();
+    if (error) { setAiConsent('unknown'); return; }
+    setAiConsent(data?.version === AI_CONSENT_VERSION && !data.withdrawn_at ? 'allowed' : 'off');
+  }, [supabase]);
+  useFocusEffect(useCallback(() => {
+    if (useStore.getState().demoMode) return;
+    void refreshAiConsent();
+  }, [refreshAiConsent]));
 
   const [billingLabel, setBillingLabel] = useState('Checking Apple subscription…');
   const activeOrg = useRef(organization);
@@ -83,7 +107,7 @@ export default function MoreScreen() {
         showToast(isPersonal ? 'No receipts to export yet' : 'No invoices to export yet');
         return;
       }
-      await exportInvoicesCsv(invoices);
+      await exportInvoicesCsv(invoices, { personal: isPersonal });
     } catch (err: any) {
       showToast(err?.message ?? 'Could not export CSV');
     } finally {
@@ -129,6 +153,7 @@ export default function MoreScreen() {
           onPress: async () => {
             setDeleting(true);
             try {
+              if (user?.id) await clearOwnerCaptureDrafts(user.id);
               const { data, error } = await supabase.functions.invoke('delete-account', { body: {} });
               if (error) {
                 let detail = 'Could not complete deletion. Please retry.';
@@ -184,7 +209,7 @@ export default function MoreScreen() {
           onPress: () => router.push('/paywall'),
         },
         { label: 'Apple subscription', stacked: true, detail: billingLabel, onPress: handleManageSubscription },
-        { label: isPersonal ? 'Receipt scans this month' : 'Extractions this month', detail: `${used} of ${cap} used` },
+        { label: isPersonal ? 'Receipt scans this month' : 'Invoice scans this month', detail: `${used} of ${cap} used` },
         ...(isPaid
           ? [{ label: 'Manage subscription', onPress: handleManageSubscription } as Row]
           : []),
@@ -194,8 +219,9 @@ export default function MoreScreen() {
     {
       header: 'App',
       rows: [
-        { label: 'Allow Smart Sift processing', onPress: async () => { try { if (await ensureAiConsent(supabase)) showToast('Smart Sift processing allowed'); } catch (e) { showToast((e as Error).message); } } },
-        { label: 'Withdraw Smart Sift permission', onPress: () => Alert.alert('Withdraw Smart Sift permission?', isPersonal ? 'New receipt scans will pause. Saved receipts remain available.' : 'New invoice scans and Smart Sift recipe drafts will pause. Saved records remain available.', [{ text: 'Keep permission', style: 'cancel' }, { text: 'Withdraw', onPress: async () => { try { await withdrawAiConsent(supabase); showToast('Smart Sift processing permission withdrawn'); } catch (e) { showToast((e as Error).message); } } }]) },
+        aiConsent === 'allowed'
+          ? { label: 'Smart Sift processing', detail: 'Allowed', onPress: () => Alert.alert('Withdraw Smart Sift permission?', isPersonal ? 'New receipt scans will pause. Saved receipts remain available.' : 'New invoice scans and Smart Sift recipe drafts will pause. Saved records remain available.', [{ text: 'Keep permission', style: 'cancel' }, { text: 'Withdraw', style: 'destructive', onPress: async () => { try { await withdrawAiConsent(supabase); setAiConsent('off'); showToast('Smart Sift processing permission withdrawn'); } catch (e) { showToast((e as Error).message); } } }]) }
+          : { label: 'Smart Sift processing', detail: aiConsent === 'checking' ? 'Checking…' : aiConsent === 'off' ? 'Off · tap to allow' : 'Unavailable · tap to retry', onPress: async () => { if (aiConsent === 'unknown') { void refreshAiConsent(); return; } try { if (await ensureAiConsent(supabase)) { setAiConsent('allowed'); showToast('Smart Sift processing allowed'); } } catch (e) { showToast((e as Error).message); } } },
         {
           label: 'Privacy & data',
           onPress: () => openLegalUrl(PRIVACY_POLICY_URL, () => showToast('Privacy policy coming soon')),
@@ -235,7 +261,7 @@ export default function MoreScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 112 + insets.bottom }]} showsVerticalScrollIndicator={false}>
         {sections.map((section) => (
           <View key={section.header} style={styles.section}>
             <Text style={styles.sectionHeader}>{section.header}</Text>
@@ -276,7 +302,7 @@ export default function MoreScreen() {
           <Text style={styles.deleteText}>{deleting ? 'Deleting account…' : 'Delete account'}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.version}>Sift v1.0.0</Text>
+        <Text style={styles.version}>{appVersionLabel()}</Text>
       </ScrollView>
       <Toast />
     </SafeAreaView>

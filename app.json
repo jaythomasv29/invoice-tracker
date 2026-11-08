@@ -25,7 +25,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Sift needs camera access to scan your invoices.",
+          "cameraPermission": "Sift needs camera access to scan your grocery receipts and supplier invoices.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
@@ -33,7 +33,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Sift needs photo library access to import invoices.",
+          "photosPermission": "Sift needs photo library access to import grocery receipts and supplier invoices.",
           "microphonePermission": false
         }
       ],
